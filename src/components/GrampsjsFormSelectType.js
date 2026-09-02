@@ -8,6 +8,7 @@ import '@material/web/select/select-option.js'
 import '@material/web/textfield/filled-text-field.js'
 import {sharedStyles} from '../SharedStyles.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
+import {groupEventTypes} from '../util/eventTypeGroups.js'
 
 class GrampsjsFormSelectType extends GrampsjsAppStateMixin(LitElement) {
   static get styles() {
@@ -16,6 +17,16 @@ class GrampsjsFormSelectType extends GrampsjsAppStateMixin(LitElement) {
       css`
         .hide {
           display: none;
+        }
+        md-select-option.type-group {
+          --md-list-item-bottom-space: 4px;
+          --md-list-item-disabled-opacity: 1;
+          --md-list-item-label-text-color: var(--md-sys-color-primary);
+          --md-list-item-label-text-size: 0.8rem;
+          --md-list-item-label-text-weight: 600;
+          --md-list-item-one-line-container-height: 36px;
+          --md-list-item-top-space: 8px;
+          border-top: 1px solid var(--md-sys-color-outline-variant);
         }
       `,
     ]
@@ -131,13 +142,7 @@ class GrampsjsFormSelectType extends GrampsjsAppStateMixin(LitElement) {
               <md-select-option value="">
                 <div slot="headline"></div>
               </md-select-option>
-              ${this.getTypes().map(
-                (obj, i) => html`
-                  <md-select-option value="${obj}">
-                    <div slot="headline">${this._(obj)}</div>
-                  </md-select-option>
-                `
-              )}
+              ${this.#renderTypeOptions()}
             </md-filled-select>
           `
         : html`
@@ -157,6 +162,43 @@ class GrampsjsFormSelectType extends GrampsjsAppStateMixin(LitElement) {
     `
   }
 
+  #renderTypeOptions() {
+    if (this.typeName !== 'event_types') {
+      return this.getTypes().map(type => this.#renderTypeOption(type))
+    }
+
+    return this.#getEventTypeGroups().map(
+      group => html`
+        <md-select-option
+          class="type-group"
+          value="__event_type_group_${group.label}"
+          disabled
+        >
+          <div slot="headline">${this._(group.label)}</div>
+        </md-select-option>
+        ${group.types.map(type => this.#renderTypeOption(type))}
+      `
+    )
+  }
+
+  #renderTypeOption(type) {
+    return html`
+      <md-select-option value="${type}">
+        <div slot="headline">${this._(type)}</div>
+      </md-select-option>
+    `
+  }
+
+  #getEventTypeGroups() {
+    const {defaultTypes, customTypes} = this.#getTypesByOrigin()
+    return groupEventTypes(
+      defaultTypes,
+      customTypes,
+      type => this._(type),
+      this.appState.i18n.lang || 'en'
+    )
+  }
+
   #renderCustomSwitch() {
     return html`
       <md-text-button
@@ -173,6 +215,11 @@ class GrampsjsFormSelectType extends GrampsjsAppStateMixin(LitElement) {
   }
 
   getTypes(nonLocal = true) {
+    const {defaultTypes, customTypes} = this.#getTypesByOrigin(nonLocal)
+    return defaultTypes.concat(customTypes)
+  }
+
+  #getTypesByOrigin(nonLocal = true) {
     const types = nonLocal ? this.types : this.typesLocale
     const defaultTypesAll = types?.default || {}
     const customTypesAll = types?.custom || {}
@@ -182,11 +229,17 @@ class GrampsjsFormSelectType extends GrampsjsAppStateMixin(LitElement) {
       this.typeNameCustom || this.typeName in customTypesAll
         ? customTypesAll[this.typeNameCustom || this.typeName]
         : []
-    const allTypes = defaultTypes.concat(customTypes)
     if (this.allowedTypes.length > 0) {
-      return allTypes.filter(t => this.allowedTypes.includes(t))
+      return {
+        defaultTypes: defaultTypes.filter(type =>
+          this.allowedTypes.includes(type)
+        ),
+        customTypes: customTypes.filter(type =>
+          this.allowedTypes.includes(type)
+        ),
+      }
     }
-    return allTypes
+    return {defaultTypes, customTypes}
   }
 
   #toggleCustomType() {
