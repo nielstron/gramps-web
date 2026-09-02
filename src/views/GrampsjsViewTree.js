@@ -18,8 +18,7 @@ import {
   relationshipGraphIconPath,
 } from '../icons.js'
 import {DEFAULT_TREE_VIEW, getTreeViewTabIndex} from '../treeDefaults.js'
-
-const BASE_DIR = ''
+import {appUrl} from '../appUrl.js'
 
 export class GrampsjsViewTree extends GrampsjsView {
   static get styles() {
@@ -85,7 +84,7 @@ export class GrampsjsViewTree extends GrampsjsView {
         <div class="with-margin">
           <p>
             ${this._('No Home Person set.')}
-            <a href="${BASE_DIR}/">${this._('Home')}</a>
+            <a href="${appUrl('/')}">${this._('Home')}</a>
           </p>
         </div>
       `

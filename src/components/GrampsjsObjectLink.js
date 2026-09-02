@@ -1,9 +1,7 @@
 import {LitElement, css, html} from 'lit'
 
 import {fireEvent} from '../util.js'
-
-// Replaced at build time by rollup
-const BASE_DIR = ''
+import {appUrl} from '../appUrl.js'
 
 const PREVIEWABLE = new Set([
   'person',
@@ -53,7 +51,7 @@ export class GrampsjsObjectLink extends LitElement {
   }
 
   get _href() {
-    return `${BASE_DIR}/${this.objectType}/${this.grampsId}`
+    return appUrl(`/${this.objectType}/${this.grampsId}`)
   }
 
   get _canPreview() {

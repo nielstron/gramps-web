@@ -15,8 +15,7 @@ import {
   TREE_CONFIG_HOME_PAGE_NOTE,
   TREE_CONFIG_HOME_PAGE_IMAGE,
 } from '../api.js'
-
-const BASE_DIR = ''
+import {appUrl} from '../appUrl.js'
 
 export class GrampsjsViewDashboard extends GrampsjsView {
   static get properties() {
@@ -192,10 +191,10 @@ export class GrampsjsViewDashboard extends GrampsjsView {
                   )}
                 </p>
                 <div class="buttons">
-                  <md-outlined-button href="${BASE_DIR}/new_person"
+                  <md-outlined-button href="${appUrl('/new_person')}"
                     >${this._('New Person')}</md-outlined-button
                   ><md-outlined-button
-                    href="${BASE_DIR}/settings/administration"
+                    href="${appUrl('/settings/administration')}"
                     >${this._('Import Family Tree')}</md-outlined-button
                   >
                 </div>

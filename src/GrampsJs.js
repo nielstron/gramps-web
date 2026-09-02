@@ -30,6 +30,7 @@ import {
 import {fireEvent, getBrowserLanguage, apiVersionAtLeast} from './util.js'
 
 import {appStateUpdatePermissions, getInitialAppState} from './appState.js'
+import {appUrl, baseDir} from './appUrl.js'
 import {
   LOADING_STATE_INITIAL,
   LOADING_STATE_UNAUTHORIZED,
@@ -59,8 +60,6 @@ import '@material/web/dialog/dialog.js'
 import {sharedStyles} from './SharedStyles.js'
 import {applyScheme, DEFAULT_PRIMARY, DEFAULT_SECONDARY} from './theme.js'
 import {handleOIDCCallback, handleOIDCComplete} from './oidc.js'
-
-const BASE_DIR = ''
 
 const MINIMUM_API_VERSION = '3.17.0'
 
@@ -1026,9 +1025,9 @@ export class GrampsJs extends LitElement {
       return
     }
 
-    if (path === '/' || path === `${BASE_DIR}/`) {
+    if (path === '/' || path === appUrl('/')) {
       this._updateAppState({path: {page: 'home', pageId: '', pageId2: ''}})
-    } else if (BASE_DIR === '') {
+    } else if (baseDir === '') {
       const pathId = path.slice(1)
       const page = pathId.split('/')[0]
       const pageId = pathId.split('/')[1]
@@ -1036,7 +1035,7 @@ export class GrampsJs extends LitElement {
       this._updateAppState({
         path: {page, pageId: pageId ?? '', pageId2: pageId2 ?? ''},
       })
-    } else if (path.split('/')[0] === BASE_DIR.split('/')[0]) {
+    } else if (path.split('/')[0] === baseDir.split('/')[0]) {
       const pathId = path.slice(1)
       const page = pathId.split('/')[1]
       const pageId = pathId.split('/')[2]
@@ -1087,7 +1086,7 @@ export class GrampsJs extends LitElement {
 
   _handleTab(page) {
     if (page !== this.appState.path.page) {
-      const href = `${BASE_DIR}/${page}`
+      const href = appUrl(`/${page}`)
       this._loadPage(href)
       window.history.pushState({}, '', href)
       this._disableEditMode()
@@ -1105,7 +1104,7 @@ export class GrampsJs extends LitElement {
       pageId !== appPath.pageId ||
       pageId2 !== appPath.pageId2
     ) {
-      const href = `${BASE_DIR}/${path}`
+      const href = appUrl(`/${path}`)
       this._loadPage(href)
       window.history.pushState({}, '', href)
       this._disableEditMode()

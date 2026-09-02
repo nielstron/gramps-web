@@ -24,9 +24,8 @@ import '@material/web/divider/divider'
 
 import {sharedStyles, appBarIconButtonStyles} from '../SharedStyles.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
+import {appUrl} from '../appUrl.js'
 import './GrampsjsIcon.js'
-
-const BASE_DIR = ''
 
 const menuItems = [
   ['Person', '/new_person', mdiAccount],
@@ -98,7 +97,7 @@ class GrampsjsAddMenu extends GrampsjsAppStateMixin(LitElement) {
 
   _menuItem(title, url, iconPath) {
     return html`
-      <md-menu-item href="${BASE_DIR}${url}" graphic="icon">
+      <md-menu-item href="${appUrl(url)}" graphic="icon">
         <span slot="headline">${this._(title)}</span>
         <grampsjs-icon
           slot="start"

@@ -9,12 +9,11 @@ import {
 import {sharedStyles} from '../SharedStyles.js'
 import {fireEvent, clickKeyHandler} from '../util.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
+import {appUrl} from '../appUrl.js'
 import './GrampsjsIcon.js'
 import './GrampsjsTooltip.js'
 import './GrampsjsShareUrl.js'
 import './GrampsjsBookmarkButton.js'
-
-const BASE_DIR = ''
 
 export class GrampsjsBreadcrumbs extends GrampsjsAppStateMixin(LitElement) {
   static get styles() {
@@ -113,7 +112,7 @@ export class GrampsjsBreadcrumbs extends GrampsjsAppStateMixin(LitElement) {
       <div class="breadcrumb">
         <grampsjs-icon path="${this.objectIcon}" color="currentColor">
         </grampsjs-icon>
-        <a href="${BASE_DIR}/${this._getObjectsLink()}">
+        <a href="${appUrl(`/${this._getObjectsLink()}`)}">
           ${this._(this.objectsName)}
         </a>
         <grampsjs-icon path="${mdiChevronRight}" color="currentColor">

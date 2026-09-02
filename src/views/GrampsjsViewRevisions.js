@@ -39,8 +39,7 @@ import '../components/GrampsjsIcon.js'
 
 import {GrampsjsView} from './GrampsjsView.js'
 import {GrampsjsStaleDataMixin} from '../mixins/GrampsjsStaleDataMixin.js'
-
-const BASE_DIR = ''
+import {appUrl} from '../appUrl.js'
 
 const changeIcons = {
   Person_0: mdiAccountPlus,
@@ -164,7 +163,7 @@ export class GrampsjsViewRevisions extends GrampsjsStaleDataMixin(
     return html`<md-list-item
         ?interactive="${!!txn.changes?.length}"
         type="${txn.changes?.length ? 'link' : 'text'}"
-        href="${txn.changes?.length ? `${BASE_DIR}/revision/${txn.id}` : ''}"
+        href="${txn.changes?.length ? appUrl(`/revision/${txn.id}`) : ''}"
       >
         <div slot="headline">${this._(txn.description)}</div>
         <grampsjs-icon

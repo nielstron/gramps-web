@@ -2,8 +2,7 @@ import {css, html} from 'lit'
 
 import {GrampsjsView} from './GrampsjsView.js'
 import '../components/GrampsjsBlogPost.js'
-
-const BASE_DIR = ''
+import {appUrl} from '../appUrl.js'
 
 export class GrampsjsViewBlogPost extends GrampsjsView {
   static get styles() {
@@ -78,7 +77,7 @@ export class GrampsjsViewBlogPost extends GrampsjsView {
       return ''
     }
     const options = {
-      link_format: `${BASE_DIR}/{obj_class}/{gramps_id}`,
+      link_format: appUrl('/{obj_class}/{gramps_id}'),
     }
     return `/api/notes/?locale=${
       this.appState.i18n.lang || 'en'

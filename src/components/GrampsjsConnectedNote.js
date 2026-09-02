@@ -1,8 +1,7 @@
 import {html} from 'lit'
 import {GrampsjsConnectedComponent} from './GrampsjsConnectedComponent.js'
+import {appUrl} from '../appUrl.js'
 import './GrampsjsNoteContent.js'
-
-const BASE_DIR = ''
 
 export class GrampsjsConnectedNote extends GrampsjsConnectedComponent {
   static get properties() {
@@ -23,7 +22,7 @@ export class GrampsjsConnectedNote extends GrampsjsConnectedComponent {
       return ''
     }
     const options = {
-      link_format: `${BASE_DIR}/{obj_class}/{gramps_id}`,
+      link_format: appUrl('/{obj_class}/{gramps_id}'),
     }
     return `/api/notes/${this.handle}?locale=${
       this.appState.i18n.lang || 'en'

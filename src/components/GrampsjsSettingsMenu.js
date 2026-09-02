@@ -23,8 +23,7 @@ import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 import {renderIconSvg} from '../icons.js'
 import './GrampsjsIcon.js'
 import {clickKeyHandler} from '../util.js'
-
-const BASE_DIR = ''
+import {appUrl} from '../appUrl.js'
 
 const menuItems = [
   ['User settings', '/settings/user', mdiAccountCog, false],
@@ -104,7 +103,7 @@ class GrampsjsSettingsMenu extends GrampsjsAppStateMixin(LitElement) {
       return ''
     }
     return html`
-      <md-menu-item href="${BASE_DIR}${url}">
+      <md-menu-item href="${appUrl(url)}">
         <div slot="headline">${this._(title)}</div>
         <md-icon slot="start"
           >${renderIconSvg(icon, 'var(--icon-color)')}</md-icon
