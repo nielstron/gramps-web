@@ -1,4 +1,5 @@
 import {__APIHOST__, ACCESS_TOKEN_EXPIRY_MS} from './api.js'
+import {appUrl} from './appUrl.js'
 
 function storeTokens(data) {
   const expiresAt = Date.now() + ACCESS_TOKEN_EXPIRY_MS
@@ -21,7 +22,7 @@ export async function handleOIDCCallback(errorCallback) {
 
     if (!code) {
       errorCallback('OIDC authentication failed - no authorization code')
-      window.location.href = '/'
+      window.location.href = appUrl('/')
       return
     }
 
@@ -49,11 +50,11 @@ export async function handleOIDCCallback(errorCallback) {
     storeTokens(data)
 
     requestAnimationFrame(() => {
-      window.location.href = data.frontend_url || '/'
+      window.location.href = data.frontend_url || appUrl('/')
     })
   } catch (error) {
     errorCallback(`OIDC authentication failed: ${error.message}`)
-    window.location.href = '/'
+    window.location.href = appUrl('/')
   }
 }
 
@@ -107,10 +108,10 @@ export async function handleOIDCComplete(errorCallback) {
     storeTokens(data)
 
     requestAnimationFrame(() => {
-      window.location.href = '/'
+      window.location.href = appUrl('/')
     })
   } catch (error) {
     errorCallback(`OIDC authentication failed: ${error.message}`)
-    window.location.href = '/'
+    window.location.href = appUrl('/')
   }
 }

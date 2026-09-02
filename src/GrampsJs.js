@@ -701,7 +701,7 @@ export class GrampsJs extends LitElement {
 
   // eslint-disable-next-line class-methods-use-this
   _firstRunDone() {
-    document.location.href = '/'
+    document.location.href = appUrl('/')
   }
 
   _handleTreeCreated() {

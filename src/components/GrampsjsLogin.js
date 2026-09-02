@@ -18,6 +18,7 @@ import {
 } from '../api.js'
 import {fireEvent} from '../util.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
+import {appUrl} from '../appUrl.js'
 
 class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
   static get styles() {
@@ -426,7 +427,7 @@ class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
         submitProgress.closed = true
         this._showError(res.error)
       } else {
-        document.location.href = '/'
+        document.location.href = appUrl('/')
       }
     })
   }
