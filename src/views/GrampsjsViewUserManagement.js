@@ -7,6 +7,7 @@ import {GrampsjsView} from './GrampsjsView.js'
 import '../components/GrampsjsUsers.js'
 import '../components/GrampsjsShareUrl.js'
 import '../components/GrampsjsChatPermissions.js'
+import {appUrl} from '../appUrl.js'
 
 export class GrampsjsViewUserManagement extends GrampsjsView {
   static get styles() {
@@ -50,7 +51,7 @@ export class GrampsjsViewUserManagement extends GrampsjsView {
   get _registerUrl() {
     const url = new URL(document.URL)
     const {tree} = this.appState.auth.claims
-    return `${url.origin}/register/${tree}`
+    return `${url.origin}${appUrl(`/register/${tree}`)}`
   }
 
   renderContent() {
