@@ -9,6 +9,7 @@ import '../components/GrampsjsIcon.js'
 import {GrampsjsView} from './GrampsjsView.js'
 
 import {fireEvent, objectIconPath, objectTypeToEndpoint} from '../util.js'
+import {linkFamily} from '../util/familyLinks.js'
 import {clearDraftsWithPrefix} from '../api.js'
 import '../components/GrampsjsBreadcrumbs.js'
 
@@ -738,9 +739,7 @@ export class GrampsjsViewObject extends GrampsjsView {
             ref => ref.ref === personHandle
           )
           if (alreadyChild) {
-            fireEvent(this, 'grampsjs:error', {
-              message: 'Person is already a child in this family.',
-            })
+            this._updateData(false)
             return
           }
           const childRef = {
@@ -776,20 +775,14 @@ export class GrampsjsViewObject extends GrampsjsView {
         mrel,
       } = e.detail.data
       const personHandle = this._data.handle
-      const childRef = {
-        _class: 'ChildRef',
-        ref: personHandle,
+      linkFamily(this.appState, {
+        fatherHandle,
+        motherHandle,
+        childHandle: personHandle,
         frel: frel || 'Birth',
         mrel: mrel || 'Birth',
-      }
-      const familyData = {
-        _class: 'Family',
-        child_ref_list: [childRef],
-        ...(fatherHandle ? {father_handle: fatherHandle} : {}),
-        ...(motherHandle ? {mother_handle: motherHandle} : {}),
-        ...(type ? {type} : {}),
-      }
-      this.appState.apiPost('/api/families/', familyData).then(result => {
+        type,
+      }).then(result => {
         if ('error' in result) {
           fireEvent(this, 'grampsjs:error', {message: result.error})
         } else {
@@ -800,13 +793,11 @@ export class GrampsjsViewObject extends GrampsjsView {
       const {role, partner_handle: partnerHandle, type} = e.detail.data
       const personHandle = this._data.handle
       const otherRole = role === 'father' ? 'mother' : 'father'
-      const familyData = {
-        _class: 'Family',
-        [`${role}_handle`]: personHandle,
-        ...(partnerHandle ? {[`${otherRole}_handle`]: partnerHandle} : {}),
-        ...(type ? {type} : {}),
-      }
-      this.appState.apiPost('/api/families/', familyData).then(result => {
+      linkFamily(this.appState, {
+        [`${role}Handle`]: personHandle,
+        ...(partnerHandle ? {[`${otherRole}Handle`]: partnerHandle} : {}),
+        type,
+      }).then(result => {
         if ('error' in result) {
           fireEvent(this, 'grampsjs:error', {message: result.error})
         } else {
