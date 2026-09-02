@@ -2,6 +2,7 @@ import {html, css, LitElement} from 'lit'
 
 import '@material/web/dialog/dialog.js'
 import '@material/web/button/text-button.js'
+import '@material/web/button/filled-button.js'
 import '@material/web/tabs/tabs.js'
 import '@material/web/tabs/primary-tab.js'
 import '@material/web/textfield/filled-text-field.js'
@@ -55,7 +56,9 @@ const modeLabel = {
   bookmarks: '_Bookmarks',
 }
 
-class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(LitElement) {
+export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
+  LitElement
+) {
   static get styles() {
     return [
       sharedStyles,
@@ -180,6 +183,10 @@ class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(LitElement) {
       _error: {type: Boolean},
       _typeFilters: {type: Object},
       _tabIndex: {type: Number},
+      _createMode: {type: Boolean},
+      _newPlaceName: {type: String},
+      _savingPlace: {type: Boolean},
+      _createError: {type: String},
     }
   }
 
@@ -194,12 +201,17 @@ class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(LitElement) {
     this._error = false
     this._tabIndex = SIDEBAR_MODES.indexOf('changed')
     this._fetchId = 0
+    this._createMode = false
+    this._newPlaceName = ''
+    this._savingPlace = false
+    this._createError = ''
     this._typeFilters = Object.fromEntries(
       FILTERABLE_TYPES.map(key => [key, false])
     )
   }
 
   render() {
+    if (this._createMode) return this._renderCreatePlaceDialog()
     return html`
       <md-dialog>
         <div slot="content" class="content-wrapper">
@@ -236,12 +248,112 @@ class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(LitElement) {
         </div>
 
         <div slot="actions">
+          ${this._canCreatePlace()
+            ? html`
+                <md-text-button @click="${this._openCreatePlace}">
+                  ${this._('New Place')}
+                </md-text-button>
+              `
+            : ''}
           <md-text-button @click="${this._handleCancel}">
             ${this._('Cancel')}
           </md-text-button>
         </div>
       </md-dialog>
     `
+  }
+
+  _renderCreatePlaceDialog() {
+    return html`
+      <md-dialog
+        open
+        @cancel="${event => {
+          event.preventDefault()
+          this._cancelCreatePlace()
+        }}"
+      >
+        <div slot="headline">${this._('New Place')}</div>
+        <div slot="content">
+          <md-filled-text-field
+            id="new-place-name"
+            required
+            label="${this._('Name')}"
+            .value="${this._newPlaceName}"
+            @input="${event => {
+              this._newPlaceName = event.target.value
+              this._createError = ''
+            }}"
+          ></md-filled-text-field>
+          ${this._createError
+            ? html`<p class="error-message">${this._createError}</p>`
+            : ''}
+        </div>
+        <div slot="actions">
+          <md-text-button @click="${this._cancelCreatePlace}">
+            ${this._('Cancel')}
+          </md-text-button>
+          <md-filled-button
+            ?disabled="${!this._newPlaceName.trim() || this._savingPlace}"
+            @click="${() => this._createPlace()}"
+          >
+            ${this._('Add')}
+          </md-filled-button>
+        </div>
+      </md-dialog>
+    `
+  }
+
+  _canCreatePlace() {
+    return (
+      this.objectType
+        .split(',')
+        .map(type => type.trim())
+        .includes('place') && this.appState?.permissions?.canAdd
+    )
+  }
+
+  _openCreatePlace() {
+    this._newPlaceName = this._query
+    this._createError = ''
+    this._createMode = true
+  }
+
+  _cancelCreatePlace() {
+    this._createMode = false
+    this._createError = ''
+    this.updateComplete.then(() =>
+      this.renderRoot.querySelector('md-dialog')?.show()
+    )
+  }
+
+  async _createPlace(name = this._newPlaceName.trim()) {
+    this._savingPlace = true
+    this._createError = ''
+    const response = await this.appState.apiPost('/api/places/', {
+      _class: 'Place',
+      name: {_class: 'PlaceName', value: name},
+      place_type: 'Unknown',
+    })
+    if ('error' in response) {
+      this._createError = response.error
+      this._savingPlace = false
+      return
+    }
+    const created = response.data.find(item => item.new._class === 'Place').new
+    const result = await this.appState.apiGet(
+      `/api/places/${created.handle}?extend=all&profile=all&locale=${
+        this.appState.i18n.lang || 'en'
+      }`
+    )
+    const object = result.data
+    this._savingPlace = false
+    this._createMode = false
+    this._close()
+    fireEvent(this, 'select-object:selected', {
+      object_type: 'place',
+      object,
+      handle: object.handle,
+    })
   }
 
   _renderSidebar() {
@@ -342,6 +454,8 @@ class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(LitElement) {
   }
 
   open(initialQuery = '') {
+    this._createMode = false
+    this._createError = ''
     const textField = this.renderRoot.getElementById('textfield')
     if (textField) textField.value = initialQuery
     this._query = initialQuery
@@ -583,6 +697,7 @@ class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(LitElement) {
   }
 
   _close() {
+    this._createMode = false
     this.renderRoot.querySelector('md-dialog')?.close()
   }
 }
