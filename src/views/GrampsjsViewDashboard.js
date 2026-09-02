@@ -16,6 +16,8 @@ import {
   TREE_CONFIG_HOME_PAGE_IMAGE,
 } from '../api.js'
 
+const BASE_DIR = ''
+
 export class GrampsjsViewDashboard extends GrampsjsView {
   static get properties() {
     return {
@@ -190,9 +192,10 @@ export class GrampsjsViewDashboard extends GrampsjsView {
                   )}
                 </p>
                 <div class="buttons">
-                  <md-outlined-button href="/new_person"
+                  <md-outlined-button href="${BASE_DIR}/new_person"
                     >${this._('New Person')}</md-outlined-button
-                  ><md-outlined-button href="/settings/administration"
+                  ><md-outlined-button
+                    href="${BASE_DIR}/settings/administration"
                     >${this._('Import Family Tree')}</md-outlined-button
                   >
                 </div>

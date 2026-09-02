@@ -14,6 +14,8 @@ import './GrampsjsTooltip.js'
 import './GrampsjsShareUrl.js'
 import './GrampsjsBookmarkButton.js'
 
+const BASE_DIR = ''
+
 export class GrampsjsBreadcrumbs extends GrampsjsAppStateMixin(LitElement) {
   static get styles() {
     return [
@@ -111,7 +113,9 @@ export class GrampsjsBreadcrumbs extends GrampsjsAppStateMixin(LitElement) {
       <div class="breadcrumb">
         <grampsjs-icon path="${this.objectIcon}" color="currentColor">
         </grampsjs-icon>
-        <a href="/${this._getObjectsLink()}">${this._(this.objectsName)}</a>
+        <a href="${BASE_DIR}/${this._getObjectsLink()}">
+          ${this._(this.objectsName)}
+        </a>
         <grampsjs-icon path="${mdiChevronRight}" color="currentColor">
         </grampsjs-icon>
         <span class="dark">${this.data.gramps_id}</span>

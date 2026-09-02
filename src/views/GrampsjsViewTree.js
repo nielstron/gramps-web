@@ -19,6 +19,8 @@ import {
 } from '../icons.js'
 import {DEFAULT_TREE_VIEW, getTreeViewTabIndex} from '../treeDefaults.js'
 
+const BASE_DIR = ''
+
 export class GrampsjsViewTree extends GrampsjsView {
   static get styles() {
     return [
@@ -83,7 +85,7 @@ export class GrampsjsViewTree extends GrampsjsView {
         <div class="with-margin">
           <p>
             ${this._('No Home Person set.')}
-            <a href="/">${this._('Home')}</a>
+            <a href="${BASE_DIR}/">${this._('Home')}</a>
           </p>
         </div>
       `

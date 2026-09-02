@@ -24,6 +24,8 @@ import {renderIconSvg} from '../icons.js'
 import './GrampsjsIcon.js'
 import {clickKeyHandler} from '../util.js'
 
+const BASE_DIR = ''
+
 const menuItems = [
   ['User settings', '/settings/user', mdiAccountCog, false],
   ['Administration', '/settings/administration', mdiWrench, true],
@@ -102,7 +104,7 @@ class GrampsjsSettingsMenu extends GrampsjsAppStateMixin(LitElement) {
       return ''
     }
     return html`
-      <md-menu-item href="${url}">
+      <md-menu-item href="${BASE_DIR}${url}">
         <div slot="headline">${this._(title)}</div>
         <md-icon slot="start"
           >${renderIconSvg(icon, 'var(--icon-color)')}</md-icon

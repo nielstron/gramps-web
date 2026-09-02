@@ -9,6 +9,8 @@ import {objectIconPath} from '../util.js'
 import {sharedStyles} from '../SharedStyles.js'
 import {GrampsjsConnectedComponent} from './GrampsjsConnectedComponent.js'
 
+const BASE_DIR = ''
+
 export const iconSuccess = html`<grampsjs-icon
   class="success"
   path="${mdiCheckCircle}"
@@ -95,7 +97,9 @@ export class GrampsjsMediaStatus extends GrampsjsConnectedComponent {
         <div slot="content">
           ${objects.map(
             obj =>
-              html`<a href="/media/${obj.gramps_id}">${obj.gramps_id}</a><br />`
+              html`<a href="${BASE_DIR}/media/${obj.gramps_id}"
+                  >${obj.gramps_id}</a
+                ><br />`
           )}
         </div>
       </md-dialog>
