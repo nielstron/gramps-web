@@ -4,6 +4,7 @@ import {linkVertical} from 'd3-shape'
 import {Graphviz} from '@hpcc-js/wasm'
 import {chartNameDisplayFormat} from '../util.js'
 import {appendAddPersonButton} from './addPersonButton.js'
+import {formatDateString} from '../date.js'
 
 const sexColor = {
   F: 'var(--color-girl)',
@@ -300,12 +301,40 @@ const clipString = (s, length) => {
   return `${s.slice(0, nChar - 2)}…`
 }
 
-function clicked(event, d) {
-  dispatchEvent(
-    new CustomEvent('pedigree:person-selected', {
+function nameType(name) {
+  return typeof name?.type === 'string'
+    ? name.type
+    : name?.type?.string || name?.type?.value
+}
+
+function surnameFromName(name) {
+  return (name?.surname_list || [])
+    .map(surname =>
+      [surname.prefix, surname.surname, surname.connector]
+        .filter(Boolean)
+        .join(' ')
+    )
+    .join(' ')
+}
+
+export function surnameWithBirthName(person, bornLabel = 'born') {
+  const currentSurname =
+    person?.profile?.name_surname || surnameFromName(person?.primary_name)
+  const birthName =
+    nameType(person?.primary_name) === 'Birth Name'
+      ? person.primary_name
+      : person?.alternate_names?.find(name => nameType(name) === 'Birth Name')
+  const birthSurname = surnameFromName(birthName)
+  if (!birthSurname || birthSurname === currentSurname) return currentSurname
+  return `${currentSurname} (${bornLabel} ${birthSurname})`
+}
+
+export function openPersonProfile(event, d) {
+  this.dispatchEvent(
+    new CustomEvent('nav', {
       bubbles: true,
       composed: true,
-      detail: {grampsId: d.profile?.gramps_id},
+      detail: {path: `person/${d.profile?.gramps_id}`},
     })
   )
 }
@@ -319,6 +348,7 @@ function remasterChart(
   getImageUrl,
   maxImages,
   nameDisplayFormat,
+  bornLabel,
   canEdit = false
 ) {
   const gvchartx = divhidden.select('svg')
@@ -348,6 +378,7 @@ function remasterChart(
         xCoord: x - boxWidth / 2 + 4,
         yCoord: y - boxHeight / 2,
         profile: d.profile,
+        data: d.data,
         imageUrl: imageCount > maxImages ? '' : imageUrl,
         handle: found.groups.handle,
       })
@@ -414,7 +445,7 @@ function remasterChart(
     .text(d =>
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? `${d.profile?.name_surname},`
+          ? `${surnameWithBirthName(d.data, bornLabel)},`
           : d.profile?.name_given,
         boxWidthTotal(d)
       )
@@ -439,7 +470,7 @@ function remasterChart(
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
           ? d.profile?.name_given
-          : d.profile?.name_surname,
+          : surnameWithBirthName(d.data, bornLabel),
         boxWidthTotal(d)
       )
     )
@@ -453,7 +484,9 @@ function remasterChart(
     .attr('paint-order', 'stroke')
     .attr('x', d => textPadding(d))
     .attr('y', 25 + 17 * 2)
-    .text(d => clipString(`*${d.profile.birth.date}`, boxWidthTotal(d)))
+    .text(d =>
+      clipString(`*${formatDateString(d.profile.birth.date)}`, boxWidthTotal(d))
+    )
 
   nodes
     .filter(d => d.profile?.death?.date && d.nodetype === 'person')
@@ -464,7 +497,9 @@ function remasterChart(
     .attr('paint-order', 'stroke')
     .attr('x', d => textPadding(d))
     .attr('y', 25 + 17 * 3)
-    .text(d => clipString(`†${d.profile.death.date}`, boxWidthTotal(d)))
+    .text(d =>
+      clipString(`†${formatDateString(d.profile.death.date)}`, boxWidthTotal(d))
+    )
 
   // images
   nodes
@@ -519,7 +554,7 @@ function remasterChart(
   nodes
     .filter(d => d.nodetype === 'person')
     .style('cursor', canEdit ? 'default' : 'pointer')
-    .on('click', canEdit ? null : clicked)
+    .on('click', canEdit ? null : openPersonProfile)
     .on('mouseenter', function (event, d) {
       if (canEdit) return
       if (window.matchMedia('(hover: none)').matches) return
@@ -619,6 +654,7 @@ export function RelationshipChart(
     shrinkToFit = false,
     // orientation = 'LTR',
     nameDisplayFormat = chartNameDisplayFormat.surnameThenGiven,
+    bornLabel = 'born',
     canEdit = false,
     initialZoom = null,
   }
@@ -656,6 +692,7 @@ export function RelationshipChart(
       getImageUrl,
       maxImages,
       nameDisplayFormat,
+      bornLabel,
       canEdit
     )
     svg.attr('viewBox', [

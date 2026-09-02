@@ -1,5 +1,29 @@
 import {describe, it, expect} from 'vitest'
-import {toDate} from '../../src/date.js'
+import {formatDateString, formatDateValue, toDate} from '../../src/date.js'
+
+describe('localized dates', () => {
+  it('formats ISO dates in the requested browser locale', () => {
+    expect(formatDateString('1985-06-15', 'en-US')).to.equal('6/15/1985')
+    expect(formatDateString('1985-06-15', 'de-CH')).to.equal('15.6.1985')
+  })
+
+  it('localizes ISO dates inside qualified and ranged date strings', () => {
+    expect(formatDateString('about 1985-06-15 – 1986-07-20', 'en-US')).to.equal(
+      'about 6/15/1985 – 7/20/1986'
+    )
+  })
+
+  it('preserves year-only dates and non-ISO text dates', () => {
+    expect(formatDateString('1985', 'de-CH')).to.equal('1985')
+    expect(formatDateString('late spring', 'de-CH')).to.equal('late spring')
+  })
+
+  it('formats Gramps date values with matching precision', () => {
+    expect(formatDateValue([15, 6, 1985], 'en-US')).to.equal('6/15/1985')
+    expect(formatDateValue([0, 6, 1985], 'en-US')).to.equal('6/1985')
+    expect(formatDateValue([0, 0, 1985], 'en-US')).to.equal('1985')
+  })
+})
 
 describe('toDate', () => {
   it('formats a normal date', () => {

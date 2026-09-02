@@ -85,6 +85,7 @@
   "To start using the blog, add a source with tag 'Blog'.": "To start using the blog, add a source with tag 'Blog'.",
   "Welcome to Gramps Web": "Welcome to Gramps Web",
   "Create an admin account": "Create an admin account",
+  "born": "born",
   "Enter the details for the admin user.": "Enter the details for the admin user.",
   "Optionally, enter existing IMAP credentials to enable e-mail notifications required e.g. for user registration.": "Optionally, enter existing IMAP credentials to enable e-mail notifications required e.g. for user registration.",
   "SMTP host": "SMTP host",

@@ -1,6 +1,11 @@
 import {Graphviz} from '@hpcc-js/wasm'
 import {describe, expect, it} from 'vitest'
-import {Relgraph, generateDot} from '../../src/charts/RelationshipChart.js'
+import {
+  Relgraph,
+  generateDot,
+  openPersonProfile,
+  surnameWithBirthName,
+} from '../../src/charts/RelationshipChart.js'
 
 const emptyParentFamily = {
   handle: '',
@@ -95,6 +100,59 @@ function personXPositions(svg) {
 }
 
 describe('RelationshipChart', () => {
+  it('shows a differing alternate birth surname after the current surname', () => {
+    const personData = {
+      profile: {name_surname: 'Müller'},
+      primary_name: {
+        type: 'Married Name',
+        surname_list: [{prefix: '', surname: 'Müller', connector: ''}],
+      },
+      alternate_names: [
+        {
+          type: 'Birth Name',
+          surname_list: [{prefix: 'von', surname: 'Bern', connector: ''}],
+        },
+      ],
+    }
+
+    expect(surnameWithBirthName(personData, 'born')).to.equal(
+      'Müller (born von Bern)'
+    )
+  })
+
+  it('does not repeat the birth surname when it is already preferred', () => {
+    const personData = {
+      profile: {name_surname: 'Bern'},
+      primary_name: {
+        type: 'Birth Name',
+        surname_list: [{prefix: '', surname: 'Bern', connector: ''}],
+      },
+      alternate_names: [],
+    }
+
+    expect(surnameWithBirthName(personData, 'born')).to.equal('Bern')
+  })
+
+  it('opens a person profile when its node is clicked', () => {
+    let navigationEvent
+    window.addEventListener(
+      'nav',
+      event => {
+        navigationEvent = event
+      },
+      {once: true}
+    )
+
+    const personNode = document.createElement('div')
+    document.body.append(personNode)
+    openPersonProfile.call(personNode, undefined, {
+      profile: {gramps_id: 'I0042'},
+    })
+    personNode.remove()
+
+    expect(navigationEvent.detail).toEqual({path: 'person/I0042'})
+  })
+
   it('emits one node per person and separate family junctions', () => {
     const dot = generateDot(graphWithThreePartners())
 

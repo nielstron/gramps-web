@@ -6,6 +6,10 @@ import {
 } from '../../src/treeDefaults.js'
 
 describe('treeDefaults', () => {
+  it('uses the relationship graph by default', () => {
+    expect(DEFAULT_TREE_VIEW).to.equal('relationship')
+  })
+
   it('returns the correct index for known tree views', () => {
     TREE_VIEWS.forEach((view, index) => {
       expect(getTreeViewTabIndex(view)).to.equal(index)
