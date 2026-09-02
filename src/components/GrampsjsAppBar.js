@@ -28,7 +28,7 @@ import {TREE_CONFIG_APP_TITLE} from '../api.js'
 import {sharedStyles, appBarIconButtonStyles} from '../SharedStyles.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 
-class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
+export class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
   static get styles() {
     return [
       sharedStyles,
@@ -108,6 +108,7 @@ class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
     this.hideDeleteButton = false
     this.saving = false
     this.saveComplete = false
+    this._boundHandleKeydown = this._handleKeydown.bind(this)
   }
 
   render() {
@@ -285,6 +286,25 @@ class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
     }
   }
 
+  _handleKeydown(event) {
+    const dialogIsHandlingEscape = event
+      .composedPath()
+      .some(element =>
+        ['md-dialog', 'dialog'].includes(element.tagName?.toLowerCase())
+      )
+    if (
+      event.key !== 'Escape' ||
+      !this.editMode ||
+      event.defaultPrevented ||
+      dialogIsHandlingEscape
+    ) {
+      return
+    }
+    this._handleCloseRequest()
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
   _handleDeleteIcon() {
     this.editDialogContent = html`
       <md-dialog open @cancel="${e => e.preventDefault()}">
@@ -346,6 +366,12 @@ class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
     window.addEventListener('edit-mode:close-request', e =>
       this._handleCloseRequest(e)
     )
+    window.addEventListener('keydown', this._boundHandleKeydown)
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('keydown', this._boundHandleKeydown)
+    super.disconnectedCallback()
   }
 }
 
