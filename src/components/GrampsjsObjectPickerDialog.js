@@ -13,6 +13,7 @@ import {sharedStyles} from '../SharedStyles.js'
 import {
   debounce,
   fireEvent,
+  makeHandle,
   objectIconPath,
   objectTypeToEndpoint,
   objectTypePlural,
@@ -187,7 +188,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
       _error: {type: Boolean},
       _typeFilters: {type: Object},
       _tabIndex: {type: Number},
-      _createMode: {type: Boolean},
+      _createMode: {type: String},
       _newPlaceName: {type: String},
       _savingPlace: {type: Boolean},
       _createError: {type: String},
@@ -205,7 +206,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     this._error = false
     this._tabIndex = SIDEBAR_MODES.indexOf('changed')
     this._fetchId = 0
-    this._createMode = false
+    this._createMode = ''
     this._newPlaceName = ''
     this._savingPlace = false
     this._createError = ''
@@ -233,7 +234,10 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
   }
 
   render() {
-    if (this._createMode) return this._renderCreatePlaceDialog()
+    if (this._createMode === 'place') return this._renderCreatePlaceDialog()
+    if (this._createMode === 'citation') {
+      return this._renderCreateCitationDialog()
+    }
     return html`
       <md-dialog>
         <div slot="content" class="content-wrapper">
@@ -281,6 +285,13 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
             ? html`
                 <md-text-button @click="${this._openCreatePlace}">
                   ${this._('New Place')}
+                </md-text-button>
+              `
+            : ''}
+          ${this._canCreateCitation()
+            ? html`
+                <md-text-button @click="${this._openCreateCitation}">
+                  ${this._('New Citation')}
                 </md-text-button>
               `
             : ''}
@@ -332,6 +343,18 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     `
   }
 
+  _renderCreateCitationDialog() {
+    return html`
+      <grampsjs-form-new-citation
+        new
+        .appState="${this.appState}"
+        dialogTitle="${this._('New Citation')}"
+        @object:save="${this._createCitation}"
+        @object:cancel="${this._cancelCreateCitation}"
+      ></grampsjs-form-new-citation>
+    `
+  }
+
   _canCreatePlace() {
     return (
       this.objectType
@@ -347,6 +370,15 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
         .split(',')
         .map(type => type.trim())
         .includes('person') && this.appState?.permissions?.canAdd
+    )
+  }
+
+  _canCreateCitation() {
+    return (
+      this.objectType
+        .split(',')
+        .map(type => type.trim())
+        .includes('citation') && this.appState?.permissions?.canAdd
     )
   }
 
@@ -380,11 +412,11 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
   _openCreatePlace() {
     this._newPlaceName = this._query
     this._createError = ''
-    this._createMode = true
+    this._createMode = 'place'
   }
 
   _cancelCreatePlace() {
-    this._createMode = false
+    this._createMode = ''
     this._createError = ''
     this.updateComplete.then(() =>
       this.renderRoot.querySelector('md-dialog')?.show()
@@ -412,10 +444,45 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     )
     const object = result.data
     this._savingPlace = false
-    this._createMode = false
+    this._createMode = ''
     this._close()
     fireEvent(this, 'select-object:selected', {
       object_type: 'place',
+      object,
+      handle: object.handle,
+    })
+  }
+
+  async _openCreateCitation() {
+    await import('./GrampsjsFormNewCitation.js')
+    this._createMode = 'citation'
+  }
+
+  _cancelCreateCitation() {
+    this._createMode = ''
+    this.updateComplete.then(() =>
+      this.renderRoot.querySelector('md-dialog')?.show()
+    )
+  }
+
+  async _createCitation(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    const citation = {handle: makeHandle(), ...event.detail.data}
+    const response = await this.appState.apiPost('/api/citations/', citation)
+    const created = response.data.find(
+      item => item.new._class === 'Citation'
+    ).new
+    const result = await this.appState.apiGet(
+      `/api/citations/${created.handle}?extend=all&profile=all&locale=${
+        this.appState.i18n.lang || 'en'
+      }`
+    )
+    const object = result.data
+    this._createMode = ''
+    this._close()
+    fireEvent(this, 'select-object:selected', {
+      object_type: 'citation',
       object,
       handle: object.handle,
     })
@@ -519,7 +586,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
   }
 
   open(initialQuery = '') {
-    this._createMode = false
+    this._createMode = ''
     this._createError = ''
     const textField = this.renderRoot.getElementById('textfield')
     if (textField) textField.value = initialQuery
@@ -762,7 +829,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
   }
 
   _close() {
-    this._createMode = false
+    this._createMode = ''
     this.renderRoot.querySelector('md-dialog')?.close()
   }
 }
