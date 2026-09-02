@@ -17,6 +17,16 @@ export function doLogout() {
   )
 }
 
+function logoutIfJwtRejected(status, response, authorization) {
+  if (
+    authorization &&
+    (status === 401 || status === 422) &&
+    typeof response?.msg === 'string'
+  ) {
+    doLogout()
+  }
+}
+
 export function storeAuthToken(authToken, expires) {
   localStorage.setItem('access_token', authToken)
   localStorage.setItem('access_token_expires', expires)
@@ -982,6 +992,7 @@ export async function apiGet(auth, endpoint) {
     } catch (error) {
       resJson = {}
     }
+    logoutIfJwtRejected(resp.status, resJson, headers.Authorization)
     if (resp.status === 403) {
       throw new Error(
         resJson?.error?.message || resJson?.message || 'Authorization error'
@@ -1045,6 +1056,7 @@ export async function apiPutPostDelete(
       resJson = {}
     }
     status = resp.status
+    logoutIfJwtRejected(resp.status, resJson, headers.Authorization)
     if (resp.status === 401) {
       if (requireFresh) {
         throw new Error(resJson.message)

@@ -2,6 +2,8 @@
 All strings that need to be translated
 */
 
+import {appUrl} from './appUrl.js'
+
 // existing languages for frontend strings
 export const frontendLanguages = [
   'ar',
@@ -59,7 +61,7 @@ const frontendStrings = {}
 
 export async function getFrontendStrings(lang) {
   if (!(lang in frontendStrings) && frontendLanguages.includes(lang)) {
-    const resp = await fetch(`/lang/${lang}.json`)
+    const resp = await fetch(appUrl(`/lang/${lang}.json`))
     try {
       frontendStrings[lang] = await resp.json()
       // eslint-disable-next-line no-empty

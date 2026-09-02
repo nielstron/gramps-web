@@ -59,6 +59,26 @@ describe('apiGet authentication', () => {
     expect(result.error).toBeDefined()
     expect(result.error).to.be.a('string')
   })
+
+  it('clears a stored session when the backend rejects its JWT', async () => {
+    localStorage.setItem('access_token', 'stale-access-token')
+    localStorage.setItem('refresh_token', 'stale-refresh-token')
+    fetch.mockResolvedValue({
+      status: 422,
+      ok: false,
+      statusText: 'UNPROCESSABLE ENTITY',
+      json: () => Promise.resolve({msg: 'Signature verification failed'}),
+      headers: {get: () => null},
+    })
+    const auth = {
+      getValidAccessToken: vi.fn().mockResolvedValue('stale-access-token'),
+    }
+
+    await apiGet(auth, '/api/metadata/')
+
+    expect(localStorage.getItem('access_token')).toBeNull()
+    expect(localStorage.getItem('refresh_token')).toBeNull()
+  })
 })
 
 describe('Auth token refresh', () => {
