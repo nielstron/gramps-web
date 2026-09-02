@@ -9,6 +9,7 @@ import {
   mdiSearchWeb,
   mdiTimelineOutline,
   mdiMap,
+  mdiImagePlus,
 } from '@mdi/js'
 import {GrampsjsObject} from './GrampsjsObject.js'
 import {asteriskIcon, crossIcon} from '../icons.js'
@@ -16,6 +17,7 @@ import './GrampsjsImg.js'
 import './GrampsjsEditGender.js'
 import './GrampsjsPersonRelationship.js'
 import './GrampsjsFormExternalSearch.js'
+import './GrampsjsFormNewMedia.js'
 import './GrampsjsTreeChartAddPerson.js'
 import {fireEvent, objectIconPath} from '../util.js'
 import {formatDateString} from '../date.js'
@@ -36,6 +38,70 @@ export class GrampsjsPerson extends GrampsjsObject {
           --md-sys-color-on-secondary-container: var(
             --md-sys-color-on-surface-variant
           );
+        }
+
+        #picture {
+          float: none;
+          margin: 0 auto 24px;
+          text-align: center;
+        }
+
+        .profile-picture,
+        .profile-picture-placeholder {
+          width: 160px;
+          height: 160px;
+          margin-right: auto;
+          margin-left: auto;
+          border-radius: 50%;
+          overflow: hidden;
+        }
+
+        button.profile-picture {
+          display: block;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+        }
+
+        .profile-picture grampsjs-img {
+          width: 100%;
+          height: 100%;
+        }
+
+        .profile-picture-placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+          padding: 0;
+          border: 1px dashed var(--md-sys-color-outline);
+          color: var(--md-sys-color-on-surface-variant);
+          background: var(--md-sys-color-surface-container-highest);
+        }
+
+        button.profile-picture-placeholder {
+          cursor: pointer;
+        }
+
+        button.profile-picture-placeholder:hover {
+          background: var(--md-sys-color-surface-variant);
+        }
+
+        @container (max-width: 500px) {
+          .profile-picture,
+          .profile-picture-placeholder {
+            width: 112px;
+            height: 112px;
+          }
+        }
+
+        @container (min-width: 600px) {
+          #picture {
+            float: right;
+            margin: 0 0 24px 32px;
+            text-align: right;
+          }
         }
       `,
     ]
@@ -60,6 +126,92 @@ export class GrampsjsPerson extends GrampsjsObject {
     this.timelineData = []
     this._showFamilyEvents = false
     this._showRelatedEvents = false
+  }
+
+  renderPicture() {
+    if (this.data?.media_list?.length) {
+      const ref = this.data.media_list[0]
+      const obj = this.data.extended.media[0]
+      const label = this._('Add profile picture')
+      return html`
+        <button
+          class="profile-picture"
+          type="button"
+          aria-label="${label}"
+          title="${label}"
+          @click="${this._handleAddProfilePictureClick}"
+        >
+          <grampsjs-img
+            handle="${obj.handle}"
+            size="200"
+            .rect="${ref.rect || []}"
+            square
+            circle
+            cover
+            mime="${obj.mime}"
+            checksum="${obj.checksum}"
+          ></grampsjs-img>
+        </button>
+      `
+    }
+
+    if (this.preview) {
+      return html``
+    }
+
+    const label = this._('Add profile picture')
+    if (
+      this.appState?.permissions?.canAdd &&
+      this.appState?.permissions?.canEdit
+    ) {
+      return html`
+        <button
+          class="profile-picture-placeholder"
+          type="button"
+          aria-label="${label}"
+          title="${label}"
+          @click="${this._handleAddProfilePictureClick}"
+        >
+          <grampsjs-icon
+            path="${mdiImagePlus}"
+            height="40"
+            color="var(--md-sys-color-on-surface-variant)"
+          ></grampsjs-icon>
+        </button>
+      `
+    }
+
+    return html`<div class="profile-picture-placeholder"></div>`
+  }
+
+  _handleAddProfilePictureClick() {
+    this.dialogContent = html`
+      <grampsjs-form-new-media
+        @object:save="${this._handleNewProfilePictureSave}"
+        @object:cancel="${this._handleCancelDialog}"
+        .appState="${this.appState}"
+        dialogTitle="${this._('Add profile picture')}"
+      ></grampsjs-form-new-media>
+    `
+  }
+
+  async _handleNewProfilePictureSave(e) {
+    e.preventDefault()
+    e.stopPropagation()
+    const uploadForm = this.renderRoot.querySelector('grampsjs-form-new-media')
+    this.dialogContent = ''
+    const data = await uploadForm.upload(e.detail.data)
+    if ('data' in data) {
+      fireEvent(this, 'edit:action', {
+        action: 'updateProp',
+        data: {
+          media_list: [
+            {ref: data.data.handle},
+            ...(this.data.media_list || []),
+          ],
+        },
+      })
+    }
   }
 
   renderProfile() {

@@ -16,7 +16,7 @@ import {GrampsjsViewNewPerson} from '../../src/views/GrampsjsViewNewPerson.js'
 
 const appState = {
   i18n: {lang: 'en', strings: {}},
-  permissions: {canAdd: true},
+  permissions: {canAdd: true, canEdit: true},
 }
 
 afterEach(() => {
@@ -110,6 +110,78 @@ describe('unified person picker flow', () => {
     const markup = templateMarkup(person.renderProfile())
     expect(markup).toContain('Add Family Member')
     expect(markup).toContain('<grampsjs-tree-chart-add-person')
+  })
+
+  it('shows a right-side profile picture or an upload placeholder', () => {
+    const person = new GrampsjsPerson()
+    person.appState = appState
+    person.data = {
+      profile: {},
+      gender: 2,
+      media_list: [],
+      extended: {media: []},
+    }
+
+    const placeholder = templateMarkup(person.renderPicture())
+    expect(placeholder).toContain('profile-picture-placeholder')
+    expect(placeholder).toContain('Add profile picture')
+
+    person._handleAddProfilePictureClick()
+    expect(templateMarkup(person.dialogContent)).toContain(
+      '<grampsjs-form-new-media'
+    )
+
+    person.data = {
+      ...person.data,
+      media_list: [{ref: 'media-handle'}],
+      extended: {
+        media: [
+          {
+            handle: 'media-handle',
+            gramps_id: 'O0001',
+            mime: 'image/jpeg',
+            checksum: 'checksum',
+          },
+        ],
+      },
+    }
+    const portrait = templateMarkup(person.renderPicture())
+    expect(portrait).toContain('profile-picture')
+    expect(portrait).toContain('media-handle')
+    expect(portrait).toContain('Add profile picture')
+    expect(portrait).not.toContain('profile-picture-placeholder')
+  })
+
+  it('makes a newly uploaded portrait the first gallery image', async () => {
+    const person = new GrampsjsPerson()
+    person.appState = appState
+    person.data = {media_list: [{ref: 'old-media'}]}
+    const upload = vi.fn().mockResolvedValue({
+      data: {handle: 'new-media'},
+    })
+    Object.defineProperty(person, 'renderRoot', {
+      value: {
+        querySelector: () => ({upload}),
+      },
+    })
+    let editAction
+    person.addEventListener('edit:action', e => {
+      editAction = e.detail
+    })
+
+    await person._handleNewProfilePictureSave({
+      detail: {data: {desc: 'Portrait'}},
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    })
+
+    expect(upload).toHaveBeenCalledWith({desc: 'Portrait'})
+    expect(editAction).toEqual({
+      action: 'updateProp',
+      data: {
+        media_list: [{ref: 'new-media'}, {ref: 'old-media'}],
+      },
+    })
   })
 
   it('uses the same searchable picker in new-family person slots', () => {
