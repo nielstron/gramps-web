@@ -9,9 +9,12 @@ import copy from 'rollup-plugin-copy'
 import versionInjector from 'rollup-plugin-version-injector'
 import path from 'path'
 
-const API_URL = process.env.API_URL === undefined ? '' : process.env.API_URL
-
 const BASE_DIR = process.env.BASE_DIR === undefined ? '' : process.env.BASE_DIR
+
+// A subpath deployment normally serves its API below the same prefix. Keep an
+// explicit API_URL override for split frontend/backend deployments.
+const API_URL =
+  process.env.API_URL === undefined ? BASE_DIR : process.env.API_URL
 
 const developmentMode = process.env.ROLLUP_WATCH === 'true'
 
