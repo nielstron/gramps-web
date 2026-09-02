@@ -89,6 +89,11 @@ class GrampsjsFormSelectObject extends GrampsjsAppStateMixin(LitElement) {
   }
 
   _handleSelected(e) {
+    // A picker can contain forms with their own nested object pickers (for
+    // example, creating a citation includes selecting its source). Composed
+    // events from those nested pickers also reach this listener on the outer
+    // dialog host, so only accept events emitted by this dialog itself.
+    if (e.composedPath()[0] !== e.currentTarget) return
     const obj = e.detail
     const handle = obj.handle ?? obj.object?.handle
     if (!this.multiple) {

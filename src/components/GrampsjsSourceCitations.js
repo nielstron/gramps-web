@@ -8,10 +8,18 @@ import './GrampsjsFormCitation.js'
 import './GrampsjsFormNewCitation.js'
 
 export class GrampsjsSourceCitations extends GrampsjsEditableList {
+  static get properties() {
+    return {
+      ...super.properties,
+      source: {type: Object},
+    }
+  }
+
   constructor() {
     super()
     this.objType = 'Citation'
     this.hasReorder = true
+    this.source = undefined
   }
 
   row(obj, i) {
@@ -55,6 +63,8 @@ export class GrampsjsSourceCitations extends GrampsjsEditableList {
     this.dialogContent = html`
       <grampsjs-form-new-citation
         new
+        .data=${this._newCitationData()}
+        .source=${this.source}
         @object:save="${this._handleCitSave}"
         @object:cancel="${this._handleCitCancel}"
         .appState="${this.appState}"
@@ -62,6 +72,14 @@ export class GrampsjsSourceCitations extends GrampsjsEditableList {
       >
       </grampsjs-form-new-citation>
     `
+  }
+
+  _newCitationData() {
+    return {
+      _class: 'Citation',
+      confidence: 2,
+      ...(this.source?.handle ? {source_handle: this.source.handle} : {}),
+    }
   }
 
   _handleShare() {

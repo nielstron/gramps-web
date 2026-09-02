@@ -4,6 +4,13 @@ import {GrampsjsViewObjectsDetail} from './GrampsjsViewObjectsDetail.js'
 import '../components/GrampsjsSourceCitations.js'
 
 export class GrampsjsViewSourceCitations extends GrampsjsViewObjectsDetail {
+  static get properties() {
+    return {
+      ...super.properties,
+      source: {type: Object},
+    }
+  }
+
   static get styles() {
     return [
       super.styles,
@@ -34,6 +41,7 @@ export class GrampsjsViewSourceCitations extends GrampsjsViewObjectsDetail {
       <grampsjs-source-citations
         hasShare
         .data="${this._data}"
+        .source=${this.source}
         ?edit="${this.edit}"
         .appState="${this.appState}"
       >

@@ -800,6 +800,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
         return html`<grampsjs-view-source-citations
           active
           .appState="${this.appState}"
+          .source=${this.data}
           ?edit="${this.edit}"
           .grampsIds=${(this.data?.extended?.citations || [])
             .map(obj => obj.gramps_id)

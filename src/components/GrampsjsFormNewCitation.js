@@ -20,9 +20,17 @@ const confidence = {
 }
 
 class GrampsjsFormNewCitation extends GrampsjsObjectForm {
+  static get properties() {
+    return {
+      ...super.properties,
+      source: {type: Object},
+    }
+  }
+
   constructor() {
     super()
     this.data = {_class: 'Citation', confidence: 2}
+    this.source = undefined
   }
 
   renderForm() {
@@ -33,6 +41,9 @@ class GrampsjsFormNewCitation extends GrampsjsObjectForm {
         style="min-height: 300px;"
         id="source"
         objectType="source"
+        .objectsInitial=${this.data.source_handle
+          ? [{handle: this.data.source_handle, object: this.source || {}}]
+          : []}
         .appState="${this.appState}"
       ></grampsjs-form-select-object-list>
 
