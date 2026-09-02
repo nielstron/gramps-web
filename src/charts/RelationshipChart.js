@@ -33,15 +33,7 @@ function createGraph(graph) {
     }
   }
 
-  // step 3: add nodes for remaining persons not part of any families
-  for (const p of data) {
-    const nnodes = graph.getNodesOfPerson(p.handle).length
-    if (nnodes < 1) {
-      graph.addNode(undefined, `p_${p.handle}`, p.handle, false)
-    }
-  }
-
-  // step 4: create edges
+  // step 3: connect family junctions to their children
   for (const p of data) {
     const f = p.extended.primary_parent_family
     const me = p.handle
@@ -55,124 +47,76 @@ function createGraph(graph) {
       graph.addEdge(f.handle, mother, me)
     }
   }
-
-  // step 5: connect unconnected couples (no parents and more than one family)
-  for (const p of data) {
-    const fp = p.extended?.primary_parent_family
-    // no parents?
-    if (
-      (!fp?.father_handle || !graph.known(fp?.father_handle)) &&
-      (!fp?.mother_handle || !graph.known(fp?.mother_handle))
-    ) {
-      let np = 0
-      for (const f of p.extended.families) {
-        let ck = 0
-        for (const c of f.child_ref_list) {
-          if (graph.known(c.ref)) {
-            ck += 1
-          }
-        }
-        if (
-          (graph.known(f?.father_handle) && graph.known(f?.mother_handle)) ||
-          ck > 0
-        ) {
-          np += 1
-        }
-      }
-      // occurs more than one time and needs to be connected by fake parent
-      if (np > 1) {
-        const fakeHandle = `fakeparent${p.handle}`
-        graph.addPerson({
-          handle: fakeHandle,
-          gramps_id: '',
-          profile: {
-            fake: true,
-            name_given: 'FAKE',
-            name_surname: p.profile.name_surname,
-          },
-        })
-        graph.addNode({fake: true}, `p_${fakeHandle}`, fakeHandle, false)
-        graph.addEdge(`p_${fakeHandle}`, fakeHandle, p.handle)
-      }
-    }
-  }
 }
 
-function generateDot(graph) {
+export function generateDot(graph) {
   let dot = ''
-  // nodes
+
+  // Every person is one graph node, independent of how many families they
+  // belong to. Graphviz can then optimize the whole relationship graph rather
+  // than laying out duplicated couple cards.
+  for (const p of graph.getPersons()) {
+    dot += `
+      "node_${p.handle}" [
+        class="person_${p.handle}"
+        margin=0.25
+        shape="none"
+        fixedsize=true
+        width=${graph.boxWidth / 66}
+        height=${graph.boxHeight / 66 - 0.3}
+        label=<->
+      ]
+    `
+  }
+
+  // Treat every connected network of partners as a single horizontal block.
+  // The invisible cluster is only an ordering hint; it does not draw or merge
+  // nodes. Couple edges still have the stronger semantic weight below.
+  for (const [index, component] of graph.getPartnerComponents().entries()) {
+    dot += `
+      subgraph "cluster_partners_${index}" {
+        rank=same
+        style=invis
+        margin=0
+        ${component.map(handle => `"node_${handle}"`).join('\n')}
+      }
+    `
+  }
+
+  // A family is a small junction below its parent nodes. Parent-to-family and
+  // family-to-child edges give the layout engine the generational ordering,
+  // while keeping every person in exactly one node.
   for (const n of graph.getNodes()) {
     const pf = n.father
     const pm = n.mother
-    const widthInches = n.fake ? 0 : graph.boxWidth / 66
-    const heightInches = n.fake ? 0 : graph.boxHeight / 66 - 0.3
-    if (pf && pm) {
-      dot += `
-      subgraph "cluster_${n.handle}" {
-        cluster=true
-        color=white
-        margin="50,0"
-        label="."
-        "node_${n.handle}x${pf}" [
-          class="person_${pf}"
-          margin=0
-          shape="none"
-          fixedsize=true
-          width=${widthInches}
-          height=${heightInches}
-          label=<->
-        ]
-        "node_${n.handle}" [
-          class="family_${n.handle}"
-          label=<.>
-          shape="none"
-          margin=0
-          fixedsize=true
-          width=0.1
-          height=${heightInches}
-        ]
-        "node_${n.handle}x${pm}" [
-          class="person_${pm}"
-          margin=0.25
-          shape="none"
-          fixedsize=true
-          width=${widthInches}
-          height=${heightInches}
-          label=<->
-        ]
-      }
+    dot += `
+      "node_${n.handle}" [
+        class="family_${n.handle}"
+        label=<.>
+        shape="none"
+        margin=0
+        fixedsize=true
+        width=0.1
+        height=0.1
+      ]
     `
-    } else {
-      const p = pf || pm
+    if (pf) {
       dot += `
-      subgraph "cluster_${n.handle}" {
-        cluster=true
-        color=white
-        label="."
-        "node_${n.handle}x${p}" [
-          class="person_${p}"
-          margin=0.25
-          shape="none"
-          fixedsize=true
-          width=${widthInches}
-          height=${heightInches}
-          label=<->
-        ]
-      }
-    `
+        "node_${pf}" -> "node_${n.handle}" [class="couple", arrowhead=none, weight=100]
+      `
+    }
+    if (pm) {
+      dot += `
+        "node_${pm}" -> "node_${n.handle}" [class="couple", arrowhead=none, weight=100]
+      `
     }
   }
-  // edges
+
+  // Family-to-child relationships determine the vertical generation layout.
   for (const e of graph.getEdges()) {
-    for (const targetnode of graph.getNodesOfPerson(e.targetPerson)) {
-      if (e.sourcePerson) {
-        // one-person node as source
-        dot += `"node_${e.sourceFamily}x${e.sourcePerson}" -> "node_${targetnode}x${e.targetPerson}" [label="", arrowhead=none, color="#555"]
+    if (graph.getNode(e.sourceFamily) && graph.known(e.targetPerson)) {
+      dot += `"node_${e.sourceFamily}" -> "node_${e.targetPerson}" [class="child", label="", arrowhead=none, color="#555"]
       `
-      } else {
-        dot += `"node_${e.sourceFamily}" -> "node_${targetnode}x${e.targetPerson}" [ltail="node_${e.sourceFamily}", label="", arrowhead=none, color="#555"]
-      `
-      }
     }
   }
 
@@ -196,7 +140,7 @@ function generateDot(graph) {
   return dot
 }
 
-class Relgraph {
+export class Relgraph {
   constructor(data, boxWidth, boxHeight, grampsId) {
     this.data = data
     this.boxWidth = boxWidth
@@ -289,6 +233,42 @@ class Relgraph {
       return x
     }
     return []
+  }
+
+  getPartnerComponents() {
+    const adjacency = new Map()
+    for (const node of this.getNodes()) {
+      if (!node.father || !node.mother) {
+        continue
+      }
+      if (!adjacency.has(node.father)) adjacency.set(node.father, new Set())
+      if (!adjacency.has(node.mother)) adjacency.set(node.mother, new Set())
+      adjacency.get(node.father).add(node.mother)
+      adjacency.get(node.mother).add(node.father)
+    }
+
+    const components = []
+    const seen = new Set()
+    for (const person of this.getPersons()) {
+      if (seen.has(person.handle) || !adjacency.has(person.handle)) {
+        continue
+      }
+      const component = []
+      const pending = [person.handle]
+      seen.add(person.handle)
+      while (pending.length) {
+        const handle = pending.pop()
+        component.push(handle)
+        for (const partner of adjacency.get(handle) ?? []) {
+          if (!seen.has(partner)) {
+            seen.add(partner)
+            pending.push(partner)
+          }
+        }
+      }
+      components.push(component)
+    }
+    return components
   }
 
   addEdge(sourcefamily, sourceperson, targetperson) {
@@ -521,7 +501,7 @@ function remasterChart(
     .append('circle')
     .attr('class', 'married')
     .attr('r', 6)
-    .attr('cy', boxHeight / 2 - 10)
+    .attr('cy', 0)
     .attr('stroke', 'var(--grampsjs-body-font-color-40)')
     .attr('fill', 'var(--grampsjs-color-shade-220)')
 
@@ -531,8 +511,8 @@ function remasterChart(
     .attr('class', 'married')
     .attr('x1', -11)
     .attr('x2', 11)
-    .attr('y1', boxHeight / 2 - 10)
-    .attr('y2', boxHeight / 2 - 10)
+    .attr('y1', 0)
+    .attr('y2', 0)
     .attr('stroke', 'var(--grampsjs-body-font-color-40)')
     .attr('stroke-width', 1)
 
@@ -574,28 +554,28 @@ function remasterChart(
     .y(d => d.y)
   // copy edges
   gvchartx.selectAll('.edge').each(function () {
-    const path = select(this).select('path')
+    const graphvizEdge = select(this)
+    const path = graphvizEdge.select('path')
     const pathData = path.attr('d')
     // extract points from path data
     const points = pathData
       ?.match(/-?[\d.]+,-?[\d.]+/g) // Find all "x,y" pairs
       ?.map(d => d.split(',').map(Number)) // Convert to [x, y] arrays
-    // we use only the start and end point
-    const firstAndLastPoint = [points[0], points[points.length - 1]]
     if (!points) {
       return
     }
+    // we use only the start and end point
+    const firstAndLastPoint = [points[0], points[points.length - 1]]
+    const isCouple = graphvizEdge.classed('couple')
+    const pathValue = linkGenerator({
+      source: {x: firstAndLastPoint[0][0], y: firstAndLastPoint[0][1]},
+      target: {x: firstAndLastPoint[1][0], y: firstAndLastPoint[1][1]},
+    })
     // we replace the polyline with a smooth connector from start to end
     edges
       .append('path')
-      .attr('class', 'edge')
-      .attr(
-        'd',
-        linkGenerator({
-          source: {x: firstAndLastPoint[0][0], y: firstAndLastPoint[0][1]},
-          target: {x: firstAndLastPoint[1][0], y: firstAndLastPoint[1][1]},
-        })
-      )
+      .attr('class', isCouple ? 'edge couple' : 'edge child')
+      .attr('d', pathValue)
       .attr('fill', 'none')
       .attr('stroke', 'var(--grampsjs-body-font-color-40)')
       .attr('stroke-width', 1)

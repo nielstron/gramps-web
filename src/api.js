@@ -44,7 +44,11 @@ export function getTreeId() {
   } catch {
     claims = {}
   }
-  return claims.tree
+  if (claims.tree) {
+    localStorage.setItem('grampsjs_last_tree', claims.tree)
+    return claims.tree
+  }
+  return localStorage.getItem('grampsjs_last_tree') || undefined
 }
 
 export function getTreeFromToken(token) {
@@ -94,7 +98,9 @@ export function updateSettings(settings, tree = false) {
   const treeId = getTreeId() || 'unknown'
   const existingSettings = tree ? parsedSettings?.[treeId] : parsedSettings
   const finalSettings = {...existingSettings, ...settings}
-  const data = tree ? {[treeId]: finalSettings} : finalSettings
+  const data = tree
+    ? {...parsedSettings, [treeId]: finalSettings}
+    : finalSettings
   localStorage.setItem(key, JSON.stringify(data))
   fireEvent(window, 'settings:changed')
 }

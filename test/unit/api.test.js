@@ -7,8 +7,41 @@ import {
   apiGetOIDCConfig,
   Auth,
   createFirstTree,
+  getSettings,
+  storeAuthToken,
+  updateSettings,
   updateTaskStatus,
 } from '../../src/api.js'
+
+describe('tree-dependent settings', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  function tokenForTree(tree) {
+    return `x.${btoa(JSON.stringify({tree}))}.x`
+  }
+
+  it('keeps settings for other trees when one tree is updated', () => {
+    storeAuthToken(tokenForTree('tree-1'), Date.now() + 60_000)
+    updateSettings({homePerson: 'I0001'}, true)
+    storeAuthToken(tokenForTree('tree-2'), Date.now() + 60_000)
+    updateSettings({homePerson: 'I0002'}, true)
+
+    expect(JSON.parse(localStorage.getItem('grampsjs_settings_tree'))).toEqual({
+      'tree-1': {homePerson: 'I0001'},
+      'tree-2': {homePerson: 'I0002'},
+    })
+  })
+
+  it('can read the current tree settings while its access token is refreshing', () => {
+    storeAuthToken(tokenForTree('tree-1'), Date.now() + 60_000)
+    updateSettings({homePerson: 'I0001'}, true)
+    localStorage.removeItem('access_token')
+
+    expect(getSettings().homePerson).toBe('I0001')
+  })
+})
 
 describe('apiGet authentication', () => {
   beforeEach(() => {
