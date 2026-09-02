@@ -852,7 +852,14 @@ export class Auth {
   }
 
   async getValidAccessToken(force = false) {
+    if (this.accessToken === null && this.refreshToken === null) {
+      return null
+    }
     if (force || this._shouldRefresh()) {
+      if (this.refreshToken === null) {
+        doLogout()
+        return null
+      }
       if (this._refreshingTokens) {
         // If already refreshing, wait for that to finish
         await this._refreshingTokens
@@ -960,7 +967,9 @@ export async function apiGet(auth, endpoint) {
     const headers = {}
     try {
       const accessToken = await auth.getValidAccessToken()
-      headers.Authorization = `Bearer ${accessToken}`
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`
+      }
       // eslint-disable-next-line no-empty
     } catch {}
     const resp = await fetch(`${__APIHOST__}${endpoint}`, {
@@ -1011,14 +1020,13 @@ export async function apiPutPostDelete(
   let resJson
   let status
   try {
-    let headers = {}
+    const headers = {}
     if (!skipAuth) {
       try {
         const accessToken = await auth.getValidAccessToken()
-        headers = {
-          ...headers,
-          Accept: 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+        headers.Accept = 'application/json'
+        if (accessToken) {
+          headers.Authorization = `Bearer ${accessToken}`
         }
         // eslint-disable-next-line no-empty
       } catch {}

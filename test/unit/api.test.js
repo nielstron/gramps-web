@@ -61,6 +61,18 @@ describe('apiGet authentication', () => {
   })
 })
 
+describe('Auth token refresh', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('does not refresh when there is no authenticated session', async () => {
+    const auth = new Auth()
+
+    await expect(auth.getValidAccessToken(true)).resolves.toBeNull()
+  })
+})
+
 describe('apiGetTokens error handling', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
