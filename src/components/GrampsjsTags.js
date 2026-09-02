@@ -94,7 +94,8 @@ export class GrampsjsTags extends GrampsjsAppStateMixin(LitElement) {
   }
 
   render() {
-    if (Object.keys(this.data).length === 0 && !this.edit) {
+    const canAdd = this.appState?.permissions?.canAdd
+    if (Object.keys(this.data).length === 0 && !this.edit && !canAdd) {
       return html``
     }
     return html`
@@ -125,7 +126,7 @@ export class GrampsjsTags extends GrampsjsAppStateMixin(LitElement) {
                   ></md-assist-chip>`
             )}
         </md-chip-set>
-        ${this.edit
+        ${canAdd
           ? html`
               <md-icon-button
                 id="btn-tag"

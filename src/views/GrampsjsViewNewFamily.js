@@ -175,23 +175,8 @@ export class GrampsjsViewNewFamily extends GrampsjsViewNewObject {
     const fatherData = fatherSlot.getData()
     const motherData = motherSlot.getData()
 
-    const newPersonObjects = []
-
-    let fatherHandle = null
-    if (fatherData?.handle) {
-      fatherHandle = fatherData.handle
-    } else if (fatherData?.newPersonData) {
-      newPersonObjects.push(...fatherData.newPersonData)
-      fatherHandle = fatherData.newPersonData[0].handle
-    }
-
-    let motherHandle = null
-    if (motherData?.handle) {
-      motherHandle = motherData.handle
-    } else if (motherData?.newPersonData) {
-      newPersonObjects.push(...motherData.newPersonData)
-      motherHandle = motherData.newPersonData[0].handle
-    }
+    const fatherHandle = fatherData?.handle ?? null
+    const motherHandle = motherData?.handle ?? null
 
     const childRefList = []
     for (const key of this._childKeys) {
@@ -201,14 +186,6 @@ export class GrampsjsViewNewFamily extends GrampsjsViewNewObject {
         childRefList.push({
           _class: 'ChildRef',
           ref: childData.handle,
-          frel: childData.frel,
-          mrel: childData.mrel,
-        })
-      } else if (childData?.newPersonData) {
-        newPersonObjects.push(...childData.newPersonData)
-        childRefList.push({
-          _class: 'ChildRef',
-          ref: childData.newPersonData[0].handle,
           frel: childData.frel,
           mrel: childData.mrel,
         })
@@ -223,9 +200,7 @@ export class GrampsjsViewNewFamily extends GrampsjsViewNewObject {
       child_ref_list: childRefList,
     }
 
-    const payload = [...newPersonObjects, familyObj]
-
-    this.appState.apiPost(this.postUrl, payload).then(data => {
+    this.appState.apiPost(this.postUrl, [familyObj]).then(data => {
       if ('data' in data) {
         this.error = false
         const grampsId = data.data.filter(obj => obj.new._class === 'Family')[0]

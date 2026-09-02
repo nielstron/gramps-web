@@ -110,11 +110,15 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
   }
 
   render() {
+    const showCreateActions =
+      this.appState?.permissions?.canAdd && (this.hasAdd || this.hasShare)
     return html`
-      ${Object.keys(this.data).length === 0 && !this.edit
+      ${Object.keys(this.data).length === 0 && !this.edit && !showCreateActions
         ? ''
         : html`
-            ${this.edit ? this._renderActionBtns() : ''}
+            ${this.edit || showCreateActions
+              ? this._renderActionBtns(showCreateActions)
+              : ''}
             <md-list class="${classMap({activatable: this.edit})}">
               ${this.sortData([...this.data]).map((obj, i, arr) =>
                 this.row(obj, i, arr)
@@ -138,9 +142,9 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
     return ''
   }
 
-  _renderActionBtns() {
+  _renderActionBtns(showCreateActions = false) {
     return html`
-      ${this.hasShare
+      ${showCreateActions && this.hasShare
         ? html`
             <md-icon-button class="edit" @click="${this._handleShare}">
               <grampsjs-icon
@@ -150,7 +154,7 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
             </md-icon-button>
           `
         : ''}
-      ${this.hasAdd
+      ${showCreateActions && this.hasAdd
         ? html`
             <md-icon-button class="edit" @click="${this._handleAdd}">
               <grampsjs-icon
@@ -160,7 +164,7 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
             </md-icon-button>
           `
         : ''}
-      ${this.hasEdit
+      ${this.edit && this.hasEdit
         ? html`
             <md-icon-button
               ?disabled="${this._selectedIndex === -1}"
@@ -174,7 +178,7 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
             </md-icon-button>
           `
         : ''}
-      ${this.hasReorder
+      ${this.edit && this.hasReorder
         ? html`
             <md-icon-button
               ?disabled="${this._selectedIndex === -1 ||
@@ -200,16 +204,20 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
             </md-icon-button>
           `
         : ''}
-      <md-icon-button
-        ?disabled="${this._selectedIndex === -1}"
-        class="edit"
-        @click="${this._handleDelete}"
-      >
-        <grampsjs-icon
-          path="${mdiDelete}"
-          color="var(--mdc-theme-secondary)"
-        ></grampsjs-icon>
-      </md-icon-button>
+      ${this.edit
+        ? html`
+            <md-icon-button
+              ?disabled="${this._selectedIndex === -1}"
+              class="edit"
+              @click="${this._handleDelete}"
+            >
+              <grampsjs-icon
+                path="${mdiDelete}"
+                color="var(--mdc-theme-secondary)"
+              ></grampsjs-icon>
+            </md-icon-button>
+          `
+        : ''}
     `
   }
 

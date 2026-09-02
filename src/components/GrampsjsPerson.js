@@ -4,6 +4,7 @@ import '@material/web/chips/chip-set'
 import '@material/web/chips/filter-chip'
 import {
   mdiFamilyTree,
+  mdiAccountMultiplePlus,
   mdiDna,
   mdiSearchWeb,
   mdiTimelineOutline,
@@ -15,6 +16,7 @@ import './GrampsjsImg.js'
 import './GrampsjsEditGender.js'
 import './GrampsjsPersonRelationship.js'
 import './GrampsjsFormExternalSearch.js'
+import './GrampsjsTreeChartAddPerson.js'
 import {fireEvent, objectIconPath} from '../util.js'
 import {formatDateString} from '../date.js'
 
@@ -75,8 +77,15 @@ export class GrampsjsPerson extends GrampsjsObject {
         : html`<p class="button-list">
             ${this._renderTreeBtn()} ${this._renderTimelineBtn()}
             ${this._renderMapBtn()} ${this._renderDnaBtn()}
+            ${this._renderAddFamilyMemberBtn()}
             ${this._renderExternalSearchBtn()}
           </p>`}
+      ${!this.preview && this.appState?.permissions?.canAdd
+        ? html`<grampsjs-tree-chart-add-person
+            id="add-family-member"
+            .appState="${this.appState}"
+          ></grampsjs-tree-chart-add-person>`
+        : ''}
     `
   }
 
@@ -174,6 +183,24 @@ export class GrampsjsPerson extends GrampsjsObject {
         ></grampsjs-icon>
       </md-outlined-button>
     `
+  }
+
+  _renderAddFamilyMemberBtn() {
+    if (!this.appState?.permissions?.canAdd) return ''
+    return html`
+      <md-outlined-button @click="${this._handleAddFamilyMemberClick}">
+        ${this._('Add Family Member')}
+        <grampsjs-icon
+          path="${mdiAccountMultiplePlus}"
+          color="var(--mdc-theme-primary)"
+          slot="icon"
+        ></grampsjs-icon>
+      </md-outlined-button>
+    `
+  }
+
+  _handleAddFamilyMemberClick() {
+    this.renderRoot.querySelector('#add-family-member')?.open(this.data)
   }
 
   _renderMapBtn() {

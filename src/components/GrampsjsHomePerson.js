@@ -80,11 +80,13 @@ export class GrampsjsHomePerson extends GrampsjsAppStateMixin(LitElement) {
     this.renderRoot.querySelector('#homeperson-select')?.open(anchor)
   }
 
-  _handleHomePerson(e) {
+  async _handleHomePerson(e) {
     const obj = e.detail.objects[0]
     if (obj.object?.gramps_id) {
-      this.appState.updateSettings({homePerson: obj.object.gramps_id}, true)
-      this.homePersonDetails = obj.object
+      const result = await this.appState.updateUserSettings({
+        homePerson: obj.object.gramps_id,
+      })
+      if ('data' in result) this.homePersonDetails = obj.object
     }
     e.preventDefault()
     e.stopPropagation()

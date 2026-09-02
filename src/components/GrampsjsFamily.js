@@ -2,14 +2,13 @@ import {css, html} from 'lit'
 
 import '@material/web/iconbutton/icon-button.js'
 
-import {mdiLinkOff, mdiLinkPlus, mdiPencil, mdiPlus} from '@mdi/js'
+import {mdiLinkOff, mdiLinkPlus, mdiPencil} from '@mdi/js'
 
 import {fireEvent, objectIconPath} from '../util.js'
 import {formatDateString} from '../date.js'
 import './GrampsjsIcon.js'
 import './GrampsjsObjectLink.js'
 import './GrampsjsFormEditFamily.js'
-import './GrampsjsFormNewPerson.js'
 import './GrampsjsFormPersonRef.js'
 import {GrampsjsObject} from './GrampsjsObject.js'
 
@@ -154,12 +153,13 @@ export class GrampsjsFamily extends GrampsjsObject {
     const hasProfile = Object.keys(profile ?? {}).length > 0
     const birthDate = formatDateString(profile?.birth?.date)
     const deathDate = formatDateString(profile?.death?.date)
+    const canAdd = this.appState?.permissions?.canAdd
 
     return html`
       <dl>
         <div>
           <dt>${label}</dt>
-          <dd class="${this.edit ? 'parent-row' : ''}">
+          <dd class="${this.edit || canAdd ? 'parent-row' : ''}">
             <div class="parent-info">
               ${hasProfile
                 ? html`<grampsjs-object-link
@@ -181,10 +181,10 @@ export class GrampsjsFamily extends GrampsjsObject {
                       : ''}`
                 : '…'}
             </div>
-            ${this.edit
+            ${this.edit || canAdd
               ? html`
                   <div class="parent-actions">
-                    ${hasProfile
+                    ${this.edit && hasProfile
                       ? html`
                           <md-icon-button
                             class="edit"
@@ -200,28 +200,21 @@ export class GrampsjsFamily extends GrampsjsObject {
                           </md-icon-button>
                         `
                       : ''}
-                    <md-icon-button
-                      class="edit"
-                      title="${this._('Select an existing person')}"
-                      aria-label="${this._('Select an existing person')}"
-                      @click="${() => this._handleParentShare(parent)}"
-                    >
-                      <grampsjs-icon
-                        path="${mdiLinkPlus}"
-                        color="var(--mdc-theme-secondary)"
-                      ></grampsjs-icon>
-                    </md-icon-button>
-                    <md-icon-button
-                      class="edit"
-                      title="${this._('Add a new person')}"
-                      aria-label="${this._('Add a new person')}"
-                      @click="${() => this._handleAddNewParent(parent)}"
-                    >
-                      <grampsjs-icon
-                        path="${mdiPlus}"
-                        color="var(--mdc-theme-secondary)"
-                      ></grampsjs-icon>
-                    </md-icon-button>
+                    ${canAdd
+                      ? html`
+                          <md-icon-button
+                            class="edit"
+                            title="${this._('Add or link person')}"
+                            aria-label="${this._('Add or link person')}"
+                            @click="${() => this._handleParentShare(parent)}"
+                          >
+                            <grampsjs-icon
+                              path="${mdiLinkPlus}"
+                              color="var(--mdc-theme-secondary)"
+                            ></grampsjs-icon>
+                          </md-icon-button>
+                        `
+                      : ''}
                   </div>
                 `
               : ''}
@@ -231,25 +224,13 @@ export class GrampsjsFamily extends GrampsjsObject {
     `
   }
 
-  _handleAddNewParent(parent) {
-    this.dialogContent = html`
-      <grampsjs-form-new-person
-        @object:save="${e => this._handleNewParentSave(e, parent)}"
-        @object:cancel="${this._handleCancelDialog}"
-        .appState="${this.appState}"
-        dialogTitle="${this._('Add a new person')}"
-      >
-      </grampsjs-form-new-person>
-    `
-  }
-
   _handleParentShare(parent) {
     this.dialogContent = html`
       <grampsjs-form-personref
         @object:save="${e => this._handleParentChanged(e, parent)}"
         @object:cancel="${this._handleCancelDialog}"
         .appState="${this.appState}"
-        dialogTitle="${this._('Select an existing person')}"
+        dialogTitle="${this._('Add or link person')}"
       >
       </grampsjs-form-personref>
     `
@@ -276,20 +257,6 @@ export class GrampsjsFamily extends GrampsjsObject {
       >
       </grampsjs-form-edit-family>
     `
-  }
-
-  _handleNewParentSave(e, parent) {
-    const data = {
-      ...e.detail.data,
-      parent,
-    }
-    fireEvent(this, 'edit:action', {
-      action: 'newParent',
-      data,
-    })
-    e.preventDefault()
-    e.stopPropagation()
-    this.dialogContent = ''
   }
 
   _handleSaveDetails(e) {

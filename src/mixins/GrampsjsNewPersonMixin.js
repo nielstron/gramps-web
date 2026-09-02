@@ -27,6 +27,7 @@ export const GrampsjsNewPersonMixin = superClass =>
         <grampsjs-form-name
           id="primary-name"
           .appState="${this.appState}"
+          .data="${this.data.primary_name ?? {_class: 'Name'}}"
         ></grampsjs-form-name>
 
         <h4 class="label">${this._('Gender')}</h4>

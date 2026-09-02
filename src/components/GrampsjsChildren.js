@@ -5,7 +5,6 @@ import {fireEvent} from '../util.js'
 import {renderPersonAvatar, renderPersonDates} from './personListUtils.js'
 import {GrampsjsEditableList} from './GrampsjsEditableList.js'
 import './GrampsjsFormChildRef.js'
-import './GrampsjsFormNewChild.js'
 
 import '@material/web/list/list-item.js'
 
@@ -36,6 +35,7 @@ export class GrampsjsChildren extends GrampsjsEditableList {
     this.highlightId = ''
     this.extended = []
     this.hasShare = true
+    this.hasAdd = false
     this.hasEdit = true
     this.hasReorder = true
     this.objType = 'ChildRef'
@@ -115,7 +115,7 @@ export class GrampsjsChildren extends GrampsjsEditableList {
         @object:cancel="${this._handleDialogCancel}"
         .appState="${this.appState}"
         objType="${this.objType}"
-        dialogTitle=${this._('Add existing child to family')}
+        dialogTitle=${this._('Add or link person')}
       >
       </grampsjs-form-childref>
     `
@@ -137,28 +137,6 @@ export class GrampsjsChildren extends GrampsjsEditableList {
       >
       </grampsjs-form-childref>
     `
-  }
-
-  _handleAdd() {
-    this.dialogContent = html`
-      <grampsjs-form-new-child
-        @object:save="${this._handleNewChildSave}"
-        @object:cancel="${this._handleDialogCancel}"
-        .appState="${this.appState}"
-        dialogTitle="${this._('Add a new person')}"
-      >
-      </grampsjs-form-new-child>
-    `
-  }
-
-  _handleNewChildSave(e) {
-    fireEvent(this, 'edit:action', {
-      action: 'newChild',
-      data: e.detail.data,
-    })
-    e.preventDefault()
-    e.stopPropagation()
-    this.dialogContent = ''
   }
 
   _handleChildRefSave(e) {

@@ -3,6 +3,7 @@ import {
   linkChild,
   linkFamily,
   linkParent,
+  linkSibling,
   linkSpouse,
 } from '../../src/util/familyLinks.js'
 
@@ -79,6 +80,46 @@ describe('family links', () => {
     expect(state.apiGet).not.toHaveBeenCalled()
     expect(state.apiPost).not.toHaveBeenCalled()
     expect(state.apiPut).not.toHaveBeenCalled()
+  })
+
+  it('adds a sibling to the existing parent family', async () => {
+    const family = {
+      handle: 'F1',
+      father_handle: 'P',
+      child_ref_list: [{_class: 'ChildRef', ref: 'C'}],
+    }
+    const current = {
+      ...person('C', 2),
+      extended: {
+        families: [],
+        parent_families: [family],
+        primary_parent_family: family,
+      },
+    }
+    const state = appState({
+      getResults: {
+        '/api/people/C?extend=family_list,parent_family_list,primary_parent_family':
+          {
+            data: current,
+          },
+        '/api/people/S?extend=family_list,parent_family_list,primary_parent_family':
+          {
+            data: person('S', 2),
+          },
+      },
+    })
+
+    await linkSibling(state, current, 'S')
+
+    expect(state.apiPost).not.toHaveBeenCalled()
+    expect(state.apiPut).toHaveBeenCalledWith('/api/families/F1', {
+      _class: 'Family',
+      ...family,
+      child_ref_list: [
+        {_class: 'ChildRef', ref: 'C'},
+        {_class: 'ChildRef', ref: 'S'},
+      ],
+    })
   })
 
   it('adds a second parent to the child existing family instead of creating another family', async () => {

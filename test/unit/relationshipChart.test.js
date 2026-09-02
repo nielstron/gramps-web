@@ -1,7 +1,8 @@
 import {Graphviz} from '@hpcc-js/wasm'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {
   Relgraph,
+  RelationshipChart,
   generateDot,
   openPersonProfile,
   surnameWithBirthName,
@@ -133,6 +134,26 @@ describe('RelationshipChart', () => {
     expect(surnameWithBirthName(personData, 'born')).to.equal('Bern')
   })
 
+  it('uses married and birth name types independently of their display order', () => {
+    const personData = {
+      profile: {name_surname: 'Bern'},
+      primary_name: {
+        type: 'Birth Name',
+        surname_list: [{prefix: 'von', surname: 'Bern', connector: ''}],
+      },
+      alternate_names: [
+        {
+          type: 'Married Name',
+          surname_list: [{prefix: '', surname: 'Müller', connector: ''}],
+        },
+      ],
+    }
+
+    expect(surnameWithBirthName(personData, 'born')).to.equal(
+      'Müller (born von Bern)'
+    )
+  })
+
   it('opens a person profile when its node is clicked', () => {
     let navigationEvent
     window.addEventListener(
@@ -151,6 +172,23 @@ describe('RelationshipChart', () => {
     personNode.remove()
 
     expect(navigationEvent.detail).toEqual({path: 'person/I0042'})
+  })
+
+  it('renders an ellipsis for a missing given name', async () => {
+    const unknown = person('U', [])
+    unknown.profile.name_given = ''
+    unknown.profile.name_surname = 'Meyer'
+
+    const svg = RelationshipChart([unknown], {
+      grampsId: 'U',
+      getImageUrl: () => '',
+    })
+
+    await vi.waitFor(() => {
+      expect(
+        [...svg.querySelectorAll('text')].map(node => node.textContent)
+      ).toContain('…')
+    })
   })
 
   it('emits one node per person and separate family junctions', () => {

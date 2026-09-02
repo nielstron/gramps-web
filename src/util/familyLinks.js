@@ -372,6 +372,45 @@ export async function linkChild(appState, personData, childHandle, frel, mrel) {
   })
 }
 
+export async function linkSibling(appState, personData, siblingHandle) {
+  const [personResult, siblingResult] = await Promise.all([
+    freshPerson(appState, personData.handle, personData),
+    freshPerson(appState, siblingHandle),
+  ])
+  if ('error' in personResult) return personResult
+  if ('error' in siblingResult) return siblingResult
+
+  const parentFamilies = person =>
+    uniqueFamilies([
+      ...(person.extended?.parent_families ?? []),
+      ...(person.extended?.primary_parent_family?.handle
+        ? [person.extended.primary_parent_family]
+        : []),
+    ])
+  const personFamilies = parentFamilies(personResult.data)
+  const siblingFamilies = parentFamilies(siblingResult.data)
+  const shared = personFamilies.find(family =>
+    siblingFamilies.some(other => other.handle === family.handle)
+  )
+  if (shared) return {data: cleanFamily(shared)}
+
+  const target = personFamilies[0] ?? siblingFamilies[0]
+  if (target) {
+    const childHandle = personFamilies.length
+      ? siblingHandle
+      : personData.handle
+    return saveReconciledFamily(appState, target, [], {childHandle})
+  }
+
+  return appState.apiPost('/api/families/', {
+    _class: 'Family',
+    child_ref_list: [personData.handle, siblingHandle].map(ref => ({
+      _class: 'ChildRef',
+      ref,
+    })),
+  })
+}
+
 export async function linkSpouse(appState, personData, spouseHandle, relType) {
   const localFamilies = personData.extended?.families ?? []
   const localCouple = localFamilies.find(

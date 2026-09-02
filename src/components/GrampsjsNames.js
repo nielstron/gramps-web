@@ -48,6 +48,8 @@ export class GrampsjsNames extends GrampsjsEditableList {
             <grampsjs-name
               .appState="${this.appState}"
               .data="${obj}"
+              .index="${i + 1}"
+              ?preferred="${i === 0}"
             ></grampsjs-name>
           </md-list-item>
         `}`

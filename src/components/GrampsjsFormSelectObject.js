@@ -16,7 +16,7 @@ import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 
 // labels for button
 const btnLabel = {
-  person: 'Select an existing person',
+  person: 'Add or link person',
   place: 'Select an existing place',
   source: 'Select an existing source',
   media: 'Select an existing media object',

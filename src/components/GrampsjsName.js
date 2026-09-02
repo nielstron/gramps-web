@@ -14,6 +14,11 @@ export class GrampsjsName extends GrampsjsAppStateMixin(LitElement) {
         h4 {
           clear: left;
         }
+
+        .preferred {
+          color: var(--grampsjs-body-font-color-50);
+          font-weight: normal;
+        }
       `,
     ]
   }
@@ -21,17 +26,26 @@ export class GrampsjsName extends GrampsjsAppStateMixin(LitElement) {
   static get properties() {
     return {
       data: {type: Object},
+      index: {type: Number},
+      preferred: {type: Boolean},
     }
   }
 
   constructor() {
     super()
     this.data = {}
+    this.index = 0
+    this.preferred = false
   }
 
   render() {
     return html`
-      <h4>${this._(this.data.type)}</h4>
+      <h4>
+        ${this.index ? `${this.index}. ` : ''}${this._(this.data.type)}
+        ${this.preferred
+          ? html`<span class="preferred">(${this._('Preferred')})</span>`
+          : ''}
+      </h4>
       <dl>
         ${this.data.title
           ? html`

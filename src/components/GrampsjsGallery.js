@@ -95,7 +95,7 @@ export class GrampsjsGallery extends GrampsjsAppStateMixin(LitElement) {
         ${this.media.map((mediaObj, i) => this._renderThumbnail(i))}
       </div>
 
-      ${this.edit
+      ${this.appState?.permissions?.canAdd
         ? html`
             <div class="edit-actions">
               <md-icon-button @click="${this._handleShareClick}">

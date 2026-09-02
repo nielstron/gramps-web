@@ -145,7 +145,9 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
             : ''
         )
       )}
-      ${this.edit ? this._renderAddParentFamilyButtons() : ''}
+      ${this.appState?.permissions?.canAdd
+        ? this._renderAddParentFamilyButtons()
+        : ''}
       ${this.families.map((familyProfile, i) =>
         this._renderFamily(
           familyProfile,
@@ -172,7 +174,9 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
             : ''
         )
       )}
-      ${this.edit ? this._renderAddPartnerFamilyButton() : ''}
+      ${this.appState?.permissions?.canAdd
+        ? this._renderAddPartnerFamilyButton()
+        : ''}
       ${this.dialogContent}
     `
   }

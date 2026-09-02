@@ -1,13 +1,15 @@
 import {html, css, LitElement} from 'lit'
 import '@material/web/dialog/dialog.js'
 import '@material/web/iconbutton/icon-button.js'
-import {mdiLinkPlus, mdiPlus} from '@mdi/js'
+import {mdiLinkPlus} from '@mdi/js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 import {fireEvent} from '../util.js'
-import {linkParent, linkChild, linkSpouse} from '../util/familyLinks.js'
-import './GrampsjsFormNewPerson.js'
-import './GrampsjsFormNewChild.js'
-import './GrampsjsFormNewSpouse.js'
+import {
+  linkParent,
+  linkChild,
+  linkSibling,
+  linkSpouse,
+} from '../util/familyLinks.js'
 import './GrampsjsFormPersonRef.js'
 import './GrampsjsFormSpouseRef.js'
 import './GrampsjsFormChildRef.js'
@@ -35,7 +37,6 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
       _formOpen: {type: Boolean},
       _personData: {type: Object},
       _relationship: {type: String},
-      _mode: {type: String},
     }
   }
 
@@ -45,7 +46,6 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
     this._formOpen = false
     this._personData = null
     this._relationship = ''
-    this._mode = ''
   }
 
   open(personData) {
@@ -53,9 +53,8 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
     this._pickerOpen = true
   }
 
-  _selectRelationship(relationship, mode) {
+  _selectRelationship(relationship) {
     this._relationship = relationship
-    this._mode = mode
     this._pickerOpen = false
     this._formOpen = true
   }
@@ -74,6 +73,8 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
       result = await linkChild(this.appState, personData, handle, frel, mrel)
     } else if (this._relationship === 'spouse') {
       result = await linkSpouse(this.appState, personData, handle, relType)
+    } else if (this._relationship === 'sibling') {
+      result = await linkSibling(this.appState, personData, handle)
     }
     if (result && 'error' in result) {
       fireEvent(this, 'grampsjs:error', {message: result.error})
@@ -100,52 +101,18 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
     } else {
       this._pickerOpen = true
       this._relationship = ''
-      this._mode = ''
     }
-  }
-
-  async _handleNewPersonSave(e) {
-    const {processedData, frel, mrel, relType} = e.detail.data
-    const createResult = await this.appState.apiPost(
-      '/api/objects/',
-      processedData,
-      {dbChanged: false}
-    )
-    this._formOpen = false
-    if ('error' in createResult) {
-      fireEvent(this, 'grampsjs:error', {message: createResult.error})
-      // Reopen picker so user can retry with a different option
-      this._pickerOpen = true
-      this._relationship = ''
-      this._mode = ''
-      return
-    }
-    const handle = processedData.find(o => o._class === 'Person')?.handle
-    if (handle) {
-      const ok = await this._dispatch(handle, frel, mrel, relType)
-      if (!ok) {
-        // Person created but link failed; refresh so the orphan is visible.
-        fireEvent(this, 'db:changed')
-        this._pickerOpen = true
-        this._relationship = ''
-        this._mode = ''
-        return
-      }
-    }
-    this._reset()
   }
 
   _reset() {
     this._personData = null
     this._relationship = ''
-    this._mode = ''
   }
 
   _cancelForm() {
     this._formOpen = false
     this._pickerOpen = true
     this._relationship = ''
-    this._mode = ''
   }
 
   _renderRelationRow(label, relationship) {
@@ -153,18 +120,11 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
       <div class="relation-row">
         <span>${label}</span>
         <md-icon-button
-          @click="${() => this._selectRelationship(relationship, 'link')}"
+          aria-label="${this._('Add or link person')}"
+          @click="${() => this._selectRelationship(relationship)}"
         >
           <grampsjs-icon
             path="${mdiLinkPlus}"
-            color="var(--mdc-theme-secondary)"
-          ></grampsjs-icon>
-        </md-icon-button>
-        <md-icon-button
-          @click="${() => this._selectRelationship(relationship, 'new')}"
-        >
-          <grampsjs-icon
-            path="${mdiPlus}"
             color="var(--mdc-theme-secondary)"
           ></grampsjs-icon>
         </md-icon-button>
@@ -196,6 +156,7 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
             ? ''
             : this._renderRelationRow(this._('Mother'), 'mother')}
           ${this._renderRelationRow(this._('Child'), 'child')}
+          ${this._renderRelationRow(this._('Sibling'), 'sibling')}
           ${this._renderRelationRow(this._('Spouse'), 'spouse')}
         </div>
       </md-dialog>
@@ -208,51 +169,18 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
     }
 
     const isChild = this._relationship === 'child'
-    const isNew = this._mode === 'new'
-
-    if (isNew && isChild) {
-      return html`
-        <grampsjs-form-new-child
-          @object:save="${this._handleNewPersonSave}"
-          @object:cancel="${this._cancelForm}"
-          .appState="${this.appState}"
-          dialogTitle="${this._('Add a new person')}"
-        ></grampsjs-form-new-child>
-      `
-    }
-
-    if (!isNew && isChild) {
+    if (isChild) {
       return html`
         <grampsjs-form-childref
           @object:save="${this._handleExistingPersonSave}"
           @object:cancel="${this._cancelForm}"
           .appState="${this.appState}"
-          dialogTitle="${this._('Select an existing person')}"
+          dialogTitle="${this._('Add or link person')}"
         ></grampsjs-form-childref>
       `
     }
 
     const isSpouse = this._relationship === 'spouse'
-
-    if (isNew) {
-      return isSpouse
-        ? html`
-            <grampsjs-form-new-spouse
-              @object:save="${this._handleNewPersonSave}"
-              @object:cancel="${this._cancelForm}"
-              .appState="${this.appState}"
-              dialogTitle="${this._('Add a new person')}"
-            ></grampsjs-form-new-spouse>
-          `
-        : html`
-            <grampsjs-form-new-person
-              @object:save="${this._handleNewPersonSave}"
-              @object:cancel="${this._cancelForm}"
-              .appState="${this.appState}"
-              dialogTitle="${this._('Add a new person')}"
-            ></grampsjs-form-new-person>
-          `
-    }
 
     return isSpouse
       ? html`
@@ -260,7 +188,7 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
             @object:save="${this._handleExistingPersonSave}"
             @object:cancel="${this._cancelForm}"
             .appState="${this.appState}"
-            dialogTitle="${this._('Select an existing person')}"
+            dialogTitle="${this._('Add or link person')}"
           ></grampsjs-form-spouseref>
         `
       : html`
@@ -268,7 +196,7 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
             @object:save="${this._handleExistingPersonSave}"
             @object:cancel="${this._cancelForm}"
             .appState="${this.appState}"
-            dialogTitle="${this._('Select an existing person')}"
+            dialogTitle="${this._('Add or link person')}"
           ></grampsjs-form-personref>
         `
   }

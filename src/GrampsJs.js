@@ -717,6 +717,9 @@ export class GrampsJs extends LitElement {
 
     window.addEventListener('storage', event => this._handleStorage(event))
     window.addEventListener('settings:changed', () => this._handleSettings())
+    window.addEventListener('user-settings:changed', event =>
+      this._handleUserSettings(event.detail.settings)
+    )
     window.addEventListener('treeconfig:changed', () =>
       this._handleTreeConfig()
     )
@@ -782,7 +785,9 @@ export class GrampsJs extends LitElement {
 
   firstUpdated() {
     installRouter(location =>
-      this._loadPage(decodeURIComponent(location.pathname))
+      this._loadPage(decodeURIComponent(location.pathname), {
+        preserveEdit: Boolean(window.history.state?.preserveEdit),
+      })
     )
     installMediaQueryWatcher('(max-width: 991px)', matches => {
       if (matches && this.appState.screenSize !== 'small') {
@@ -1000,6 +1005,7 @@ export class GrampsJs extends LitElement {
     this.loadingState = LOADING_STATE_READY
     this.progress = false
     this.setPermissions()
+    this._loadUserSettings()
     this._loadTreeConfig()
     this.appState.loadActiveTasks()
   }
@@ -1012,8 +1018,28 @@ export class GrampsJs extends LitElement {
     })
   }
 
-  _loadPage(path) {
-    this._disableEditMode()
+  _loadUserSettings() {
+    this.appState.apiGet('/api/users/-/settings').then(data => {
+      if ('data' in data) this._handleUserSettings(data.data)
+    })
+  }
+
+  _handleUserSettings(userSettings = {}) {
+    const homePerson = userSettings.homePerson ?? ''
+    this._updateAppState({
+      settings: {...getSettings(), homePerson},
+    })
+    if (!homePerson) {
+      this._homePersonDetails = {}
+      this._homePersonMissing = false
+      this._homePersonLoadedId = null
+      return
+    }
+    if (homePerson !== this._homePersonLoadedId) this._loadHomePersonInfo()
+  }
+
+  _loadPage(path, {preserveEdit = false} = {}) {
+    if (!preserveEdit) this._disableEditMode()
 
     if (path.includes('/oidc/callback')) {
       handleOIDCCallback(msg => this._showError(msg))
@@ -1094,7 +1120,7 @@ export class GrampsJs extends LitElement {
   }
 
   _handleNav(e) {
-    const {path} = e.detail
+    const {path, preserveEdit = false, state = {}} = e.detail
     const page = path.split('/')[0]
     const pageId = path.split('/')[1]
     const pageId2 = path.split('/')[2]
@@ -1105,9 +1131,15 @@ export class GrampsJs extends LitElement {
       pageId2 !== appPath.pageId2
     ) {
       const href = appUrl(`/${path}`)
-      this._loadPage(href)
-      window.history.pushState({}, '', href)
-      this._disableEditMode()
+      if (preserveEdit) {
+        window.history.replaceState(
+          {...window.history.state, preserveEdit: true},
+          '',
+          window.location.href
+        )
+      }
+      this._loadPage(href, {preserveEdit})
+      window.history.pushState(state, '', href)
     }
   }
 

@@ -37,14 +37,15 @@ export class GrampsjsViewObjectsDetail extends GrampsjsView {
   }
 
   renderContent() {
+    const showCreateActions = this.edit || this.appState?.permissions?.canAdd
     if (this.loading) {
       return this.renderLoading()
     }
     if (this._data.length === 0) {
-      return html`${this.edit ? this.renderEdit() : ''}`
+      return html`${showCreateActions ? this.renderEdit() : ''}`
     }
     return html`
-      ${this.edit ? this.renderEdit() : ''} ${this.renderElements()}
+      ${showCreateActions ? this.renderEdit() : ''} ${this.renderElements()}
       ${this.dialogContent}
     `
   }

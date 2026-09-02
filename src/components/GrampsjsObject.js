@@ -152,6 +152,21 @@ const _allTabs = {
   },
 }
 
+const ADDABLE_TABS = new Set([
+  'relationships',
+  'enclosed',
+  'placeNames',
+  'children',
+  'events',
+  'gallery',
+  'names',
+  'notes',
+  'sourceCitations',
+  'metadata',
+  'associations',
+  'repositories',
+])
+
 const zoomByPlaceType = {
   Country: 4,
   State: 6,
@@ -615,6 +630,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
     const mapBounds = (this.data.attribute_list || []).filter(
       attr => attr.type === 'map:bounds'
     )
+    const canAdd = this.appState?.permissions?.canAdd
     switch (sectionKey) {
       case 'relationships':
         return html`<grampsjs-relationships
@@ -640,7 +656,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
           ></grampsjs-names>
         `
       case 'placeNames':
-        return html` ${this.data.alt_names?.length > 0 || this.edit
+        return html` ${this.data.alt_names?.length > 0 || canAdd
           ? html` <grampsjs-place-names
               .appState="${this.appState}"
               .strings="${this.strings}"
@@ -650,7 +666,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
             ></grampsjs-place-names>`
           : ''}`
       case 'enclosed':
-        return html` ${this.data.placeref_list?.length || this.edit
+        return html` ${this.data.placeref_list?.length || canAdd
           ? html`
               <h4>${this._('Enclosed By')}</h4>
               <grampsjs-place-refs
@@ -811,7 +827,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
       case 'metadata':
         return html`
           ${this.data.attribute_list?.length > 0 ||
-          (this.edit && 'attribute_list' in this.data)
+          (canAdd && 'attribute_list' in this.data)
             ? html` <h4>${this._('Attributes')}</h4>
                 <grampsjs-attributes
                   hasEdit
@@ -828,7 +844,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
                   .data=${this.data.address_list ?? []}
                 ></grampsjs-addresses>`
             : ''}
-          ${this.data.urls?.length > 0 || (this.edit && 'urls' in this.data)
+          ${this.data.urls?.length > 0 || (canAdd && 'urls' in this.data)
             ? html`<h4>${this._('Internet')}</h4>
                 <grampsjs-urls
                   hasEdit
@@ -880,7 +896,10 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
     }
     return Object.keys(_allTabs).filter(
       key =>
-        _allTabs[key].condition(this.data) &&
+        (_allTabs[key].condition(this.data) ||
+          (this.appState?.permissions?.canAdd &&
+            ADDABLE_TABS.has(key) &&
+            _allTabs[key].conditionEdit(this.data))) &&
         (this._showReferences || key !== 'references')
     )
   }

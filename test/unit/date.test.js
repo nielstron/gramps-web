@@ -13,6 +13,11 @@ describe('localized dates', () => {
     )
   })
 
+  it('localizes month-precision ISO dates', () => {
+    expect(formatDateString('1972-05', 'en-US')).to.equal('5/1972')
+    expect(formatDateString('1972-05', 'de-CH')).to.equal('5.1972')
+  })
+
   it('preserves year-only dates and non-ISO text dates', () => {
     expect(formatDateString('1985', 'de-CH')).to.equal('1985')
     expect(formatDateString('late spring', 'de-CH')).to.equal('late spring')

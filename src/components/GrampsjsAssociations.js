@@ -17,6 +17,12 @@ export class GrampsjsAssociations extends GrampsjsEditableList {
     }
   }
 
+  constructor() {
+    super()
+    this.hasAdd = false
+    this.hasShare = true
+  }
+
   row(obj, i) {
     return html`
       <md-list-item
@@ -51,7 +57,7 @@ export class GrampsjsAssociations extends GrampsjsEditableList {
     return `person/${grampsId}`
   }
 
-  _handleAdd() {
+  _handleShare() {
     this.dialogContent = html`
       <grampsjs-form-edit-association
         new

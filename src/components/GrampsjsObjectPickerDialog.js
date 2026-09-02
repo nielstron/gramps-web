@@ -18,6 +18,10 @@ import {
   objectTypePlural,
 } from '../util.js'
 import {getRecentObjects, getTreeBookmarks} from '../api.js'
+import {
+  PERSON_PICKER_CREATED_EVENT,
+  personNameFromQuery,
+} from '../personPicker.js'
 import './GrampsjsSearchResultList.js'
 import './GrampsjsButtonToggle.js'
 import './GrampsjsIcon.js'
@@ -208,6 +212,24 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     this._typeFilters = Object.fromEntries(
       FILTERABLE_TYPES.map(key => [key, false])
     )
+    this._personPickerRequestId = ''
+    this._boundHandleCreatedPerson = event => this._handleCreatedPerson(event)
+  }
+
+  connectedCallback() {
+    super.connectedCallback()
+    window.addEventListener(
+      PERSON_PICKER_CREATED_EVENT,
+      this._boundHandleCreatedPerson
+    )
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener(
+      PERSON_PICKER_CREATED_EVENT,
+      this._boundHandleCreatedPerson
+    )
+    super.disconnectedCallback()
   }
 
   render() {
@@ -248,6 +270,13 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
         </div>
 
         <div slot="actions">
+          ${this._canCreatePerson()
+            ? html`
+                <md-text-button @click="${this._handleAddPerson}">
+                  ${this._('Add person')}
+                </md-text-button>
+              `
+            : ''}
           ${this._canCreatePlace()
             ? html`
                 <md-text-button @click="${this._openCreatePlace}">
@@ -310,6 +339,42 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
         .map(type => type.trim())
         .includes('place') && this.appState?.permissions?.canAdd
     )
+  }
+
+  _canCreatePerson() {
+    return (
+      this.objectType
+        .split(',')
+        .map(type => type.trim())
+        .includes('person') && this.appState?.permissions?.canAdd
+    )
+  }
+
+  _handleAddPerson() {
+    this._personPickerRequestId = crypto.randomUUID()
+    const query =
+      this.renderRoot.getElementById('textfield')?.value ?? this._query
+    const state = {
+      personPickerRequestId: this._personPickerRequestId,
+      newPersonName: personNameFromQuery(query),
+    }
+    this._close()
+    fireEvent(this, 'nav', {
+      path: 'new_person',
+      preserveEdit: true,
+      state,
+    })
+  }
+
+  _handleCreatedPerson(event) {
+    if (event.detail.requestId !== this._personPickerRequestId) return
+    this._personPickerRequestId = ''
+    const object = event.detail.object
+    fireEvent(this, 'select-object:selected', {
+      object_type: 'person',
+      object,
+      handle: object.handle,
+    })
   }
 
   _openCreatePlace() {

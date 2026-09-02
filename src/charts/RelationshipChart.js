@@ -318,12 +318,18 @@ function surnameFromName(name) {
 }
 
 export function surnameWithBirthName(person, bornLabel = 'born') {
-  const currentSurname =
-    person?.profile?.name_surname || surnameFromName(person?.primary_name)
-  const birthName =
+  const names = [
+    person?.primary_name,
+    ...(person?.alternate_names || []),
+  ].filter(Boolean)
+  const birthName = names.find(name => nameType(name) === 'Birth Name')
+  const marriedName = names.find(name => nameType(name) === 'Married Name')
+  const currentName =
     nameType(person?.primary_name) === 'Birth Name'
-      ? person.primary_name
-      : person?.alternate_names?.find(name => nameType(name) === 'Birth Name')
+      ? marriedName || person.primary_name
+      : person?.primary_name || marriedName
+  const currentSurname =
+    surnameFromName(currentName) || person?.profile?.name_surname
   const birthSurname = surnameFromName(birthName)
   if (!birthSurname || birthSurname === currentSurname) return currentSurname
   return `${currentSurname} (${bornLabel} ${birthSurname})`
@@ -446,7 +452,7 @@ function remasterChart(
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
           ? `${surnameWithBirthName(d.data, bornLabel)},`
-          : d.profile?.name_given,
+          : d.profile?.name_given || '…',
         boxWidthTotal(d)
       )
     )
@@ -469,7 +475,7 @@ function remasterChart(
     .text(d =>
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? d.profile?.name_given
+          ? d.profile?.name_given || '…'
           : surnameWithBirthName(d.data, bornLabel),
         boxWidthTotal(d)
       )
