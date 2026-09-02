@@ -1,6 +1,7 @@
 import {html, LitElement, css} from 'lit'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 import {sharedStyles} from '../SharedStyles.js'
+import {formatDateValue} from '../date.js'
 
 export class GrampsjsAddresses extends GrampsjsAppStateMixin(LitElement) {
   static get styles() {
@@ -52,7 +53,7 @@ export class GrampsjsAddresses extends GrampsjsAppStateMixin(LitElement) {
             ? html`
                 <div>
                   <dt>${this._('Date')}</dt>
-                  <dd>${this._toDate(obj?.date?.dateval)}</dd>
+                  <dd>${formatDateValue(obj.date.dateval)}</dd>
                 </div>
               `
             : ''}
@@ -109,15 +110,6 @@ export class GrampsjsAddresses extends GrampsjsAppStateMixin(LitElement) {
     )}
       </table>
     `
-  }
-
-  // eslint-disable-next-line class-methods-use-this
-  _toDate(dateVal) {
-    try {
-      return `${dateVal[2]}-${dateVal[1]}-${dateVal[0]}`
-    } catch {
-      return ''
-    }
   }
 }
 

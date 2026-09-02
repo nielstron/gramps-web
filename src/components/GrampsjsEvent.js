@@ -10,6 +10,7 @@ import './GrampsjsFormEditTitle.js'
 import './GrampsjsIcon.js'
 import './GrampsjsTooltip.js'
 import {emptyDate, fireEvent, objectIconPath} from '../util.js'
+import {formatDateString} from '../date.js'
 import './GrampsjsObjectLink.js'
 
 export class GrampsjsEvent extends GrampsjsObject {
@@ -83,7 +84,7 @@ export class GrampsjsEvent extends GrampsjsObject {
           ? html`
               <div>
                 <dt>${this._('Date')}</dt>
-                <dd>${this.data.profile.date}</dd>
+                <dd>${formatDateString(this.data.profile.date)}</dd>
               </div>
             `
           : ''}

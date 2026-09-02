@@ -9,6 +9,7 @@ import './GrampsjsIcon.js'
 import './GrampsjsFormEditCitationDetails.js'
 import {emptyDate, fireEvent, linkUrls, objectIconPath} from '../util.js'
 import {appUrl} from '../appUrl.js'
+import {formatDateString} from '../date.js'
 
 const confidence = {
   0: 'Very Low',
@@ -45,7 +46,7 @@ export class GrampsjsCitation extends GrampsjsObject {
           ? html`
               <div>
                 <dt>${this._('Date')}</dt>
-                <dd>${this.data.profile.date}</dd>
+                <dd>${formatDateString(this.data.profile.date)}</dd>
               </div>
             `
           : ''}

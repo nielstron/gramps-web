@@ -9,6 +9,7 @@ import '../components/GrampsjsFilterYears.js'
 import '../components/GrampsjsFilterTags.js'
 import '../components/GrampsjsFilterPrivate.js'
 import {GrampsjsViewObjectsBase} from './GrampsjsViewObjectsBase.js'
+import {formatDateString} from '../date.js'
 import {
   prettyTimeDiffTimestamp,
   filterCounts,
@@ -111,7 +112,7 @@ export class GrampsjsViewEvents extends GrampsjsViewObjectsBase {
     return {
       grampsId: row.gramps_id,
       type: row?.profile?.type,
-      date: row?.profile?.date,
+      date: formatDateString(row?.profile?.date),
       place: row?.profile?.place_name || row?.profile?.place,
       participants: [...people, ...families].join(', '),
       description: row?.description,

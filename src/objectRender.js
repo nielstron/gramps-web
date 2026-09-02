@@ -3,6 +3,7 @@ import {html} from 'lit'
 import {asteriskIcon, crossIcon} from './icons.js'
 import {hex6ToCss, hex12ToCss} from './color.js'
 import {appUrl} from './appUrl.js'
+import {formatDateString} from './date.js'
 import {
   familyTitleFromProfile,
   eventTitleFromProfile,
@@ -34,12 +35,16 @@ export function renderPerson(personProfile) {
     </span>
     ${personProfile?.birth?.date
       ? html` <span class="event"
-          ><i>${asteriskIcon}</i> ${personProfile.birth.date}</span
+          ><i>${asteriskIcon}</i> ${formatDateString(
+            personProfile.birth.date
+          )}</span
         >`
       : ''}
     ${personProfile?.death?.date
       ? html` <span class="event"
-          ><i>${crossIcon}</i> ${personProfile.death.date}</span
+          ><i>${crossIcon}</i> ${formatDateString(
+            personProfile.death.date
+          )}</span
         >`
       : ''}
   `

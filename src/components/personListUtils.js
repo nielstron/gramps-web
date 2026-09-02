@@ -4,6 +4,7 @@ import {mdiAccount} from '@mdi/js'
 import {objectIconPath} from '../util.js'
 import './GrampsjsImg.js'
 import './GrampsjsIcon.js'
+import {formatDateString} from '../date.js'
 
 export const genderBorderColor = {
   F: 'var(--color-girl)',
@@ -40,8 +41,8 @@ export function renderPersonAvatar(extPerson, sex) {
 }
 
 export function renderPersonDates(profile, {showAge = true} = {}) {
-  const birthStr = profile?.birth?.date || ''
-  const deathStr = profile?.death?.date || ''
+  const birthStr = formatDateString(profile?.birth?.date)
+  const deathStr = formatDateString(profile?.death?.date)
   const ageStr =
     showAge && profile?.death?.date && profile?.death?.age
       ? `(${profile.death.age})`

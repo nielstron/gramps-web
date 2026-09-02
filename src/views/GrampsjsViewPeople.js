@@ -5,6 +5,7 @@ People list view
 import {html} from 'lit'
 import {GrampsjsViewObjectsBase} from './GrampsjsViewObjectsBase.js'
 import {prettyTimeDiffTimestamp, personFilter, filterCounts} from '../util.js'
+import {formatDateString} from '../date.js'
 import '../components/GrampsjsFilterYears.js'
 import '../components/GrampsjsFilterProperties.js'
 import '../components/GrampsjsFilterTags.js'
@@ -68,9 +69,9 @@ export class GrampsjsViewPeople extends GrampsjsViewObjectsBase {
       grampsId: row.gramps_id,
       surname: row?.profile?.name_surname,
       given: row?.profile?.name_given,
-      birth: birthDate,
+      birth: formatDateString(birthDate),
       birthPlace: row?.profile?.birth?.place_name,
-      death: deathDate,
+      death: formatDateString(deathDate),
       deathPlace: row?.profile?.death?.place_name,
       age: _ageAtDeath(birthDate, deathDate),
       change: prettyTimeDiffTimestamp(row.change, this.appState.i18n.lang),

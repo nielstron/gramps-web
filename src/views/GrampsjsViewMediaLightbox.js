@@ -19,6 +19,7 @@ import '../components/GrampsjsTooltip.js'
 import '../components/GrampsjsIcon.js'
 import {getMediaUrl} from '../api.js'
 import {fireEvent, getNameFromProfile} from '../util.js'
+import {formatDateString} from '../date.js'
 
 // Make sure to synchronize this with the CSS variable --grampsjs-lightbox-toolbar-height in GrampsjsLightbox.js
 const LIGHTBOX_TOOLBAR_HEIGHT = 70
@@ -113,7 +114,9 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
         <span slot="description"
           >${this._data?.desc || ''}
           ${this._data?.profile?.date
-            ? html`<span class="date">${this._data?.profile?.date}</span>`
+            ? html`<span class="date"
+                >${formatDateString(this._data?.profile?.date)}</span
+              >`
             : ''}</span
         >
         <span slot="button">

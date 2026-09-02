@@ -16,6 +16,7 @@ import './GrampsjsEditGender.js'
 import './GrampsjsPersonRelationship.js'
 import './GrampsjsFormExternalSearch.js'
 import {fireEvent, objectIconPath} from '../util.js'
+import {formatDateString} from '../date.js'
 
 export class GrampsjsPerson extends GrampsjsObject {
   static get styles() {
@@ -109,7 +110,7 @@ export class GrampsjsPerson extends GrampsjsObject {
     return html`
       <span class="event">
         <i>${asteriskIcon}</i>
-        ${obj.date || ''} ${obj.place ? this._('in') : ''}
+        ${formatDateString(obj.date)} ${obj.place ? this._('in') : ''}
         ${obj.place_name || obj.place || ''}
       </span>
     `
@@ -123,7 +124,7 @@ export class GrampsjsPerson extends GrampsjsObject {
     return html`
       <span class="event">
         <i>${crossIcon}</i>
-        ${obj.date || ''} ${obj.place ? this._('in') : ''}
+        ${formatDateString(obj.date)} ${obj.place ? this._('in') : ''}
         ${obj.place_name || obj.place || ''}
       </span>
     `

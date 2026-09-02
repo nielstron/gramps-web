@@ -7,6 +7,7 @@ import './GrampsjsEvents.js'
 import {GrampsjsConnectedComponent} from './GrampsjsConnectedComponent.js'
 import {fireEvent, personProfileDisplayName} from '../util.js'
 import {sharedStyles} from '../SharedStyles.js'
+import {formatDateString} from '../date.js'
 
 export class GrampsjsPersonBox extends GrampsjsConnectedComponent {
   static get styles() {
@@ -90,9 +91,9 @@ export class GrampsjsPersonBox extends GrampsjsConnectedComponent {
     const person = this.personData || this._data?.data
     if (!person) return ''
     const fullName = personProfileDisplayName(person.profile)
-    const birthDate = person.profile?.birth?.date || ''
+    const birthDate = formatDateString(person.profile?.birth?.date)
     const birthPlace = person.profile?.birth?.place_name || ''
-    const deathDate = person.profile?.death?.date || ''
+    const deathDate = formatDateString(person.profile?.death?.date)
     const deathPlace = person.profile?.death?.place_name || ''
     return html`
       <h2>${fullName || this.name || this._('Person')}</h2>

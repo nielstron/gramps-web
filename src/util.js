@@ -54,6 +54,7 @@ import './components/GrampsjsIcon.js'
 import {frontendLanguages} from './strings.js'
 
 import {dateToSdn, CALENDARS} from './gcalendar.js'
+import {formatDateString} from './date.js'
 
 dayjs.extend(relativeTime)
 
@@ -416,15 +417,19 @@ export function objectDetail(type, obj, strings) {
   switch (type) {
     case 'person':
       return `
-    ${obj?.profile?.birth?.date ? `∗ ${obj.profile.birth.date}` : ''}${
-        obj?.profile?.birth?.place && obj?.profile?.birth?.date ? ', ' : ''
-      }${obj?.profile?.birth?.place_name || obj?.profile?.birth?.place || ''}
+    ${
+      obj?.profile?.birth?.date
+        ? `∗ ${formatDateString(obj.profile.birth.date)}`
+        : ''
+    }${obj?.profile?.birth?.place && obj?.profile?.birth?.date ? ', ' : ''}${
+        obj?.profile?.birth?.place_name || obj?.profile?.birth?.place || ''
+      }
     `
     // case 'family':
     //   return ''
     case 'event':
       return `
-    ${obj?.profile?.date || ''}${
+    ${formatDateString(obj?.profile?.date)}${
         obj?.profile?.place && obj?.profile?.date ? ', ' : ''
       }${obj?.profile?.place_name || obj?.profile?.place || ''}
     `
