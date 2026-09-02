@@ -55,57 +55,37 @@ function createGraph(graph) {
       graph.addEdge(f.handle, mother, me)
     }
   }
-
-  // step 5: connect unconnected couples (no parents and more than one family)
-  for (const p of data) {
-    const fp = p.extended?.primary_parent_family
-    // no parents?
-    if (
-      (!fp?.father_handle || !graph.known(fp?.father_handle)) &&
-      (!fp?.mother_handle || !graph.known(fp?.mother_handle))
-    ) {
-      let np = 0
-      for (const f of p.extended.families) {
-        let ck = 0
-        for (const c of f.child_ref_list) {
-          if (graph.known(c.ref)) {
-            ck += 1
-          }
-        }
-        if (
-          (graph.known(f?.father_handle) && graph.known(f?.mother_handle)) ||
-          ck > 0
-        ) {
-          np += 1
-        }
-      }
-      // occurs more than one time and needs to be connected by fake parent
-      if (np > 1) {
-        const fakeHandle = `fakeparent${p.handle}`
-        graph.addPerson({
-          handle: fakeHandle,
-          gramps_id: '',
-          profile: {
-            fake: true,
-            name_given: 'FAKE',
-            name_surname: p.profile.name_surname,
-          },
-        })
-        graph.addNode({fake: true}, `p_${fakeHandle}`, fakeHandle, false)
-        graph.addEdge(`p_${fakeHandle}`, fakeHandle, p.handle)
-      }
-    }
-  }
 }
 
-function generateDot(graph) {
+function generatePersonNode(graph, familyHandle, personHandle, margin) {
+  const occurrence = graph.getNodesOfPerson(personHandle).indexOf(familyHandle)
+  const continuation = occurrence > 0
+  const className = continuation ? 'personlink' : 'person'
+  const width = continuation ? 0.1 : graph.boxWidth / 66
+  const height = continuation ? 0.1 : graph.boxHeight / 66 - 0.3
+  const nodeMargin = continuation ? 0 : margin
+  const label = continuation ? '<.>' : '<->'
+
+  return `
+        "node_${familyHandle}x${personHandle}" [
+          class="${className}_${personHandle}"
+          group="person_${personHandle}"
+          margin=${nodeMargin}
+          shape="none"
+          fixedsize=true
+          width=${width}
+          height=${height}
+          label=${label}
+        ]`
+}
+
+export function generateDot(graph) {
   let dot = ''
   // nodes
   for (const n of graph.getNodes()) {
     const pf = n.father
     const pm = n.mother
-    const widthInches = n.fake ? 0 : graph.boxWidth / 66
-    const heightInches = n.fake ? 0 : graph.boxHeight / 66 - 0.3
+    const heightInches = graph.boxHeight / 66 - 0.3
     if (pf && pm) {
       dot += `
       subgraph "cluster_${n.handle}" {
@@ -113,15 +93,7 @@ function generateDot(graph) {
         color=white
         margin="50,0"
         label="."
-        "node_${n.handle}x${pf}" [
-          class="person_${pf}"
-          margin=0
-          shape="none"
-          fixedsize=true
-          width=${widthInches}
-          height=${heightInches}
-          label=<->
-        ]
+        ${generatePersonNode(graph, n.handle, pf, 0)}
         "node_${n.handle}" [
           class="family_${n.handle}"
           label=<.>
@@ -131,15 +103,7 @@ function generateDot(graph) {
           width=0.1
           height=${heightInches}
         ]
-        "node_${n.handle}x${pm}" [
-          class="person_${pm}"
-          margin=0.25
-          shape="none"
-          fixedsize=true
-          width=${widthInches}
-          height=${heightInches}
-          label=<->
-        ]
+        ${generatePersonNode(graph, n.handle, pm, 0.25)}
       }
     `
     } else {
@@ -149,30 +113,36 @@ function generateDot(graph) {
         cluster=true
         color=white
         label="."
-        "node_${n.handle}x${p}" [
-          class="person_${p}"
-          margin=0.25
-          shape="none"
-          fixedsize=true
-          width=${widthInches}
-          height=${heightInches}
-          label=<->
-        ]
+        ${generatePersonNode(graph, n.handle, p, 0.25)}
       }
     `
     }
   }
+
+  // A person can belong to several couple nodes. Render the first occurrence
+  // as the person card and connect later, compact occurrences vertically.
+  for (const p of graph.getPersons()) {
+    const familyNodes = graph.getNodesOfPerson(p.handle)
+    for (let i = 1; i < familyNodes.length; i += 1) {
+      dot += `"node_${familyNodes[i - 1]}x${p.handle}" -> "node_${
+        familyNodes[i]
+      }x${p.handle}" [class="personlink_${
+        p.handle
+      }" arrowhead=none color="#555" weight=50]\n`
+    }
+  }
+
   // edges
   for (const e of graph.getEdges()) {
-    for (const targetnode of graph.getNodesOfPerson(e.targetPerson)) {
-      if (e.sourcePerson) {
-        // one-person node as source
-        dot += `"node_${e.sourceFamily}x${e.sourcePerson}" -> "node_${targetnode}x${e.targetPerson}" [label="", arrowhead=none, color="#555"]
+    const targetnode = graph.getNodesOfPerson(e.targetPerson)[0]
+    if (!targetnode) continue
+    if (e.sourcePerson) {
+      // one-person node as source
+      dot += `"node_${e.sourceFamily}x${e.sourcePerson}" -> "node_${targetnode}x${e.targetPerson}" [label="", arrowhead=none, color="#555"]
       `
-      } else {
-        dot += `"node_${e.sourceFamily}" -> "node_${targetnode}x${e.targetPerson}" [ltail="node_${e.sourceFamily}", label="", arrowhead=none, color="#555"]
+    } else {
+      dot += `"node_${e.sourceFamily}" -> "node_${targetnode}x${e.targetPerson}" [ltail="node_${e.sourceFamily}", label="", arrowhead=none, color="#555"]
       `
-      }
     }
   }
 
@@ -196,7 +166,7 @@ function generateDot(graph) {
   return dot
 }
 
-class Relgraph {
+export class Relgraph {
   constructor(data, boxWidth, boxHeight, grampsId) {
     this.data = data
     this.boxWidth = boxWidth
@@ -356,17 +326,23 @@ function remasterChart(
     const x = textElement.attr('x')
     const y = textElement.attr('y')
     const c = e.attr('class')
-    const found = c.match(/(?<handletype>family|person)_(?<handle>\S+)/)
-    if (found.groups.handletype === 'person') {
+    const found = c.match(
+      /(?<handletype>family|personlink|person)_(?<handle>\S+)/
+    )
+    if (
+      found.groups.handletype === 'person' ||
+      found.groups.handletype === 'personlink'
+    ) {
       const d = graph.known(found.groups.handle)
-      const imageUrl = getImageUrl(d)
+      const isContinuation = found.groups.handletype === 'personlink'
+      const imageUrl = isContinuation ? '' : getImageUrl(d)
       if (imageUrl) {
         imageCount += 1
       }
       nodedata.push({
-        nodetype: d.profile.fake ? 'fake' : 'person',
-        xCoord: x - boxWidth / 2 + 4,
-        yCoord: y - boxHeight / 2,
+        nodetype: isContinuation ? 'person-link' : 'person',
+        xCoord: isContinuation ? x : x - boxWidth / 2 + 4,
+        yCoord: isContinuation ? y : y - boxHeight / 2,
         profile: d.profile,
         imageUrl: imageCount > maxImages ? '' : imageUrl,
         handle: found.groups.handle,
@@ -393,6 +369,12 @@ function remasterChart(
     .append('g')
     .attr('transform', d => `translate(${d.xCoord} ${d.yCoord})`)
     .attr('class', d => `node ${d.nodetype}`)
+
+  nodes
+    .filter(d => d.nodetype === 'person-link')
+    .append('circle')
+    .attr('r', 4)
+    .attr('fill', 'var(--grampsjs-body-font-color-40)')
 
   nodes
     .filter(d => d.nodetype === 'person')
@@ -604,7 +586,9 @@ function remasterChart(
 
   // move root person to center
   nodes
-    .filter(d => d.handle === graph.rootPerson?.handle)
+    .filter(
+      d => d.nodetype === 'person' && d.handle === graph.rootPerson?.handle
+    )
     .each(d => {
       const rpc = {
         x: -1 * d.xCoord - boxWidth / 2,
@@ -615,7 +599,9 @@ function remasterChart(
 
   // highlight root person
   nodes
-    .filter(d => d.handle === graph.rootPerson?.handle)
+    .filter(
+      d => d.nodetype === 'person' && d.handle === graph.rootPerson?.handle
+    )
     .style(
       'filter',
       'drop-shadow(0 3px 8px var(--grampsjs-body-font-color-30))'
