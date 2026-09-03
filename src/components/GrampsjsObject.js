@@ -457,6 +457,13 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
     if (Object.keys(this.data).length === 0) {
       return html``
     }
+    if (this.preview && this._objectEndpoint === 'people') {
+      return html`
+        ${this.renderHeader()}
+        <div id="picture">${this.renderPicture()}</div>
+        ${this.renderProfile()} ${this.dialogContent}
+      `
+    }
     return html`
       ${this.renderHeader()}
 

@@ -174,6 +174,46 @@ describe('RelationshipChart', () => {
     expect(navigationEvent.detail).toEqual({path: 'person/I0042'})
   })
 
+  it('refocuses the tree when a person node is clicked', async () => {
+    const selected = person('I0042', [])
+    const svg = RelationshipChart([selected], {
+      grampsId: 'I0042',
+      getImageUrl: () => '',
+    })
+    let selectionEvent
+    svg.addEventListener('pedigree:person-selected', event => {
+      selectionEvent = event
+    })
+
+    await vi.waitFor(() => expect(svg.querySelector('g.person')).toBeTruthy())
+    svg
+      .querySelector('g.person')
+      .dispatchEvent(new MouseEvent('click', {bubbles: true}))
+
+    expect(selectionEvent?.detail).toEqual({grampsId: 'I0042'})
+  })
+
+  it('opens the profile from the magnifier button', async () => {
+    const selected = person('I0042', [])
+    const svg = RelationshipChart([selected], {
+      grampsId: 'I0042',
+      getImageUrl: () => '',
+    })
+    let navigationEvent
+    svg.addEventListener('nav', event => {
+      navigationEvent = event
+    })
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('.open-person-btn')).toBeTruthy()
+    )
+    svg
+      .querySelector('.open-person-btn')
+      .dispatchEvent(new MouseEvent('click', {bubbles: true}))
+
+    expect(navigationEvent?.detail).toEqual({path: 'person/I0042'})
+  })
+
   it('renders an ellipsis for a missing given name', async () => {
     const unknown = person('U', [])
     unknown.profile.name_given = ''

@@ -25,14 +25,23 @@ const POPUP_MARGIN = 8
 // Some object types (e.g. events) typically have much less content than
 // others (e.g. people), so they get a shorter default popup height.
 const POPUP_HEIGHT_BY_TYPE = {
+  person: 280,
   event: 400,
   source: 500,
   citation: 500,
   repository: 500,
 }
 
+const POPUP_WIDTH_BY_TYPE = {
+  person: 400,
+}
+
 function getPopupHeight(objectType) {
   return POPUP_HEIGHT_BY_TYPE[objectType] ?? POPUP_HEIGHT
+}
+
+function getPopupWidth(objectType) {
+  return POPUP_WIDTH_BY_TYPE[objectType] ?? POPUP_WIDTH
 }
 
 const NOTE_LINK_FORMAT = encodeURIComponent(
@@ -73,7 +82,6 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
 
       #popup {
         position: fixed;
-        width: ${POPUP_WIDTH}px;
         background: var(--md-sys-color-surface);
         color: var(--md-sys-color-on-surface);
         border: 1px solid var(--md-sys-color-outline-variant);
@@ -102,7 +110,7 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
       }
 
       #content {
-        height: 100%;
+        max-height: inherit;
         overflow-y: auto;
         padding: 16px;
         padding-right: 56px;
@@ -136,6 +144,7 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
     this._mouseInPopup = false
     this._boundShow = this._handleShow.bind(this)
     this._boundHide = this._handleHide.bind(this)
+    this._boundOutsidePointerDown = this._handleOutsidePointerDown.bind(this)
     this._boundNav = () => {
       this._visible = false
     }
@@ -148,6 +157,7 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
     super.connectedCallback()
     window.addEventListener('object:preview-show', this._boundShow)
     window.addEventListener('object:preview-hide', this._boundHide)
+    window.addEventListener('pointerdown', this._boundOutsidePointerDown, true)
     window.addEventListener('nav', this._boundNav)
     window.addEventListener('db:changed', this._boundDbChanged)
   }
@@ -156,6 +166,11 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
     super.disconnectedCallback()
     window.removeEventListener('object:preview-show', this._boundShow)
     window.removeEventListener('object:preview-hide', this._boundHide)
+    window.removeEventListener(
+      'pointerdown',
+      this._boundOutsidePointerDown,
+      true
+    )
     window.removeEventListener('nav', this._boundNav)
     window.removeEventListener('db:changed', this._boundDbChanged)
     clearTimeout(this._showTimer)
@@ -206,10 +221,19 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
     }, HIDE_DELAY)
   }
 
+  _handleOutsidePointerDown(event) {
+    if (!this._visible || event.composedPath().includes(this)) return
+    clearTimeout(this._showTimer)
+    clearTimeout(this._hideTimer)
+    this._mouseInPopup = false
+    this._visible = false
+  }
+
   _position(anchorRect) {
     const viewportW = window.innerWidth
     const viewportH = window.innerHeight
     const popupHeight = getPopupHeight(this._objectType)
+    const popupWidth = getPopupWidth(this._objectType)
 
     const spaceBelow = viewportH - anchorRect.bottom - POPUP_MARGIN
     const spaceAbove = anchorRect.top - POPUP_MARGIN
@@ -220,14 +244,14 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
     // viewport edge in the "just barely fits" case.
     const fitsBelow = spaceBelow >= popupHeight + POPUP_MARGIN
     const fitsAbove = spaceAbove >= popupHeight + POPUP_MARGIN
-    const fitsRight = spaceRight >= POPUP_WIDTH + POPUP_MARGIN
-    const fitsLeft = spaceLeft >= POPUP_WIDTH + POPUP_MARGIN
+    const fitsRight = spaceRight >= popupWidth + POPUP_MARGIN
+    const fitsLeft = spaceLeft >= popupWidth + POPUP_MARGIN
 
     // Clamp helpers that keep the popup inside the viewport on the secondary axis.
     const clampedX = left =>
       Math.max(
         POPUP_MARGIN,
-        Math.min(left, viewportW - POPUP_WIDTH - POPUP_MARGIN)
+        Math.min(left, viewportW - popupWidth - POPUP_MARGIN)
       )
     const clampedY = top =>
       Math.max(
@@ -247,7 +271,7 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
       this._x = anchorRect.right + POPUP_MARGIN
       this._y = clampedY(anchorRect.top)
     } else if (fitsLeft) {
-      this._x = anchorRect.left - POPUP_WIDTH - POPUP_MARGIN
+      this._x = anchorRect.left - popupWidth - POPUP_MARGIN
       this._y = clampedY(anchorRect.top)
     } else {
       // Nothing fits perfectly — pick the roomiest side and accept viewport clipping
@@ -263,7 +287,7 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
         this._x = anchorRect.right + POPUP_MARGIN
         this._y = clampedY(anchorRect.top)
       } else {
-        this._x = anchorRect.left - POPUP_WIDTH - POPUP_MARGIN
+        this._x = anchorRect.left - popupWidth - POPUP_MARGIN
         this._y = clampedY(anchorRect.top)
       }
     }
@@ -373,9 +397,9 @@ export class GrampsjsObjectPreview extends GrampsjsAppStateMixin(LitElement) {
       <div
         id="popup"
         class="${this._visible ? 'visible' : ''}"
-        style="left:${this._x}px;top:${this._y}px;height:${getPopupHeight(
+        style="left:${this._x}px;top:${this._y}px;width:${getPopupWidth(
           this._objectType
-        )}px"
+        )}px;max-height:${getPopupHeight(this._objectType)}px"
         @mouseenter="${this._handlePopupMouseEnter}"
         @mouseleave="${this._handlePopupMouseLeave}"
       >

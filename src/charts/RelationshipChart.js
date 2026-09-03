@@ -305,14 +305,67 @@ const clipString = (s, length) => {
 }
 
 export function openPersonProfile(event, d) {
+  const grampsId = d.data?.gramps_id || d.profile?.gramps_id
   this.dispatchEvent(
     new CustomEvent('nav', {
       bubbles: true,
       composed: true,
-      detail: {path: `person/${d.profile?.gramps_id}`},
+      detail: {path: `person/${grampsId}`},
     })
   )
 }
+
+export function focusPerson(event, d) {
+  const grampsId = d.data?.gramps_id || d.profile?.gramps_id
+  this.dispatchEvent(
+    new CustomEvent('pedigree:person-selected', {
+      bubbles: true,
+      composed: true,
+      detail: {grampsId},
+    })
+  )
+}
+
+function appendOpenPersonButton(nodeSelection, cx, cy, label) {
+  const button = nodeSelection
+    .append('g')
+    .attr('class', 'open-person-btn')
+    .attr('transform', `translate(${cx}, ${cy})`)
+    .attr('role', 'button')
+    .attr('aria-label', label)
+    .style('cursor', 'pointer')
+    .style('filter', 'drop-shadow(0 1px 3px rgba(0,0,0,0.35))')
+    .on('click', function (event, d) {
+      event.stopPropagation()
+      event.preventDefault()
+      openPersonProfile.call(this, event, d)
+    })
+    .on('pointerdown', event => event.stopPropagation())
+
+  button.append('circle').attr('r', 10).attr('fill', '#1976d2')
+
+  button
+    .append('circle')
+    .attr('cx', -1)
+    .attr('cy', -1)
+    .attr('r', 3.5)
+    .attr('fill', 'none')
+    .attr('stroke', '#ffffff')
+    .attr('stroke-width', 1.5)
+    .style('pointer-events', 'none')
+
+  button
+    .append('line')
+    .attr('x1', 2)
+    .attr('y1', 2)
+    .attr('x2', 5)
+    .attr('y2', 5)
+    .attr('stroke', '#ffffff')
+    .attr('stroke-width', 1.5)
+    .attr('stroke-linecap', 'round')
+    .style('pointer-events', 'none')
+}
+
 function remasterChart(
   divhidden,
   targetsvg,
@@ -325,6 +378,7 @@ function remasterChart(
   nameDisplayFormat,
   bornLabel,
   locale,
+  openProfileLabel,
   canEdit = false
 ) {
   const gvchartx = divhidden.select('svg')
@@ -535,8 +589,8 @@ function remasterChart(
 
   nodes
     .filter(d => d.nodetype === 'person')
-    .style('cursor', canEdit ? 'default' : 'pointer')
-    .on('click', canEdit ? null : openPersonProfile)
+    .style('cursor', 'pointer')
+    .on('click', focusPerson)
     .on('mouseenter', function (event, d) {
       if (canEdit) return
       if (window.matchMedia('(hover: none)').matches) return
@@ -556,6 +610,13 @@ function remasterChart(
       if (window.matchMedia('(hover: none)').matches) return
       window.dispatchEvent(new CustomEvent('object:preview-hide'))
     })
+
+  appendOpenPersonButton(
+    nodes.filter(d => d.nodetype === 'person'),
+    boxWidth - 14,
+    boxHeight - 14,
+    openProfileLabel
+  )
 
   if (canEdit) {
     appendAddPersonButton(
@@ -638,6 +699,7 @@ export function RelationshipChart(
     nameDisplayFormat = chartNameDisplayFormat.surnameThenGiven,
     bornLabel = 'born',
     locale = undefined,
+    openProfileLabel = 'Open profile',
     canEdit = false,
     initialZoom = null,
   }
@@ -677,6 +739,7 @@ export function RelationshipChart(
       nameDisplayFormat,
       bornLabel,
       locale,
+      openProfileLabel,
       canEdit
     )
     svg.attr('viewBox', [

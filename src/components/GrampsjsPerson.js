@@ -10,6 +10,7 @@ import {
   mdiTimelineOutline,
   mdiMap,
   mdiImagePlus,
+  mdiPlus,
 } from '@mdi/js'
 import {GrampsjsObject} from './GrampsjsObject.js'
 import {asteriskIcon, crossIcon} from '../icons.js'
@@ -87,6 +88,33 @@ export class GrampsjsPerson extends GrampsjsObject {
 
         button.profile-picture-placeholder:hover {
           background: var(--md-sys-color-surface-variant);
+        }
+
+        .preview-add-relative {
+          margin-top: 12px;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: #1976d2;
+          --md-icon-button-icon-size: 19px;
+          --md-icon-button-icon-color: #ffffff;
+          --md-icon-button-icon-opacity: 1;
+        }
+
+        :host([preview]) #picture {
+          float: right;
+          margin: 0 0 8px 16px;
+        }
+
+        :host([preview]) .profile-picture,
+        :host([preview]) .profile-picture-placeholder {
+          width: 72px;
+          height: 72px;
+        }
+
+        :host([preview]) h2 {
+          margin-top: 0;
+          font-size: 22px;
         }
 
         @container (max-width: 500px) {
@@ -226,14 +254,28 @@ export class GrampsjsPerson extends GrampsjsObject {
       </h2>
       ${this._renderBirth()} ${this._renderDeath()} ${this._renderRelation()}
       ${this.preview
-        ? ''
+        ? this.appState?.permissions?.canAdd
+          ? html`
+              <md-icon-button
+                class="preview-add-relative"
+                title="${this._('Add Family Member')}"
+                aria-label="${this._('Add Family Member')}"
+                @click="${this._handleAddFamilyMemberClick}"
+              >
+                <grampsjs-icon
+                  path="${mdiPlus}"
+                  color="#ffffff"
+                ></grampsjs-icon>
+              </md-icon-button>
+            `
+          : ''
         : html`<p class="button-list">
             ${this._renderTreeBtn()} ${this._renderTimelineBtn()}
             ${this._renderMapBtn()} ${this._renderDnaBtn()}
             ${this._renderAddFamilyMemberBtn()}
             ${this._renderExternalSearchBtn()}
           </p>`}
-      ${!this.preview && this.appState?.permissions?.canAdd
+      ${this.appState?.permissions?.canAdd
         ? html`<grampsjs-tree-chart-add-person
             id="add-family-member"
             .appState="${this.appState}"
