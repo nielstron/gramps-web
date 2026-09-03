@@ -34,6 +34,7 @@
     "To start using the blog, add a source with tag 'Blog'.": "Um den Blog zu verwenden, füge eine Quelle mit dem Etikett \"Blog\" hinzu.",
     "Welcome to Gramps Web": "Willkommen auf Gramps Web",
     "Create an admin account": "Ein Administratorkonto erstellen",
+    "born": "geb.",
     "Enter the details for the admin user.": "Gib die Details für den Admin-Benutzer ein.",
     "Optionally, enter existing IMAP credentials to enable e-mail notifications required e.g. for user registration.": "Optional kannst du vorhandene IMAP-Zugangsdaten eingeben, um E-Mail-Benachrichtigungen zu aktivieren, die z. B. für die Benutzerregistrierung erforderlich sind.",
     "SMTP host": "SMTP-Host",
