@@ -67,6 +67,7 @@ class GrampsjsRelationshipChart extends GrampsjsChartBase {
         bboxHeight: this.containerHeight,
         nameDisplayFormat: this.nameDisplayFormat,
         bornLabel: this._('born'),
+        locale: this.appState?.i18n?.lang,
         canEdit: this.canEdit,
         initialZoom: this._savedZoom,
       })}

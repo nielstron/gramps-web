@@ -79,6 +79,7 @@ export class GrampsjsViewRelationshipChart extends GrampsjsViewTreeChartBase {
     return html`
       <div @add-new-person-relation="${this._handleAddPersonRelation}">
         <grampsjs-relationship-chart
+          .appState=${this.appState}
           grampsId=${this.grampsId}
           nAnc=${this.nAnc + 1}
           nMaxImages=${this.nMaxImages}

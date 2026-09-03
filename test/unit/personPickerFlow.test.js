@@ -112,6 +112,31 @@ describe('unified person picker flow', () => {
     expect(markup).toContain('<grampsjs-tree-chart-add-person')
   })
 
+  it('shows a differing birth surname in the person profile heading', () => {
+    const person = new GrampsjsPerson()
+    person.appState = {
+      ...appState,
+      i18n: {lang: 'de', strings: {born: 'geb.'}},
+    }
+    person.data = {
+      profile: {name_given: 'Anna', name_surname: 'Müller'},
+      primary_name: {
+        type: 'Married Name',
+        surname_list: [{prefix: '', surname: 'Müller', connector: ''}],
+      },
+      alternate_names: [
+        {
+          type: 'Birth Name',
+          surname_list: [{prefix: 'von', surname: 'Bern', connector: ''}],
+        },
+      ],
+    }
+
+    expect(templateMarkup(person._displayName())).toContain(
+      'Anna Müller (geb. von Bern)'
+    )
+  })
+
   it('shows a right-side profile picture or an upload placeholder', () => {
     const person = new GrampsjsPerson()
     person.appState = appState

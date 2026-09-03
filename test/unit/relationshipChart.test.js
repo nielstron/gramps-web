@@ -191,6 +191,23 @@ describe('RelationshipChart', () => {
     })
   })
 
+  it('formats dates using the chart locale', async () => {
+    const dated = person('D', [])
+    dated.profile.birth = {date: '1972-05-03'}
+
+    const svg = RelationshipChart([dated], {
+      grampsId: 'D',
+      getImageUrl: () => '',
+      locale: 'de-DE',
+    })
+
+    await vi.waitFor(() => {
+      expect(
+        [...svg.querySelectorAll('text')].map(node => node.textContent)
+      ).toContain('*3.5.1972')
+    })
+  })
+
   it('emits one node per person and separate family junctions', () => {
     const dot = generateDot(graphWithThreePartners())
 

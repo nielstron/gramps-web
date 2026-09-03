@@ -21,6 +21,7 @@ import './GrampsjsFormNewMedia.js'
 import './GrampsjsTreeChartAddPerson.js'
 import {fireEvent, objectIconPath} from '../util.js'
 import {formatDateString} from '../date.js'
+import {surnameWithBirthName} from '../name.js'
 
 export class GrampsjsPerson extends GrampsjsObject {
   static get styles() {
@@ -245,7 +246,7 @@ export class GrampsjsPerson extends GrampsjsObject {
     if (!this.data.profile) {
       return ''
     }
-    const surname = this.data.profile.name_surname || '…'
+    const surname = surnameWithBirthName(this.data, this._('born')) || '…'
     const suffix = this.data.profile.name_suffix || ''
     const call = this.data?.primary_name?.call
     let given = this.data.profile.name_given || call || '…'

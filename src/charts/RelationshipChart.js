@@ -5,6 +5,9 @@ import {Graphviz} from '@hpcc-js/wasm'
 import {chartNameDisplayFormat} from '../util.js'
 import {appendAddPersonButton} from './addPersonButton.js'
 import {formatDateString} from '../date.js'
+import {surnameWithBirthName} from '../name.js'
+
+export {surnameWithBirthName} from '../name.js'
 
 const sexColor = {
   F: 'var(--color-girl)',
@@ -301,40 +304,6 @@ const clipString = (s, length) => {
   return `${s.slice(0, nChar - 2)}…`
 }
 
-function nameType(name) {
-  return typeof name?.type === 'string'
-    ? name.type
-    : name?.type?.string || name?.type?.value
-}
-
-function surnameFromName(name) {
-  return (name?.surname_list || [])
-    .map(surname =>
-      [surname.prefix, surname.surname, surname.connector]
-        .filter(Boolean)
-        .join(' ')
-    )
-    .join(' ')
-}
-
-export function surnameWithBirthName(person, bornLabel = 'born') {
-  const names = [
-    person?.primary_name,
-    ...(person?.alternate_names || []),
-  ].filter(Boolean)
-  const birthName = names.find(name => nameType(name) === 'Birth Name')
-  const marriedName = names.find(name => nameType(name) === 'Married Name')
-  const currentName =
-    nameType(person?.primary_name) === 'Birth Name'
-      ? marriedName || person.primary_name
-      : person?.primary_name || marriedName
-  const currentSurname =
-    surnameFromName(currentName) || person?.profile?.name_surname
-  const birthSurname = surnameFromName(birthName)
-  if (!birthSurname || birthSurname === currentSurname) return currentSurname
-  return `${currentSurname} (${bornLabel} ${birthSurname})`
-}
-
 export function openPersonProfile(event, d) {
   this.dispatchEvent(
     new CustomEvent('nav', {
@@ -355,6 +324,7 @@ function remasterChart(
   maxImages,
   nameDisplayFormat,
   bornLabel,
+  locale,
   canEdit = false
 ) {
   const gvchartx = divhidden.select('svg')
@@ -491,7 +461,10 @@ function remasterChart(
     .attr('x', d => textPadding(d))
     .attr('y', 25 + 17 * 2)
     .text(d =>
-      clipString(`*${formatDateString(d.profile.birth.date)}`, boxWidthTotal(d))
+      clipString(
+        `*${formatDateString(d.profile.birth.date, locale)}`,
+        boxWidthTotal(d)
+      )
     )
 
   nodes
@@ -504,7 +477,10 @@ function remasterChart(
     .attr('x', d => textPadding(d))
     .attr('y', 25 + 17 * 3)
     .text(d =>
-      clipString(`†${formatDateString(d.profile.death.date)}`, boxWidthTotal(d))
+      clipString(
+        `†${formatDateString(d.profile.death.date, locale)}`,
+        boxWidthTotal(d)
+      )
     )
 
   // images
@@ -661,6 +637,7 @@ export function RelationshipChart(
     // orientation = 'LTR',
     nameDisplayFormat = chartNameDisplayFormat.surnameThenGiven,
     bornLabel = 'born',
+    locale = undefined,
     canEdit = false,
     initialZoom = null,
   }
@@ -699,6 +676,7 @@ export function RelationshipChart(
       maxImages,
       nameDisplayFormat,
       bornLabel,
+      locale,
       canEdit
     )
     svg.attr('viewBox', [
