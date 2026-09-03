@@ -14,7 +14,7 @@ export function formatDistantGermanLinealRelationship(data, sex = 'U') {
     distanceOther === 0 ? distanceHome : distanceHome === 0 ? distanceOther : 0
   if (directDistance <= DISTANT_NAMED_GENERATION) return null
 
-  const prefix = 'Ur'.repeat(directDistance - 2)
+  const prefix = `Ur${'ur'.repeat(directDistance - 3)}`
   if (distanceOther === 0) {
     return `${prefix}${
       {M: 'großvater', F: 'großmutter'}[sex] || 'großelternteil'

@@ -25,6 +25,6 @@ describe('person relationship', () => {
         },
         'F'
       )
-    ).to.equal(`${'Ur'.repeat(25)}großmutter`)
+    ).to.equal(`Ur${'ur'.repeat(24)}großmutter`)
   })
 })
