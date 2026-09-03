@@ -49,6 +49,46 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
           gap: 8px;
         }
 
+        .api-key-form {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: end;
+          gap: 8px;
+          margin: 16px 0;
+        }
+
+        .api-key-form md-filled-text-field:first-child {
+          min-width: 240px;
+        }
+
+        .api-key-secret {
+          display: grid;
+          gap: 8px;
+          max-width: 720px;
+          padding: 16px;
+          margin: 16px 0;
+          border: 1px solid var(--md-sys-color-outline-variant);
+          border-radius: 12px;
+          background: var(--md-sys-color-surface-container);
+        }
+
+        .api-key-secret p {
+          margin: 0;
+        }
+
+        .api-key-secret code {
+          display: block;
+          max-height: 8em;
+          overflow: auto;
+          padding: 8px;
+          border-radius: 4px;
+          background: var(--md-sys-color-surface);
+        }
+
+        .api-key-secret md-outlined-button {
+          justify-self: start;
+        }
+
         .access-token-list {
           max-width: 720px;
           padding: 0;
@@ -104,7 +144,12 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
       _userInfo: {type: Object},
       _translations: {type: Array},
       _langLoading: {type: Boolean},
-      _tokenCopied: {type: Boolean},
+      _apiKeys: {type: Array},
+      _apiKeysLoading: {type: Boolean},
+      _apiKeyCreating: {type: Boolean},
+      _apiKeyError: {type: String},
+      _newApiKeyToken: {type: String},
+      _newApiKeyCopied: {type: Boolean},
       _accessTokenStates: {type: Object},
       _pendingAccessTokenScope: {type: String},
     }
@@ -115,7 +160,19 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
     this._userInfo = {}
     this._translations = []
     this._langLoading = false
-    this._tokenCopied = false
+    this._apiKeys = []
+    this._apiKeysLoading = false
+    this._apiKeyCreating = false
+    this._apiKeyError = ''
+    this._newApiKeyToken = ''
+    this._newApiKeyCopied = false
+    const defaultExpiry = new Date()
+    defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 1)
+    this._apiKeyDefaultExpiry = [
+      defaultExpiry.getFullYear(),
+      String(defaultExpiry.getMonth() + 1).padStart(2, '0'),
+      String(defaultExpiry.getDate()).padStart(2, '0'),
+    ].join('-')
     this._accessTokenStates = Object.fromEntries(
       PERSISTENT_ACCESS_TOKEN_SCOPES.map(({scope}) => [
         scope,
@@ -228,6 +285,7 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
     if (this.active) {
       this._fetchOwnUserDetails()
       this._loadAccessTokenStatusesIfNeeded()
+      this._loadApiKeys()
     }
   }
 
@@ -240,8 +298,10 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
     }
     if (this.active && changed.has('active')) {
       this._loadAccessTokenStatusesIfNeeded(true)
+      this._loadApiKeys()
     } else if (this.active && changed.has('appState')) {
       this._loadAccessTokenStatusesIfNeeded()
+      this._loadApiKeys()
     }
   }
 
@@ -417,18 +477,84 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
     return html`
       <p>
         ${this._(
-          'Copy your session token to use in Swagger UI, the interactive API testing tool.'
+          'Create dedicated API keys for scripts, Swagger UI, and other integrations. Each key has its own expiry date and can be revoked independently.'
         )}
       </p>
-      <p class="token-row">
-        <md-outlined-button @click="${this._copyToken}">
-          <grampsjs-icon
-            slot="icon"
-            path="${this._tokenCopied ? mdiCheck : mdiContentCopy}"
-            color="var(--mdc-theme-primary)"
-          ></grampsjs-icon>
-          ${this._('_Copy')}
+      <div class="api-key-form">
+        <md-filled-text-field
+          id="api-key-name"
+          label="${this._('API key name')}"
+          value="${this._('Tree maintenance')}"
+        ></md-filled-text-field>
+        <md-filled-text-field
+          id="api-key-expiry"
+          type="date"
+          label="${this._('Expiry date')}"
+          value="${this._apiKeyDefaultExpiry}"
+        ></md-filled-text-field>
+        <md-outlined-button
+          @click="${() => this._createApiKey()}"
+          ?disabled="${this._apiKeyCreating}"
+        >
+          ${this._apiKeyCreating
+            ? this._('Creating...')
+            : this._('Create API key')}
         </md-outlined-button>
+      </div>
+      ${this._apiKeyError
+        ? html`<p class="access-token-error" role="alert">
+            ${this._apiKeyError}
+          </p>`
+        : ''}
+      ${this._newApiKeyToken
+        ? html`
+            <div class="api-key-secret">
+              <strong>${this._('Copy this API key now.')}</strong>
+              <p>
+                ${this._(
+                  'For security, it will not be shown again after you leave this page.'
+                )}
+              </p>
+              <code>${this._newApiKeyToken}</code>
+              <md-outlined-button @click="${this._copyApiKeyToken}">
+                <grampsjs-icon
+                  slot="icon"
+                  path="${this._newApiKeyCopied ? mdiCheck : mdiContentCopy}"
+                  color="var(--mdc-theme-primary)"
+                ></grampsjs-icon>
+                ${this._('_Copy')}
+              </md-outlined-button>
+            </div>
+          `
+        : ''}
+      ${this._apiKeysLoading
+        ? html`<p>${this._('Loading...')}</p>`
+        : this._apiKeys.length
+        ? html`
+            <md-list class="access-token-list">
+              ${this._apiKeys.map(
+                apiKey => html`
+                  <md-list-item type="text" noninteractive>
+                    <div slot="headline">${apiKey.name}</div>
+                    <div slot="supporting-text">
+                      ${this._('Expires')}:
+                      ${this._formatApiKeyDate(apiKey.expires_on)} &middot;
+                      ${this._('Fingerprint')}:
+                      <code>${apiKey.fingerprint}</code>
+                    </div>
+                    <md-outlined-button
+                      slot="end"
+                      @click="${() => this._revokeApiKey(apiKey.id)}"
+                    >
+                      ${this._('Revoke')}
+                    </md-outlined-button>
+                  </md-list-item>
+                `
+              )}
+            </md-list>
+          `
+        : html`<p>${this._('No API keys.')}</p>`}
+      <p class="token-row">
         <md-outlined-button
           href="${__APIHOST__}/api/swagger-ui"
           target="_blank"
@@ -438,6 +564,81 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
         </md-outlined-button>
       </p>
     `
+  }
+
+  async _loadApiKeys() {
+    if (!this.appState?.apiGet || this._apiKeysLoading) {
+      return
+    }
+    this._apiKeysLoading = true
+    const result = await this.appState.apiGet('/api/users/-/api-keys/')
+    this._apiKeysLoading = false
+    if ('error' in result) {
+      this._apiKeyError = result.error
+      return
+    }
+    this._apiKeyError = ''
+    this._apiKeys = result.data || []
+  }
+
+  async _createApiKey(name, expiresOn) {
+    const keyName =
+      name ?? this.shadowRoot?.getElementById('api-key-name')?.value?.trim()
+    const expiry =
+      expiresOn ?? this.shadowRoot?.getElementById('api-key-expiry')?.value
+    if (!keyName || !expiry) {
+      this._apiKeyError = this._('API key name and expiry date are required.')
+      return
+    }
+    this._apiKeyCreating = true
+    const result = await this.appState.apiPost(
+      '/api/users/-/api-keys/',
+      {name: keyName, expires_on: expiry},
+      {dbChanged: false}
+    )
+    this._apiKeyCreating = false
+    if ('error' in result) {
+      this._apiKeyError = result.error
+      return
+    }
+    this._apiKeyError = ''
+    this._newApiKeyToken = result.data.token
+    this._newApiKeyCopied = false
+    this._apiKeys = [
+      result.data.api_key,
+      ...this._apiKeys.filter(item => item.id !== result.data.api_key.id),
+    ]
+  }
+
+  async _revokeApiKey(apiKeyId) {
+    const result = await this.appState.apiDelete(
+      `/api/users/-/api-keys/${encodeURIComponent(apiKeyId)}/`,
+      {dbChanged: false}
+    )
+    if ('error' in result) {
+      this._apiKeyError = result.error
+      return
+    }
+    this._apiKeyError = ''
+    this._apiKeys = this._apiKeys.filter(item => item.id !== apiKeyId)
+  }
+
+  _formatApiKeyDate(dateString) {
+    const [year, month, day] = dateString.split('-').map(Number)
+    return new Intl.DateTimeFormat(this.appState?.settings?.lang).format(
+      new Date(year, month - 1, day)
+    )
+  }
+
+  async _copyApiKeyToken() {
+    try {
+      await navigator.clipboard.writeText(this._newApiKeyToken)
+      this._newApiKeyCopied = true
+    } catch {
+      fireEvent(this, 'grampsjs:error', {
+        message: this._('Failed to copy API key to clipboard'),
+      })
+    }
   }
 
   renderAccessTokens() {
@@ -644,27 +845,6 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
         error: message,
       })
       fireEvent(this, 'grampsjs:error', {message})
-    }
-  }
-
-  async _copyToken() {
-    const token = await this.appState.refreshTokenIfNeeded()
-    if (!token) {
-      fireEvent(this, 'grampsjs:error', {
-        message: 'No valid session token available',
-      })
-      return
-    }
-    try {
-      await navigator.clipboard.writeText(token)
-      this._tokenCopied = true
-      setTimeout(() => {
-        this._tokenCopied = false
-      }, 2000)
-    } catch {
-      fireEvent(this, 'grampsjs:error', {
-        message: 'Failed to copy token to clipboard',
-      })
     }
   }
 
