@@ -3,7 +3,10 @@ import '@material/mwc-textfield'
 
 import {GrampsjsView} from './GrampsjsView.js'
 import '../components/GrampsjsMap.js'
-import '../components/GrampsjsMapPersonLinesLayer.js'
+import {
+  buildPersonRoutesGeoJSON,
+  PERSON_ROUTE_HANDLE,
+} from '../components/GrampsjsMapPersonLinesLayer.js'
 import '../components/GrampsjsMapPlacesLayer.js'
 import {
   DEFAULT_SEARCH_FILTER,
@@ -18,9 +21,15 @@ import {
   isDateBetweenYears,
   getGregorianYears,
   personProfileDisplayName,
+  fireEvent,
 } from '../util.js'
 import {GrampsjsStaleDataMixin} from '../mixins/GrampsjsStaleDataMixin.js'
 import {queryNominatim, getMapViewport, saveMapViewport} from '../api.js'
+import {
+  PERSON_SCOPE_SELF,
+  personScopeOptions,
+  personScopeRules,
+} from '../personScope.js'
 
 const EMPTY_ARRAY = []
 
@@ -35,6 +44,11 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
         :host {
           margin: 0;
           margin-top: -4px;
+        }
+
+        .person-scope {
+          display: block;
+          margin: 12px 16px 0;
         }
       `,
     ]
@@ -59,6 +73,9 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
       _hiddenOverlaysHandles: {type: Array},
       _personPlaceHandles: {type: Array},
       _selectedPersonData: {type: Object},
+      _showPersonRoute: {type: Boolean},
+      _personFilterMode: {type: String},
+      _personEventGroups: {type: Array},
     }
   }
 
@@ -76,6 +93,10 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._searchFilter = DEFAULT_SEARCH_FILTER
     this._selectedPerson = null
     this._selectedPersonData = null
+    this._showPersonRoute = true
+    this._personFilterMode = PERSON_SCOPE_SELF
+    this._personEventGroups = []
+    this._scopePeople = null
     // Intentionally non-reactive: only read on filter-change events, never
     // needs to trigger a re-render on its own.
     this._activeSearchQuery = ''
@@ -219,8 +240,9 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
         zoom="${zoom}"
         >${this._renderLayers()}
         <grampsjs-map-person-lines-layer
-          .events="${this._selectedPersonData?.extended?.events ?? EMPTY_ARRAY}"
+          .eventGroups="${this._personEventGroups}"
           .places="${this._selectedPersonData ? this._dataPlaces : EMPTY_ARRAY}"
+          .visible="${this._showPersonRoute}"
         ></grampsjs-map-person-lines-layer>
         <grampsjs-map-places-layer
           .places="${this._placesForMap}"
@@ -276,6 +298,13 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
   _renderPersonBox() {
     const person = this._selectedPerson
     return html`
+      <grampsjs-pill-toggle
+        class="person-scope"
+        .options="${personScopeOptions(value => this._(value))}"
+        .selected="${this._personFilterMode}"
+        .appState="${this.appState}"
+        @pill-toggle:change="${this._handlePersonScopeChange}"
+      ></grampsjs-pill-toggle>
       <grampsjs-person-box
         handle="${this._selectedPersonData ? person.handle : ''}"
         name="${personProfileDisplayName(person.profile)}"
@@ -307,6 +336,10 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
 
   _handleOverlayToggle(event) {
     const {overlay, visible} = event.detail
+    if (overlay.handle === PERSON_ROUTE_HANDLE) {
+      this._showPersonRoute = visible
+      return
+    }
     if (visible) {
       this._hiddenOverlaysHandles = [
         ...this._hiddenOverlaysHandles.filter(
@@ -341,7 +374,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._activeSearchQuery = ''
     this._searchFilter = DEFAULT_SEARCH_FILTER
     this._handlesHighlight = []
-    this._personPlaceHandles = []
+    this._resetPersonScope()
     this._selectedPerson = null
     this._selectedPersonData = null
   }
@@ -371,7 +404,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._valueSearch = object.name || object.display_name || ''
     this._selectedPerson = null
     this._selectedPersonData = null
-    this._personPlaceHandles = []
+    this._resetPersonScope()
     this._handlesHighlight = []
   }
 
@@ -380,9 +413,17 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._valueSearch = personProfileDisplayName(person.profile)
     this._selectedPerson = person
     this._selectedPersonData = null
-    this._personPlaceHandles = []
+    this._resetPersonScope()
     this._searchbox?.showDetails()
     this._highlightPersonPlaces(person)
+  }
+
+  _resetPersonScope() {
+    this._personScopeSeq = (this._personScopeSeq ?? 0) + 1
+    this._personPlaceHandles = []
+    this._personEventGroups = []
+    this._personFilterMode = PERSON_SCOPE_SELF
+    this._scopePeople = null
   }
 
   async _highlightPersonPlaces(person) {
@@ -397,12 +438,70 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     if (this._selectedPerson?.handle !== person.handle) return
     const extPerson = data.data
     this._selectedPersonData = extPerson
-    const placeHandles = (extPerson.extended?.events || [])
-      .map(event => event.place)
-      .filter(Boolean)
-    this._personPlaceHandles = placeHandles
+    this._setPersonEventGroups([extPerson.extended?.events ?? EMPTY_ARRAY])
     this._handlesHighlight = []
-    this._fitPersonPlaces(placeHandles)
+  }
+
+  _setPersonEventGroups(eventGroups) {
+    this._personEventGroups = eventGroups
+    this._personPlaceHandles = [
+      ...new Set(
+        eventGroups.flatMap(events => events.map(event => event.place))
+      ),
+    ].filter(Boolean)
+    this._fitPersonPlaces(this._personPlaceHandles)
+  }
+
+  async _handlePersonScopeChange(event) {
+    const mode = event.detail.value
+    this._personFilterMode = mode
+    this._scopePeople = null
+    if (mode === PERSON_SCOPE_SELF) {
+      this._setPersonEventGroups([
+        this._selectedPersonData?.extended?.events ?? EMPTY_ARRAY,
+      ])
+      return
+    }
+
+    const grampsId = this._selectedPerson?.gramps_id
+    const rules = personScopeRules(grampsId, mode)
+    if (!rules) return
+    this._personScopeSeq = (this._personScopeSeq ?? 0) + 1
+    const seq = this._personScopeSeq
+    const selectedHandle = this._selectedPerson.handle
+    const result = await this.appState.apiGet(
+      `/api/people/?rules=${encodeURIComponent(
+        JSON.stringify(rules)
+      )}&keys=handle,event_ref_list`
+    )
+    if (
+      seq !== this._personScopeSeq ||
+      selectedHandle !== this._selectedPerson?.handle ||
+      mode !== this._personFilterMode
+    ) {
+      return
+    }
+    if ('data' in result) {
+      this._scopePeople = result.data
+      this._applyScopePeople()
+    } else if ('error' in result) {
+      this._setPersonEventGroups([])
+      fireEvent(this, 'grampsjs:error', {message: result.error})
+    }
+  }
+
+  _applyScopePeople() {
+    if (!this._scopePeople) return
+    const eventsByHandle = new Map(
+      this._dataEvents.map(event => [event.handle, event])
+    )
+    this._setPersonEventGroups(
+      this._scopePeople.map(person =>
+        (person.event_ref_list ?? [])
+          .map(ref => eventsByHandle.get(ref.ref))
+          .filter(Boolean)
+      )
+    )
   }
 
   _fitPersonPlaces(handles) {
@@ -445,6 +544,8 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
   _handlePlaceSelected(object, {flyTo = true} = {}) {
     this._activeSearchQuery = ''
     this._selectedPerson = null
+    this._selectedPersonData = null
+    this._resetPersonScope()
     this._valueSearch = object.profile.name
     this._handlesHighlight = [object.handle]
     this._searchbox?.showDetails()
@@ -513,11 +614,25 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
         )
       )
     )
-    return visibleLayers.map(obj => ({
+    const overlays = visibleLayers.map(obj => ({
       handle: obj.handle,
       desc: obj.desc,
       visible: !this._hiddenOverlaysHandles.includes(obj.handle),
     }))
+    const eventGroups = this._personEventGroups.length
+      ? this._personEventGroups
+      : this._selectedPersonData
+      ? [this._selectedPersonData.extended?.events ?? EMPTY_ARRAY]
+      : EMPTY_ARRAY
+    const personRoute = buildPersonRoutesGeoJSON(eventGroups, this._dataPlaces)
+    if (personRoute.features.length) {
+      overlays.push({
+        handle: PERSON_ROUTE_HANDLE,
+        desc: this._('Life-event route (blue older → red newer)'),
+        visible: this._showPersonRoute,
+      })
+    }
+    return overlays
   }
 
   _isLayerVisible(bounds) {
@@ -677,6 +792,9 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     if ('data' in data) {
       this.error = false
       this._dataEvents = data.data.filter(event => event.place)
+      if (this._personFilterMode !== PERSON_SCOPE_SELF) {
+        this._applyScopePeople()
+      }
       this._minYear = this._getMinYear()
       this._applyPlaceFilter()
     } else if ('error' in data) {

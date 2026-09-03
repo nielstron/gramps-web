@@ -11,6 +11,11 @@ import {dateToSdn, sdnToJsDate} from '../gcalendar.js'
 import {fireEvent} from '../util.js'
 import '../components/GrampsjsTimeline.js'
 import '../components/GrampsjsFormSelectObject.js'
+import {
+  PERSON_SCOPE_SELF,
+  personScopeOptions,
+  personScopeRules,
+} from '../personScope.js'
 
 const MIN_LABEL_WIDTH = 90
 
@@ -103,7 +108,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._clickedHandle = null
     this._clickedDetail = null
     this._activeFilter = null
-    this._personFilterMode = 'self'
+    this._personFilterMode = PERSON_SCOPE_SELF
     this._placeFilterMode = 'exact'
     this._eventTypeFilter = ''
     this._filterEventHandles = null
@@ -137,7 +142,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
 
   _handleExternalPersonSelected({detail: {object}}) {
     this._activeFilter = {object_type: 'person', object}
-    this._personFilterMode = 'self'
+    this._personFilterMode = PERSON_SCOPE_SELF
     this._placeFilterMode = 'exact'
     this._eventTypeFilter = ''
     this._filterEventHandles = null
@@ -182,15 +187,10 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
   async _fetchRelationshipEvents() {
     const grampsId = this._activeFilter?.object?.gramps_id
     const mode = this._personFilterMode
-    if (!grampsId || mode === 'self') return
+    if (!grampsId || mode === PERSON_SCOPE_SELF) return
     this._relSeq = (this._relSeq ?? 0) + 1
     const seq = this._relSeq
-    const ruleName =
-      mode === 'ancestors'
-        ? 'IsLessThanNthGenerationAncestorOf'
-        : 'IsLessThanNthGenerationDescendantOf'
-    // depth 100 is intentionally large — actual results are bounded by tree size
-    const rules = {rules: [{name: ruleName, values: [grampsId, 100]}]}
+    const rules = personScopeRules(grampsId, mode)
     const result = await this.appState.apiGet(
       `/api/people/?rules=${encodeURIComponent(
         JSON.stringify(rules)
@@ -254,7 +254,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
   _handleFilterChanged(e) {
     const [obj] = e.detail?.objects ?? []
     this._activeFilter = obj ?? null
-    this._personFilterMode = 'self'
+    this._personFilterMode = PERSON_SCOPE_SELF
     this._placeFilterMode = 'exact'
     this._filterEventHandles = null
     this._filterPlaceHandles = null
@@ -264,7 +264,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
   _clearFilter() {
     this.renderRoot.querySelector('grampsjs-form-select-object')?.reset()
     this._activeFilter = null
-    this._personFilterMode = 'self'
+    this._personFilterMode = PERSON_SCOPE_SELF
     this._placeFilterMode = 'exact'
     this._filterEventHandles = null
     this._filterPlaceHandles = null
@@ -275,7 +275,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._personFilterMode = e.detail.value
     this._filterEventHandles = null
     this._resetClickedState()
-    if (this._personFilterMode !== 'self') {
+    if (this._personFilterMode !== PERSON_SCOPE_SELF) {
       this._fetchRelationshipEvents()
     }
   }
@@ -307,7 +307,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
       return filterEventsByType(data, this._eventTypeFilter)
     }
     if (this._activeFilter.object_type === 'person') {
-      if (this._personFilterMode !== 'self') {
+      if (this._personFilterMode !== PERSON_SCOPE_SELF) {
         if (!this._filterEventHandles) return []
         data = data.filter(e => this._filterEventHandles.has(e.handle))
         return filterEventsByType(data, this._eventTypeFilter)
@@ -420,11 +420,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
   renderContent() {
     const isPersonFilter = this._activeFilter?.object_type === 'person'
     const isPlaceFilter = this._activeFilter?.object_type === 'place'
-    const personPillOptions = [
-      {value: 'self', label: this._('Person')},
-      {value: 'ancestors', label: this._('Ancestors')},
-      {value: 'descendants', label: this._('Descendants')},
-    ]
+    const personPillOptions = personScopeOptions(value => this._(value))
     const placePillOptions = [
       {value: 'exact', label: this._('Exact place')},
       {value: 'enclosed', label: this._('Enclosed places')},

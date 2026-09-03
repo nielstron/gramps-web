@@ -111,6 +111,7 @@ export class GrampsjsViewSearch extends GrampsjsView {
     this._objectTypes = Object.fromEntries(
       filtrableObjectTypes.map(key => [key, false])
     )
+    this._pendingQuery = null
   }
 
   renderContent() {
@@ -266,6 +267,7 @@ export class GrampsjsViewSearch extends GrampsjsView {
     super.update(changed)
     if (changed.has('active')) {
       this._focus()
+      if (this.active) this._applyPendingQuery()
     }
     if (changed.has('_page') && this._totalCount > 0) {
       this.loading = true
@@ -366,7 +368,20 @@ export class GrampsjsViewSearch extends GrampsjsView {
     if (event.detail.path !== 'search') {
       return
     }
+    if (typeof event.detail.query === 'string') {
+      this._pendingQuery = event.detail.query
+      if (this.active) this._applyPendingQuery()
+    }
     this._focus()
+  }
+
+  _applyPendingQuery() {
+    if (this._pendingQuery === null) return
+    const field = this.shadowRoot?.getElementById('search-field')
+    if (!field) return
+    field.value = this._pendingQuery
+    this._pendingQuery = null
+    this._executeSearch()
   }
 }
 

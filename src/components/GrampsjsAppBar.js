@@ -83,6 +83,60 @@ export class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
         .save-done-icon {
           animation: save-complete 3s ease-out forwards;
         }
+
+        #topbar-search-form {
+          display: none;
+          align-items: center;
+          width: clamp(220px, 28vw, 380px);
+          height: 40px;
+          margin: 0 6px;
+          padding: 0 6px 0 16px;
+          border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+          border-radius: 999px;
+          background: color-mix(in srgb, currentColor 10%, transparent);
+          color: currentColor;
+          box-sizing: border-box;
+        }
+
+        #topbar-search-field {
+          min-width: 0;
+          flex: 1;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: inherit;
+          font: inherit;
+        }
+
+        #topbar-search-field::placeholder {
+          color: currentColor;
+          opacity: 0.72;
+        }
+
+        #topbar-search-form button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: transparent;
+          color: inherit;
+          cursor: pointer;
+        }
+
+        @media (min-width: 900px) {
+          #topbar-search-form {
+            display: flex;
+          }
+
+          #button-search,
+          grampsjs-tooltip[for='button-search'] {
+            display: none;
+          }
+        }
       `,
     ]
   }
@@ -228,6 +282,7 @@ export class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
                       >${this._('Add')}</grampsjs-tooltip
                     >`
                 : ''}
+              ${this._renderDesktopSearch()}
               <grampsjs-settings-menu
                 slot="actionItems"
                 .appState="${this.appState}"
@@ -264,6 +319,40 @@ export class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
 
   _handleNav(path) {
     fireEvent(this, 'nav', {path})
+  }
+
+  _renderDesktopSearch() {
+    return html`
+      <form
+        slot="actionItems"
+        id="topbar-search-form"
+        role="search"
+        @submit="${this._handleDesktopSearchSubmit}"
+      >
+        <input
+          id="topbar-search-field"
+          name="query"
+          type="search"
+          autocomplete="off"
+          aria-label="${this._('Search')}"
+          placeholder="${this._('Search')}"
+        />
+        <button type="submit" aria-label="${this._('Search')}">
+          <grampsjs-icon
+            path="${mdiMagnify}"
+            color="currentColor"
+            width="20"
+            height="20"
+          ></grampsjs-icon>
+        </button>
+      </form>
+    `
+  }
+
+  _handleDesktopSearchSubmit(event) {
+    event.preventDefault()
+    const query = event.currentTarget.elements.query.value.trim()
+    fireEvent(this, 'nav', {path: 'search', query})
   }
 
   _handleCloseRequest() {

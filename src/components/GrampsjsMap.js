@@ -332,8 +332,13 @@ class GrampsjsMap extends GrampsjsAppStateMixin(LitElement) {
           (!overlay.handle && el.title === overlay.desc)
       )
       .forEach(el => {
-        // eslint-disable-next-line no-param-reassign
-        el.hidden = !visible
+        if ('visible' in el) {
+          // eslint-disable-next-line no-param-reassign
+          el.visible = visible
+        } else {
+          // eslint-disable-next-line no-param-reassign
+          el.hidden = !visible
+        }
       })
   }
 

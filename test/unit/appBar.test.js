@@ -32,3 +32,31 @@ describe('app bar keyboard handling', () => {
     expect(event.defaultPrevented).to.equal(false)
   })
 })
+
+describe('desktop app bar search', () => {
+  it('renders an expanded search field that submits its query', async () => {
+    const appBar = new GrampsjsAppBar()
+    appBar.appState = {
+      i18n: {strings: {}},
+      permissions: {canAdd: false},
+      treeConfig: {},
+      dbInfo: {database: {name: 'Tree'}},
+    }
+    expect(appBar._renderDesktopSearch().strings.join('')).toContain(
+      'id="topbar-search-field"'
+    )
+
+    const nav = new Promise(resolve => appBar.addEventListener('nav', resolve))
+    appBar._handleDesktopSearchSubmit({
+      preventDefault() {},
+      currentTarget: {
+        elements: {query: {value: 'Ada Lovelace'}},
+      },
+    })
+
+    expect((await nav).detail).toEqual({
+      path: 'search',
+      query: 'Ada Lovelace',
+    })
+  })
+})

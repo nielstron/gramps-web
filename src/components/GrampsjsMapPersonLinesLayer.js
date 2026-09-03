@@ -4,19 +4,126 @@ const SOURCE_ID = 'person-lines'
 const LAYER_ID = 'person-lines-layer'
 const ARROWS_LAYER_ID = 'person-lines-arrows'
 const ARROW_IMAGE_ID = 'person-line-arrow'
+export const PERSON_ROUTE_HANDLE = 'person-life-event-route'
+
+const RECENCY_COLOR = [
+  'interpolate',
+  ['linear'],
+  ['get', 'recency'],
+  0,
+  '#4285f4',
+  1,
+  '#ea4335',
+]
+
+function isComparableEvent(event, placesById) {
+  return (
+    event?.date?.sortval > 0 &&
+    event.date.modifier !== 6 &&
+    event.place &&
+    placesById[event.place]
+  )
+}
+
+export function buildPersonRouteGeoJSON(events, places) {
+  const placesById = Object.fromEntries(
+    (places || [])
+      .filter(p => {
+        const lat = parseFloat(p?.profile?.lat)
+        const lon = parseFloat(p?.profile?.long)
+        return (
+          !Number.isNaN(lat) && !Number.isNaN(lon) && !(lat === 0 && lon === 0)
+        )
+      })
+      .map(p => [p.handle, p.profile])
+  )
+
+  const stops = (events || [])
+    .filter(event => isComparableEvent(event, placesById))
+    .sort((a, b) => a.date.sortval - b.date.sortval)
+    .map(event => {
+      const place = placesById[event.place]
+      return {
+        coords: [parseFloat(place.long), parseFloat(place.lat)],
+        sortval: event.date.sortval,
+      }
+    })
+    .filter(
+      (stop, index, all) =>
+        index === 0 ||
+        stop.coords[0] !== all[index - 1].coords[0] ||
+        stop.coords[1] !== all[index - 1].coords[1]
+    )
+
+  if (stops.length < 2) return {type: 'FeatureCollection', features: []}
+
+  const segmentCount = stops.length - 1
+  return {
+    type: 'FeatureCollection',
+    features: stops.slice(1).map((stop, index) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: [stops[index].coords, stop.coords],
+      },
+      properties: {
+        recency: segmentCount === 1 ? 1 : index / (segmentCount - 1),
+        fromSortval: stops[index].sortval,
+        toSortval: stop.sortval,
+      },
+    })),
+  }
+}
+
+export function buildPersonRoutesGeoJSON(eventGroups, places) {
+  const segments = new Map()
+  const groups = eventGroups || []
+  groups.forEach((events, route) => {
+    buildPersonRouteGeoJSON(events, places).features.forEach(feature => {
+      const key = JSON.stringify(feature.geometry.coordinates)
+      const existing = segments.get(key)
+      if (existing) {
+        existing.properties.travelerCount += 1
+        existing.properties.recency = Math.max(
+          existing.properties.recency,
+          feature.properties.recency
+        )
+      } else {
+        segments.set(key, {
+          ...feature,
+          properties: {
+            ...feature.properties,
+            route,
+            travelerCount: 1,
+          },
+        })
+      }
+    })
+  })
+  return {
+    type: 'FeatureCollection',
+    features: [...segments.values()],
+  }
+}
 
 class GrampsjsMapPersonLinesLayer extends LitElement {
   static get properties() {
     return {
       events: {type: Array},
+      eventGroups: {type: Array},
       places: {type: Array},
+      visible: {type: Boolean},
+      handle: {type: String},
     }
   }
 
   constructor() {
     super()
     this.events = []
+    this.eventGroups = []
     this.places = []
+    this.visible = true
+    this.handle = PERSON_ROUTE_HANDLE
     this._map = null
     // Re-add the arrow image after every style swap (images don't survive setStyle).
     this._onStyleLoad = () => this._addArrowImage()
@@ -32,7 +139,11 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
       id: LAYER_ID,
       type: 'line',
       source: SOURCE_ID,
-      layout: {'line-join': 'round', 'line-cap': 'round'},
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round',
+        visibility: this.visible ? 'visible' : 'none',
+      },
       paint: this._linePaint(),
     }
   }
@@ -47,9 +158,10 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
         'icon-image': ARROW_IMAGE_ID,
         'icon-rotation-alignment': 'map',
         'icon-allow-overlap': true,
+        visibility: this.visible ? 'visible' : 'none',
       },
       paint: {
-        'icon-color': this._color(),
+        'icon-color': RECENCY_COLOR,
         'icon-opacity': 0.9,
       },
     }
@@ -93,8 +205,24 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
   }
 
   updated(changed) {
-    if (changed.has('events') || changed.has('places')) {
+    if (changed.has('visible')) this._updateVisibility()
+    if (
+      changed.has('events') ||
+      changed.has('eventGroups') ||
+      changed.has('places')
+    ) {
       this._updateSource()
+    }
+  }
+
+  _updateVisibility() {
+    if (!this._map) return
+    const visibility = this.visible ? 'visible' : 'none'
+    if (this._map.getLayer(LAYER_ID)) {
+      this._map.setLayoutProperty(LAYER_ID, 'visibility', visibility)
+    }
+    if (this._map.getLayer(ARROWS_LAYER_ID)) {
+      this._map.setLayoutProperty(ARROWS_LAYER_ID, 'visibility', visibility)
     }
   }
 
@@ -129,57 +257,23 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
   }
 
   _buildGeoJSON() {
-    const placesById = Object.fromEntries(
-      (this.places || [])
-        .filter(p => {
-          const lat = parseFloat(p?.profile?.lat)
-          const lon = parseFloat(p?.profile?.long)
-          return (
-            !Number.isNaN(lat) &&
-            !Number.isNaN(lon) &&
-            !(lat === 0 && lon === 0)
-          )
-        })
-        .map(p => [p.handle, p.profile])
-    )
-
-    // Only dated events (have sortval) with a known place and coordinates,
-    // sorted chronologically. Events without a date are skipped (no line segment).
-    const coords = (this.events || [])
-      .filter(ev => ev.date?.sortval && ev.place && placesById[ev.place])
-      .sort((a, b) => (a.date.sortval || 0) - (b.date.sortval || 0))
-      .map(ev => {
-        const p = placesById[ev.place]
-        return [parseFloat(p.long), parseFloat(p.lat)]
-      })
-
-    if (coords.length < 2) return {type: 'FeatureCollection', features: []}
-
-    return {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          geometry: {type: 'LineString', coordinates: coords},
-          properties: {},
-        },
-      ],
-    }
-  }
-
-  _color() {
-    return (
-      getComputedStyle(document.documentElement)
-        .getPropertyValue('--grampsjs-map-marker-color')
-        .trim() || '#ea4335'
-    )
+    const groups = this.eventGroups.length ? this.eventGroups : [this.events]
+    return buildPersonRoutesGeoJSON(groups, this.places)
   }
 
   _linePaint() {
     return {
-      'line-color': this._color(),
+      'line-color': RECENCY_COLOR,
       'line-width': 3,
-      'line-opacity': 0.7,
+      'line-opacity': [
+        'interpolate',
+        ['linear'],
+        ['get', 'recency'],
+        0,
+        0.5,
+        1,
+        0.9,
+      ],
     }
   }
 }
