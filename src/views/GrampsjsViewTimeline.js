@@ -1,5 +1,7 @@
 import {html, css} from 'lit'
 import {mdiFilter} from '@mdi/js'
+import '@material/web/select/filled-select.js'
+import '@material/web/select/select-option.js'
 import '../components/GrampsjsFilterChip.js'
 import '../components/GrampsjsPillToggle.js'
 
@@ -11,6 +13,11 @@ import '../components/GrampsjsTimeline.js'
 import '../components/GrampsjsFormSelectObject.js'
 
 const MIN_LABEL_WIDTH = 90
+
+export function filterEventsByType(events, eventType) {
+  if (!eventType) return events
+  return events.filter(event => event.eventType === eventType)
+}
 
 function preprocessEvents(events) {
   return events.map(event => {
@@ -61,6 +68,16 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
         :host {
           margin-bottom: 0;
         }
+
+        .event-type-filter {
+          width: min(18em, 45vw);
+        }
+
+        @media (max-width: 600px) {
+          .event-type-filter {
+            width: min(13em, 42vw);
+          }
+        }
       `,
     ]
   }
@@ -72,6 +89,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
       _activeFilter: {type: Object},
       _personFilterMode: {type: String},
       _placeFilterMode: {type: String},
+      _eventTypeFilter: {type: String},
       _filterEventHandles: {type: Object},
       _filterPlaceHandles: {type: Object},
       _detailsLoading: {type: Boolean},
@@ -87,6 +105,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._activeFilter = null
     this._personFilterMode = 'self'
     this._placeFilterMode = 'exact'
+    this._eventTypeFilter = ''
     this._filterEventHandles = null
     this._filterPlaceHandles = null
     this._pendingHandle = null
@@ -120,6 +139,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._activeFilter = {object_type: 'person', object}
     this._personFilterMode = 'self'
     this._placeFilterMode = 'exact'
+    this._eventTypeFilter = ''
     this._filterEventHandles = null
     this._filterPlaceHandles = null
     this._resetClickedState()
@@ -129,6 +149,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     if (this._activeFilter) {
       this._clearFilter()
     }
+    this._eventTypeFilter = ''
     this._pendingHandle = handle
     this._applyPendingHandle()
   }
@@ -268,28 +289,45 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     }
   }
 
+  _handleEventTypeFilterChange(e) {
+    this._eventTypeFilter = e.target.value === '__all__' ? '' : e.target.value
+    this._resetClickedState()
+  }
+
+  get _eventTypes() {
+    const locale = this.appState.i18n.lang || 'en'
+    return [
+      ...new Set(this._data.map(event => event.eventType).filter(Boolean)),
+    ].sort((a, b) => this._(a).localeCompare(this._(b), locale))
+  }
+
   get _filteredData() {
-    if (!this._activeFilter) return this._data
+    let data = this._data
+    if (!this._activeFilter) {
+      return filterEventsByType(data, this._eventTypeFilter)
+    }
     if (this._activeFilter.object_type === 'person') {
       if (this._personFilterMode !== 'self') {
         if (!this._filterEventHandles) return []
-        return this._data.filter(e => this._filterEventHandles.has(e.handle))
+        data = data.filter(e => this._filterEventHandles.has(e.handle))
+        return filterEventsByType(data, this._eventTypeFilter)
       }
       const obj = this._activeFilter.object
       const handles = new Set(obj?.event_ref_list?.map(r => r.ref) ?? [])
-      return this._data.filter(e => handles.has(e.handle))
+      data = data.filter(e => handles.has(e.handle))
+      return filterEventsByType(data, this._eventTypeFilter)
     }
     if (this._activeFilter.object_type === 'place') {
       if (this._placeFilterMode !== 'exact') {
         if (!this._filterPlaceHandles) return []
-        return this._data.filter(e =>
-          this._filterPlaceHandles.has(e.placeHandle)
-        )
+        data = data.filter(e => this._filterPlaceHandles.has(e.placeHandle))
+        return filterEventsByType(data, this._eventTypeFilter)
       }
       const handle = this._activeFilter.object?.handle
-      return this._data.filter(e => e.placeHandle === handle)
+      data = data.filter(e => e.placeHandle === handle)
+      return filterEventsByType(data, this._eventTypeFilter)
     }
-    return this._data
+    return filterEventsByType(data, this._eventTypeFilter)
   }
 
   _colocatedHandles(handle) {
@@ -397,6 +435,24 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
         .detailsLoading="${this._detailsLoading}"
         .appState="${this.appState}"
       >
+        <md-filled-select
+          slot="filter"
+          class="event-type-filter"
+          label="${this._('Event Type')}"
+          .value="${this._eventTypeFilter || '__all__'}"
+          @change="${this._handleEventTypeFilterChange}"
+        >
+          <md-select-option value="__all__">
+            <div slot="headline">${this._('All event types')}</div>
+          </md-select-option>
+          ${this._eventTypes.map(
+            type => html`
+              <md-select-option value="${type}">
+                <div slot="headline">${this._(type)}</div>
+              </md-select-option>
+            `
+          )}
+        </md-filled-select>
         <grampsjs-form-select-object
           slot="filter"
           label="${this._('filter')}"
