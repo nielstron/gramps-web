@@ -44,6 +44,8 @@ import '@material/web/button/filled-button.js'
 import '@awesome.me/webawesome/dist/components/color-picker/color-picker.js'
 import '@material/web/button/outlined-button.js'
 import '@material/web/textfield/filled-text-field.js'
+import '@material/web/select/filled-select.js'
+import '@material/web/select/select-option.js'
 import '@material/web/switch/switch.js'
 
 const VERIFY_OPTIONS_DEFAULTS = {
@@ -132,6 +134,26 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
         .settings-text-field {
           width: 100%;
           max-width: 30em;
+        }
+
+        .email-settings {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(min(18em, 100%), 1fr));
+          gap: 1em;
+          max-width: 61em;
+          margin: 1em 0;
+        }
+
+        .email-settings md-filled-text-field,
+        .email-settings md-filled-select {
+          width: 100%;
+        }
+
+        .email-actions {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 0.75em;
         }
 
         h3 {
@@ -243,6 +265,12 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
       _restoreReady: {type: Boolean},
       _restoreUploadHint: {},
       _restoreSummary: {type: Object},
+      _emailSettings: {type: Object},
+      _emailPassword: {type: String},
+      _testEmail: {type: String},
+      _emailSettingsLoading: {type: Boolean},
+      _emailSettingsSaving: {type: Boolean},
+      _testEmailSending: {type: Boolean},
     }
   }
 
@@ -270,6 +298,19 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
     this._homePageNoteGrampsId = null
     this._homePageImageGrampsId = null
     this._tags = []
+    this._emailSettings = {
+      host: '',
+      port: 465,
+      username: '',
+      from_email: '',
+      security: 'ssl',
+      password_set: false,
+    }
+    this._emailPassword = ''
+    this._testEmail = ''
+    this._emailSettingsLoading = true
+    this._emailSettingsSaving = false
+    this._testEmailSending = false
   }
 
   renderContent() {
@@ -301,6 +342,139 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
         <grampsjs-import-media
           .appState="${this.appState}"
         ></grampsjs-import-media>
+      </grampsjs-collapsible-section>
+
+      <grampsjs-collapsible-section
+        title="${this._('Email delivery')}"
+        description="${this._('SMTP settings and email delivery test')}"
+      >
+        <p>
+          ${this._(
+            'These server-wide settings are used for invitations, registration, and password reset emails.'
+          )}
+        </p>
+        <div class="email-settings">
+          <md-filled-text-field
+            label="${this._('SMTP host')}"
+            .value="${this._emailSettings.host}"
+            ?disabled="${this._emailSettingsLoading}"
+            required
+            @input="${e => {
+              this._emailSettings = {
+                ...this._emailSettings,
+                host: e.target.value,
+              }
+            }}"
+          ></md-filled-text-field>
+          <md-filled-text-field
+            label="${this._('SMTP port')}"
+            type="number"
+            min="1"
+            max="65535"
+            .value="${String(this._emailSettings.port)}"
+            ?disabled="${this._emailSettingsLoading}"
+            required
+            @input="${e => {
+              this._emailSettings = {
+                ...this._emailSettings,
+                port: Number(e.target.value),
+              }
+            }}"
+          ></md-filled-text-field>
+          <md-filled-select
+            label="${this._('Connection security')}"
+            .value="${this._emailSettings.security}"
+            ?disabled="${this._emailSettingsLoading}"
+            @change="${e => {
+              this._emailSettings = {
+                ...this._emailSettings,
+                security: e.target.value,
+              }
+            }}"
+          >
+            <md-select-option value="ssl">
+              ${this._('Implicit TLS (usually port 465)')}
+            </md-select-option>
+            <md-select-option value="starttls">
+              ${this._('STARTTLS (usually port 587)')}
+            </md-select-option>
+            <md-select-option value="none">
+              ${this._('No encryption')}
+            </md-select-option>
+          </md-filled-select>
+          <md-filled-text-field
+            label="${this._('SMTP user')}"
+            .value="${this._emailSettings.username}"
+            ?disabled="${this._emailSettingsLoading}"
+            @input="${e => {
+              this._emailSettings = {
+                ...this._emailSettings,
+                username: e.target.value,
+              }
+            }}"
+          ></md-filled-text-field>
+          <md-filled-text-field
+            label="${this._('SMTP password')}"
+            type="password"
+            .value="${this._emailPassword}"
+            .supportingText="${this._emailSettings.password_set
+              ? this._('Leave blank to keep the stored password')
+              : this._('No password is currently stored')}"
+            ?disabled="${this._emailSettingsLoading}"
+            @input="${e => {
+              this._emailPassword = e.target.value
+            }}"
+          ></md-filled-text-field>
+          <md-filled-text-field
+            label="${this._('From address')}"
+            type="email"
+            .value="${this._emailSettings.from_email}"
+            ?disabled="${this._emailSettingsLoading}"
+            required
+            @input="${e => {
+              this._emailSettings = {
+                ...this._emailSettings,
+                from_email: e.target.value,
+              }
+            }}"
+          ></md-filled-text-field>
+        </div>
+        <p>
+          <md-outlined-button
+            ?disabled="${this._emailSettingsLoading ||
+            this._emailSettingsSaving}"
+            @click="${this._saveEmailSettings}"
+          >
+            ${this._emailSettingsSaving ? this._('Saving...') : this._('_Save')}
+          </md-outlined-button>
+        </p>
+
+        <h3>${this._('Test email delivery')}</h3>
+        <p>
+          ${this._(
+            'Save any changes above before sending a test message with the current settings.'
+          )}
+        </p>
+        <p class="email-actions">
+          <md-filled-text-field
+            class="settings-text-field"
+            label="${this._('Recipient address')}"
+            type="email"
+            .value="${this._testEmail}"
+            ?disabled="${this._testEmailSending}"
+            @input="${e => {
+              this._testEmail = e.target.value
+            }}"
+          ></md-filled-text-field>
+          <md-outlined-button
+            ?disabled="${this._testEmailSending || !this._testEmail}"
+            @click="${this._sendTestEmail}"
+          >
+            ${this._testEmailSending
+              ? this._('Sending...')
+              : this._('Send test email')}
+          </md-outlined-button>
+        </p>
       </grampsjs-collapsible-section>
 
       <grampsjs-collapsible-section
@@ -1431,7 +1605,62 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
     } else {
       this.error = false
       this._userInfo = data.data
+      if (!this._testEmail) {
+        this._testEmail = data.data?.email || ''
+      }
     }
+  }
+
+  async _fetchEmailSettings() {
+    this._emailSettingsLoading = true
+    const data = await this.appState.apiGet('/api/config/email/')
+    this._emailSettingsLoading = false
+    if ('error' in data) {
+      fireEvent(this, 'grampsjs:error', {message: data.error})
+      return
+    }
+    this._emailSettings = data.data
+    this._emailPassword = ''
+  }
+
+  async _saveEmailSettings() {
+    this._emailSettingsSaving = true
+    const payload = {
+      host: this._emailSettings.host,
+      port: Number(this._emailSettings.port),
+      username: this._emailSettings.username,
+      from_email: this._emailSettings.from_email,
+      security: this._emailSettings.security,
+    }
+    if (this._emailPassword) {
+      payload.password = this._emailPassword
+    }
+    const data = await this.appState.apiPut('/api/config/email/', payload)
+    this._emailSettingsSaving = false
+    if ('error' in data) {
+      fireEvent(this, 'grampsjs:error', {message: data.error})
+      return
+    }
+    this._emailSettings = data.data
+    this._emailPassword = ''
+    fireEvent(this, 'grampsjs:notification', {
+      message: this._('Email settings saved'),
+    })
+  }
+
+  async _sendTestEmail() {
+    this._testEmailSending = true
+    const data = await this.appState.apiPost('/api/config/email/test/', {
+      recipient: this._testEmail,
+    })
+    this._testEmailSending = false
+    if ('error' in data) {
+      fireEvent(this, 'grampsjs:error', {message: data.error})
+      return
+    }
+    fireEvent(this, 'grampsjs:notification', {
+      message: this._('Test email sent'),
+    })
   }
 
   updated(changed) {
@@ -1465,6 +1694,7 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
   firstUpdated() {
     super.firstUpdated()
     this._fetchOwnUserDetails()
+    this._fetchEmailSettings()
     this._fetchTreeInfo()
     this._fetchHomePageGrampsIds()
     this._fetchTagData()
