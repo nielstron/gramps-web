@@ -17,7 +17,13 @@ import {
   renderIconSvg,
   relationshipGraphIconPath,
 } from '../icons.js'
-import {DEFAULT_TREE_VIEW, getTreeViewTabIndex} from '../treeDefaults.js'
+import {
+  DEFAULT_TREE_VIEW,
+  getTreePath,
+  getTreeViewForTab,
+  getTreeViewTabIndex,
+  normalizeTreeView,
+} from '../treeDefaults.js'
 import {appUrl} from '../appUrl.js'
 
 export class GrampsjsViewTree extends GrampsjsView {
@@ -48,18 +54,13 @@ export class GrampsjsViewTree extends GrampsjsView {
     return {
       grampsId: {type: String},
       view: {type: String},
-      _history: {type: Array},
-      _currentTabId: {type: Number},
     }
   }
 
   constructor() {
     super()
     this.grampsId = ''
-    this.view = 'ancestor'
-    this._history = this.grampsId ? [this.grampsId] : []
-    this._currentTabId = getTreeViewTabIndex(DEFAULT_TREE_VIEW)
-    this._appliedTreeDefaultView = null
+    this.view = DEFAULT_TREE_VIEW
   }
 
   shouldUpdate(changed) {
@@ -73,8 +74,8 @@ export class GrampsjsViewTree extends GrampsjsView {
 
   updated(changed) {
     super.updated(changed)
-    if (changed.has('_currentTabId')) {
-      fireEvent(this, 'edit-mode:off', {})
+    if (this.active) {
+      this._canonicalizeUrl()
     }
   }
 
@@ -99,8 +100,14 @@ export class GrampsjsViewTree extends GrampsjsView {
     `
   }
 
+  get _currentTabId() {
+    return getTreeViewTabIndex(this.view)
+  }
+
   _handleTabChange(e) {
-    this._currentTabId = e.target.activeTabIndex
+    const view = getTreeViewForTab(e.target.activeTabIndex)
+    fireEvent(this, 'edit-mode:off', {})
+    fireEvent(this, 'nav', {path: getTreePath(view, this.grampsId)})
   }
 
   renderTabs() {
@@ -153,14 +160,12 @@ export class GrampsjsViewTree extends GrampsjsView {
   _renderFan() {
     return html`
       <grampsjs-view-fan-chart
-        @tree:back="${this._prevPerson}"
         @tree:person="${this._goToPerson}"
         @tree:home="${this._backToHomePerson}"
         grampsId=${this.grampsId}
         ?active=${this.active}
         .appState="${this.appState}"
         .settings=${this.settings}
-        ?disableBack=${this._history.length < 2}
         ?disableHome=${this.grampsId === this.settings.homePerson}
       >
       </grampsjs-view-fan-chart>
@@ -170,14 +175,12 @@ export class GrampsjsViewTree extends GrampsjsView {
   _renderRelationshipChart() {
     return html`
       <grampsjs-view-relationship-chart
-        @tree:back="${this._prevPerson}"
         @tree:person="${this._goToPerson}"
         @tree:home="${this._backToHomePerson}"
         grampsId=${this.grampsId}
         ?active=${this.active}
         .appState="${this.appState}"
         .settings=${this.settings}
-        ?disableBack=${this._history.length < 2}
         ?disableHome=${this.grampsId === this.settings.homePerson}
       >
       </grampsjs-view-relationship-chart>
@@ -187,14 +190,12 @@ export class GrampsjsViewTree extends GrampsjsView {
   _renderPedigree() {
     return html`
       <grampsjs-view-tree-chart
-        @tree:back="${this._prevPerson}"
         @tree:person="${this._goToPerson}"
         @tree:home="${this._backToHomePerson}"
         grampsId=${this.grampsId}
         ?active=${this.active}
         .appState="${this.appState}"
         .settings=${this.settings}
-        ?disableBack=${this._history.length < 2}
         ?disableHome=${this.grampsId === this.settings.homePerson}
       >
       </grampsjs-view-tree-chart>
@@ -204,14 +205,12 @@ export class GrampsjsViewTree extends GrampsjsView {
   _renderDescendantTree() {
     return html`
       <grampsjs-view-descendant-chart
-        @tree:back="${this._prevPerson}"
         @tree:person="${this._goToPerson}"
         @tree:home="${this._backToHomePerson}"
         grampsId=${this.grampsId}
         ?active=${this.active}
         .appState="${this.appState}"
         .settings=${this.settings}
-        ?disableBack=${this._history.length < 2}
         ?disableHome=${this.grampsId === this.settings.homePerson}
       >
       </grampsjs-view-descendant-chart>
@@ -221,27 +220,22 @@ export class GrampsjsViewTree extends GrampsjsView {
   _renderHourglassTree() {
     return html`
       <grampsjs-view-hourglass-chart
-        @tree:back="${this._prevPerson}"
         @tree:person="${this._goToPerson}"
         @tree:home="${this._backToHomePerson}"
         grampsId=${this.grampsId}
         ?active=${this.active}
         .appState="${this.appState}"
         .settings=${this.settings}
-        ?disableBack=${this._history.length < 2}
         ?disableHome=${this.grampsId === this.settings.homePerson}
       >
       </grampsjs-view-hourglass-chart>
     `
   }
 
-  _prevPerson() {
-    this._history.pop()
-    this.grampsId = this._history.pop()
-  }
-
   _backToHomePerson() {
-    this.grampsId = this.settings.homePerson
+    fireEvent(this, 'nav', {
+      path: getTreePath(this.view, this.settings.homePerson),
+    })
   }
 
   _goToPerson() {
@@ -258,31 +252,30 @@ export class GrampsjsViewTree extends GrampsjsView {
 
   update(changed) {
     super.update(changed)
-    if (changed.has('grampsId')) {
-      this._history.push(this.grampsId)
-      // limit history to 100 people
-      this._history = this._history.slice(-100)
-    }
-    if (this.active && (changed.has('active') || changed.has('settings'))) {
-      this._applyPreferredTabIfNeeded()
-    }
   }
 
-  _applyPreferredTabIfNeeded() {
-    const preferredView = this.settings?.treeDefaultView ?? DEFAULT_TREE_VIEW
-    if (preferredView === this._appliedTreeDefaultView) {
+  _canonicalizeUrl() {
+    if (!this.grampsId || this.appState?.path?.page !== 'tree') {
       return
     }
-    const preferredIndex = getTreeViewTabIndex(preferredView)
-    this._appliedTreeDefaultView = preferredView
-    if (this._currentTabId !== preferredIndex) {
-      this._currentTabId = preferredIndex
+    const view = normalizeTreeView(this.view)
+    if (
+      this.appState.path.pageId !== view ||
+      this.appState.path.pageId2 !== this.grampsId
+    ) {
+      fireEvent(this, 'nav', {
+        path: getTreePath(view, this.grampsId),
+        replaceHistory: true,
+      })
     }
   }
 
-  async _selectPerson(event) {
+  _selectPerson(event) {
     const {grampsId} = event.detail
-    this.grampsId = grampsId
+    if (!this.active || !grampsId) {
+      return
+    }
+    fireEvent(this, 'nav', {path: getTreePath(this.view, grampsId)})
   }
 }
 

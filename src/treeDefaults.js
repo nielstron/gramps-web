@@ -15,3 +15,15 @@ export function getTreeViewTabIndex(view) {
   }
   return TREE_VIEWS.indexOf(DEFAULT_TREE_VIEW)
 }
+
+export function getTreeViewForTab(index) {
+  return TREE_VIEWS[index] ?? DEFAULT_TREE_VIEW
+}
+
+export function normalizeTreeView(view) {
+  return TREE_VIEWS.includes(view) ? view : DEFAULT_TREE_VIEW
+}
+
+export function getTreePath(view, grampsId) {
+  return `tree/${normalizeTreeView(view)}/${grampsId}`
+}

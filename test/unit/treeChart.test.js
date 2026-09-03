@@ -24,6 +24,29 @@ const chartSettings = {
 }
 
 describe('TreeChart', () => {
+  it('centers the selected root person in the viewport', () => {
+    const ancestors = {
+      ...rootPerson,
+      children: [
+        {
+          ...rootPerson,
+          id: 'person-parent',
+          person: {...rootPerson.person, gramps_id: 'I0043'},
+        },
+      ],
+    }
+    const svg = TreeChart(null, ancestors, chartSettings)
+    const [viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight] = svg
+      .getAttribute('viewBox')
+      .split(',')
+      .map(Number)
+    const rootChartX = 115
+    const rootChartY = 0
+
+    expect(viewBoxX + viewBoxWidth / 2).to.equal(rootChartX)
+    expect(viewBoxY + viewBoxHeight / 2).to.equal(rootChartY)
+  })
+
   it('opens a person profile from the magnifier without refocusing the tree', () => {
     const svg = TreeChart(null, rootPerson, chartSettings)
     let navigationEvent

@@ -405,53 +405,32 @@ export function TreeChart(dataDescendants, dataAncestors, chartsettings) {
     chartContent.attr('transform', chartsettings.initialZoom.toString())
   }
 
-  let width = 0
-  let height = 0
-  let xMin = 0
-  let yMin = 0
-  let yMax = 0
-  let xOffset = 0
-  let yOffset = 0
+  let rootX = 0
 
   if (dataDescendants) {
     const chartD = chartContent.append('g')
-    const [xD, yD, widthD, heightD, overlap] = TreeChartCore(
-      chartD,
-      dataDescendants,
-      {...chartsettings, orientation: 'RTL', depth: chartsettings.nDesc}
-    )
+    const [, , widthD, , overlap] = TreeChartCore(chartD, dataDescendants, {
+      ...chartsettings,
+      orientation: 'RTL',
+      depth: chartsettings.nDesc,
+    })
     chartD.attr('transform', `translate(${-widthD + overlap},0)`)
-    yMin = Math.min(yMin, yD)
-    yMax = Math.max(yMax, yD + heightD)
-    xMin = Math.min(xMin, xD)
-    width += widthD - overlap
+    rootX = overlap / 2
   }
   if (dataAncestors) {
     const chartA = chartContent.append('g')
-    const [xA, yA, widthA, heightA] = TreeChartCore(chartA, dataAncestors, {
+    const [, , , , overlap] = TreeChartCore(chartA, dataAncestors, {
       ...chartsettings,
       orientation: 'LTR',
       depth: chartsettings.nAnc,
     })
     chartA.attr('transform', 'translate(0,0)')
-    yMin = Math.min(yMin, yA)
-    yMax = Math.max(yMax, yA + heightA)
-    xMin = Math.min(xMin, xA)
-    width += widthA
+    rootX = overlap / 2
   }
 
-  xOffset = xMin
-  height = yMax - yMin
-  if (chartsettings.bboxWidth > width) {
-    xOffset -= (chartsettings.bboxWidth - width) / 2
-  }
-  yOffset = yMin
-  if (chartsettings.bboxHeight > height) {
-    yOffset -= (chartsettings.bboxHeight - height) / 2
-  }
   svg.attr('viewBox', [
-    xOffset,
-    yOffset,
+    rootX - chartsettings.bboxWidth / 2,
+    -chartsettings.bboxHeight / 2,
     chartsettings.bboxWidth,
     chartsettings.bboxHeight,
   ])

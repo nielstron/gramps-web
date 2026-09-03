@@ -60,6 +60,7 @@ import '../views/GrampsjsViewNewTask.js'
 import '../views/GrampsjsViewNewBlogPost.js'
 import '../views/GrampsjsViewHelp.js'
 import '../views/GrampsjsViewTimeline.js'
+import {DEFAULT_TREE_VIEW, normalizeTreeView} from '../treeDefaults.js'
 
 class GrampsjsPages extends GrampsjsAppStateMixin(LitElement) {
   static get styles() {
@@ -199,7 +200,12 @@ class GrampsjsPages extends GrampsjsAppStateMixin(LitElement) {
       <grampsjs-view-tree
         class="page"
         ?active=${this.appState.path.page === 'tree'}
-        grampsId="${this.settings.homePerson}"
+        view="${normalizeTreeView(
+          this.appState.path.pageId ||
+            this.settings.treeDefaultView ||
+            DEFAULT_TREE_VIEW
+        )}"
+        grampsId="${this.appState.path.pageId2 || this.settings.homePerson}"
         .appState="${this.appState}"
         .settings="${this.settings}"
       ></grampsjs-view-tree>

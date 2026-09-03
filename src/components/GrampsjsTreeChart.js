@@ -65,7 +65,11 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
     `
   }
 
-  willUpdate() {
+  willUpdate(changedProperties) {
+    if (changedProperties.has('grampsId')) {
+      this._savedZoom = null
+      return
+    }
     // Save zoom transform before Lit replaces the SVG node
     const svg = this.renderRoot
       ?.getElementById('container')

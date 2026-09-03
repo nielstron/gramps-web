@@ -23,6 +23,7 @@ import './GrampsjsTreeChartAddPerson.js'
 import {fireEvent, objectIconPath} from '../util.js'
 import {formatDateString} from '../date.js'
 import {surnameWithBirthName} from '../name.js'
+import {DEFAULT_TREE_VIEW, getTreePath} from '../treeDefaults.js'
 
 export class GrampsjsPerson extends GrampsjsObject {
   static get styles() {
@@ -447,14 +448,8 @@ export class GrampsjsPerson extends GrampsjsObject {
   }
 
   _handleTreeButtonClick() {
-    this.dispatchEvent(
-      new CustomEvent('pedigree:person-selected', {
-        bubbles: true,
-        composed: true,
-        detail: {grampsId: this.data.gramps_id},
-      })
-    )
-    fireEvent(this, 'nav', {path: 'tree'})
+    const view = this.appState?.settings?.treeDefaultView ?? DEFAULT_TREE_VIEW
+    fireEvent(this, 'nav', {path: getTreePath(view, this.data.gramps_id)})
   }
 
   _handleTimelineButtonClick() {

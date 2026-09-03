@@ -7,13 +7,7 @@ import '@material/web/button/text-button.js'
 import '@material/web/fab/fab.js'
 import '@material/web/iconbutton/icon-button.js'
 
-import {
-  mdiAccountDetails,
-  mdiArrowLeft,
-  mdiCog,
-  mdiHomeAccount,
-  mdiPencil,
-} from '@mdi/js'
+import {mdiAccountDetails, mdiCog, mdiHomeAccount, mdiPencil} from '@mdi/js'
 import '../components/GrampsjsIcon.js'
 import {GrampsjsView} from './GrampsjsView.js'
 import {GrampsjsStaleDataMixin} from '../mixins/GrampsjsStaleDataMixin.js'
@@ -79,7 +73,6 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
   static get properties() {
     return {
       grampsId: {type: String},
-      disableBack: {type: Boolean},
       disableHome: {type: Boolean},
       nAnc: {type: Number},
       nDesc: {type: Number},
@@ -103,7 +96,6 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
   constructor() {
     super()
     this.grampsId = ''
-    this.disableBack = false
     this.disableHome = false
     this._data = []
     this._setAnc = false
@@ -217,18 +209,6 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
           for="button-home"
           .appState="${this.appState}"
         >${this._('Home Person')}</grampsjs-tooltip>
-        <md-icon-button
-          @click=${this._handleBack}
-          ?disabled=${this.disableBack}
-          style="margin-bottom:-10px;"
-          aria-label="${this._('_Back')}"
-          id="btn-back"
-        ><grampsjs-icon path="${mdiArrowLeft}" color="currentColor"
-          ></grampsjs-icon></md-icon-button>
-        <grampsjs-tooltip
-          for="btn-back"
-          .appState="${this.appState}"
-        >${this._('_Back')}</grampsjs-tooltip>
         <md-icon-button
           @click=${this._goToPerson}
           aria-label="${this._('Person Details')}"
@@ -360,10 +340,6 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
     fireEvent(this, 'tree:home')
   }
 
-  _prevPerson() {
-    fireEvent(this, 'tree:back')
-  }
-
   update(changed) {
     super.update(changed)
     if (changed.has('grampsId') || changed.has('settings')) {
@@ -418,10 +394,6 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
 
   _goToPerson() {
     fireEvent(this, 'tree:person')
-  }
-
-  _handleBack() {
-    fireEvent(this, 'tree:back')
   }
 
   _handleChangeAnc(e) {

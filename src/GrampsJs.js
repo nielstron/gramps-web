@@ -1120,7 +1120,12 @@ export class GrampsJs extends LitElement {
   }
 
   _handleNav(e) {
-    const {path, preserveEdit = false, state = {}} = e.detail
+    const {
+      path,
+      preserveEdit = false,
+      replaceHistory = false,
+      state = {},
+    } = e.detail
     const page = path.split('/')[0]
     const pageId = path.split('/')[1]
     const pageId2 = path.split('/')[2]
@@ -1139,7 +1144,11 @@ export class GrampsJs extends LitElement {
         )
       }
       this._loadPage(href, {preserveEdit})
-      window.history.pushState(state, '', href)
+      if (replaceHistory) {
+        window.history.replaceState(state, '', href)
+      } else {
+        window.history.pushState(state, '', href)
+      }
     }
   }
 
