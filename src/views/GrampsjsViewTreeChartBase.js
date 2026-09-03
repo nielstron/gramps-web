@@ -111,6 +111,7 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
     this._setSep = false
     this._setMaxImages = false
     this._editMode = false
+    this._fetchRequestId = 0
     this._boundToggleEditMode = this._toggleEditMode.bind(this)
     this._boundDisableEditMode = this._disableEditMode.bind(this)
   }
@@ -394,6 +395,7 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
   }
 
   async _fetchData(grampsId) {
+    const requestId = ++this._fetchRequestId
     this.loading = true
     const rules = this._getPersonRules(grampsId)
     const data = await this.appState.apiGet(
@@ -401,6 +403,9 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
         this.appState.i18n.lang || 'en'
       }&profile=self&extend=event_ref_list,primary_parent_family,family_list`
     )
+    if (requestId !== this._fetchRequestId) {
+      return
+    }
     this.loading = false
     if ('data' in data) {
       this.error = false

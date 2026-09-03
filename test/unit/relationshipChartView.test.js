@@ -37,4 +37,32 @@ describe('relationship chart view', () => {
 
     expect(view.nAnc).toBe(5)
   })
+
+  it('ignores a slower response for a previously selected person', async () => {
+    const responses = []
+    const view = new GrampsjsViewRelationshipChart()
+    view.appState = {
+      apiGet: vi.fn(
+        () =>
+          new Promise(resolve => {
+            responses.push(resolve)
+          })
+      ),
+      i18n: {lang: 'en'},
+      settings: {},
+      updateSettings: vi.fn(),
+    }
+
+    view.grampsId = 'I1'
+    const firstRequest = view._fetchData('I1')
+    view.grampsId = 'I2'
+    const secondRequest = view._fetchData('I2')
+
+    responses[1]({data: ['current']})
+    await secondRequest
+    responses[0]({data: ['stale']})
+    await firstRequest
+
+    expect(view._data).toEqual(['current'])
+  })
 })

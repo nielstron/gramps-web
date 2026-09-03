@@ -181,7 +181,8 @@ export class Relgraph {
       profile: p.profile,
       data: p,
     }
-    if (p.gramps_id === this.rootPersonGrampsId) {
+    const grampsId = p.gramps_id || p.profile?.gramps_id
+    if (grampsId === this.rootPersonGrampsId) {
       this.rootPerson = this.persons[me]
     }
   }

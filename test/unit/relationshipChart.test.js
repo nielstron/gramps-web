@@ -101,6 +101,16 @@ function personXPositions(svg) {
 }
 
 describe('RelationshipChart', () => {
+  it('recognizes the selected root when its Gramps ID is profile-only', () => {
+    const selected = person('selected-handle', [])
+    selected.profile.gramps_id = 'I0042'
+    delete selected.gramps_id
+
+    const graph = new Relgraph([selected], 190, 90, 'I0042')
+
+    expect(graph.getRootPerson()?.handle).toBe('selected-handle')
+  })
+
   it('shows a differing alternate birth surname after the current surname', () => {
     const personData = {
       profile: {name_surname: 'Müller'},
