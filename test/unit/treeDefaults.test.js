@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {
   DEFAULT_TREE_VIEW,
   TREE_VIEWS,
+  getTreePath,
   getTreeViewTabIndex,
 } from '../../src/treeDefaults.js'
 
@@ -19,5 +20,11 @@ describe('treeDefaults', () => {
   it('falls back to default view index for unknown values', () => {
     const defaultIndex = TREE_VIEWS.indexOf(DEFAULT_TREE_VIEW)
     expect(getTreeViewTabIndex('unknown-view')).to.equal(defaultIndex)
+  })
+
+  it('builds a shareable two-person connection path', () => {
+    expect(getTreePath('connection', 'I0001', 'I0002')).to.equal(
+      'tree/connection/I0001/I0002'
+    )
   })
 })

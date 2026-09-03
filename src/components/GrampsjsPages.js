@@ -206,6 +206,7 @@ class GrampsjsPages extends GrampsjsAppStateMixin(LitElement) {
             DEFAULT_TREE_VIEW
         )}"
         grampsId="${this.appState.path.pageId2 || this.settings.homePerson}"
+        targetGrampsId="${this.appState.path.pageId3 || ''}"
         .appState="${this.appState}"
         .settings="${this.settings}"
       ></grampsjs-view-tree>

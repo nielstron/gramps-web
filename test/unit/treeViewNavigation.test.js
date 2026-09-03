@@ -31,4 +31,19 @@ describe('tree view navigation', () => {
 
     expect(navigation).toEqual({path: 'tree/relationship/I0001'})
   })
+
+  it('preserves both endpoints when selecting the connection graph', () => {
+    const view = document.createElement('grampsjs-view-tree')
+    view.view = 'relationship'
+    view.grampsId = 'I0001'
+    view.targetGrampsId = 'I0002'
+    let navigation
+    view.addEventListener('nav', event => {
+      navigation = event.detail
+    })
+
+    view._handleTabChange({target: {activeTabIndex: 5}})
+
+    expect(navigation).toEqual({path: 'tree/connection/I0001/I0002'})
+  })
 })

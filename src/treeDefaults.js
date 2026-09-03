@@ -4,6 +4,7 @@ export const TREE_VIEWS = [
   'hourglass',
   'relationship',
   'fan',
+  'connection',
 ]
 
 export const DEFAULT_TREE_VIEW = 'relationship'
@@ -24,6 +25,10 @@ export function normalizeTreeView(view) {
   return TREE_VIEWS.includes(view) ? view : DEFAULT_TREE_VIEW
 }
 
-export function getTreePath(view, grampsId) {
-  return `tree/${normalizeTreeView(view)}/${grampsId}`
+export function getTreePath(view, grampsId, targetGrampsId = '') {
+  const normalizedView = normalizeTreeView(view)
+  const basePath = `tree/${normalizedView}/${grampsId}`
+  return normalizedView === 'connection' && targetGrampsId
+    ? `${basePath}/${targetGrampsId}`
+    : basePath
 }

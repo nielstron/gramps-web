@@ -343,7 +343,9 @@ function remasterChart(
   bornLabel,
   locale,
   openProfileLabel,
-  canEdit = false
+  canEdit = false,
+  connectionLabels = {},
+  connectionColors = {}
 ) {
   const gvchartx = divhidden.select('svg')
   const nodedata = []
@@ -625,6 +627,9 @@ function remasterChart(
     const firstAndLastPoint = [points[0], points[points.length - 1]]
     const isCouple = graphvizEdge.classed('couple')
     const isChildlessCouple = graphvizEdge.classed('childless-couple')
+    const connectionMatch = graphvizEdge
+      .attr('id')
+      ?.match(/^connection_(?<index>\d+)$/)
     const childlessFamily = isChildlessCouple
       ? graph.getNode(graphvizEdge.attr('id').replace(/^childless_/, ''))
       : null
@@ -633,16 +638,20 @@ function remasterChart(
           personBottomCenter(childlessFamily.father),
           personBottomCenter(childlessFamily.mother)
         )
+      : connectionMatch
+      ? pathData
       : linkGenerator({
           source: {x: firstAndLastPoint[0][0], y: firstAndLastPoint[0][1]},
           target: {x: firstAndLastPoint[1][0], y: firstAndLastPoint[1][1]},
         })
     // we replace the polyline with a smooth connector from start to end
-    edges
+    const edge = edges
       .append('path')
       .attr(
         'class',
-        isChildlessCouple
+        connectionMatch
+          ? 'edge connection'
+          : isChildlessCouple
           ? 'edge couple childless-couple'
           : isCouple
           ? 'edge couple'
@@ -650,8 +659,34 @@ function remasterChart(
       )
       .attr('d', pathValue)
       .attr('fill', 'none')
-      .attr('stroke', 'var(--grampsjs-body-font-color-40)')
-      .attr('stroke-width', 1)
+      .attr(
+        'stroke',
+        connectionMatch
+          ? connectionColors[connectionMatch.groups.index]
+          : 'var(--grampsjs-body-font-color-40)'
+      )
+      .attr('stroke-width', connectionMatch ? 4 : 1)
+
+    if (connectionMatch) {
+      edge.attr('stroke-linecap', 'round')
+      const label = connectionLabels[connectionMatch.groups.index]
+      if (label) {
+        const [source, target] = firstAndLastPoint
+        edges
+          .append('text')
+          .attr('class', 'connection-label')
+          .attr('x', (source[0] + target[0]) / 2)
+          .attr('y', (source[1] + target[1]) / 2 - 9)
+          .attr('text-anchor', 'middle')
+          .attr('font-size', 12)
+          .attr('font-weight', 500)
+          .attr('fill', 'var(--grampsjs-body-font-color-80)')
+          .attr('stroke', 'var(--md-sys-color-surface)')
+          .attr('stroke-width', 5)
+          .attr('paint-order', 'stroke')
+          .text(label)
+      }
+    }
   })
   // edges.selectAll('path').attr('stroke-opacity', '0.4')
 
@@ -676,6 +711,170 @@ function remasterChart(
 
   // kill hidden graphviz generated svg
   gvchartx.remove()
+}
+
+class ConnectionPathGraph {
+  constructor(data, boxWidth, boxHeight, grampsId, steps) {
+    this.boxWidth = boxWidth
+    this.boxHeight = boxHeight
+    this.rootPersonGrampsId = grampsId
+    this.persons = {}
+    this.rootPerson = undefined
+    this.steps = steps
+    for (const person of data) this.addPerson(person)
+  }
+
+  addPerson(person) {
+    const item = {
+      handle: person.handle,
+      profile: person.profile,
+      data: person,
+    }
+    this.persons[person.handle] = item
+    if (
+      (person.gramps_id || person.profile?.gramps_id) ===
+      this.rootPersonGrampsId
+    ) {
+      this.rootPerson = item
+    }
+  }
+
+  known(handle) {
+    return this.persons[handle] || false
+  }
+
+  getNode() {
+    return false
+  }
+
+  getDot() {
+    const nodes = Object.values(this.persons)
+      .map(
+        person => `
+          "node_${person.handle}" [
+            class="person_${person.handle}"
+            margin=0.25
+            shape="none"
+            fixedsize=true
+            width=${this.boxWidth / 66}
+            height=${this.boxHeight / 66 - 0.3}
+            label=<->
+          ]`
+      )
+      .join('\n')
+    const edges = this.steps
+      .map(
+        (step, index) => `
+          "node_${step.from_handle}" -> "node_${step.to_handle}" [
+            id="connection_${index}"
+            class="connection"
+            dir=none
+            minlen=2
+            weight=100
+          ]`
+      )
+      .join('\n')
+    return `
+      digraph connection {
+        rankdir=LR
+        charset="UTF-8"
+        pad=0.5
+        nodesep=0.5
+        ranksep=1.2
+        splines=spline
+        ${nodes}
+        ${edges}
+      }
+    `
+  }
+}
+
+const connectionColor = relation =>
+  ({
+    parent: '#1976d2',
+    child: '#1976d2',
+    partner: '#c2185b',
+    sibling: '#00897b',
+  }[relation] || '#7b1fa2')
+
+export function ConnectionPathChart(
+  data,
+  steps,
+  {
+    bboxWidth = 300,
+    bboxHeight = 150,
+    boxWidth = 190,
+    boxHeight = 90,
+    imgPadding = 10,
+    getImageUrl = null,
+    grampsId = '',
+    maxImages = 50,
+    nameDisplayFormat = chartNameDisplayFormat.surnameThenGiven,
+    bornLabel = 'born',
+    locale = undefined,
+    openProfileLabel = 'Open profile',
+    relationLabels = {},
+  }
+) {
+  const resultnode = create('div').style('width', '100%')
+  const divhidden = resultnode.append('div').style('display', 'none')
+  const svg = resultnode
+    .append('svg')
+    .call(
+      zoom().on('zoom', event =>
+        svg.select('#chart-content').attr('transform', event.transform)
+      )
+    )
+    .attr('font-family', 'Inter var')
+    .attr('font-size', 13)
+    .attr('width', '100%')
+    .attr('height', '100%')
+  const chartContent = svg.append('g').attr('id', 'chart-content')
+  const graph = new ConnectionPathGraph(
+    data,
+    boxWidth,
+    boxHeight,
+    grampsId,
+    steps
+  )
+  const dot = graph.getDot()
+  const labels = Object.fromEntries(
+    steps.map((step, index) => [index, relationLabels[step.relation]])
+  )
+  const colors = Object.fromEntries(
+    steps.map((step, index) => [index, connectionColor(step.relation)])
+  )
+
+  Graphviz.load().then(graphviz => {
+    divhidden.html(graphviz.layout(dot, 'svg', 'dot'))
+    remasterChart(
+      divhidden,
+      chartContent.append('g'),
+      graph,
+      boxWidth,
+      boxHeight,
+      imgPadding,
+      getImageUrl,
+      maxImages,
+      nameDisplayFormat,
+      bornLabel,
+      locale,
+      openProfileLabel,
+      false,
+      labels,
+      colors
+    )
+    const bbox = chartContent.node().getBBox()
+    const padding = 40
+    svg.attr('viewBox', [
+      bbox.x - padding,
+      bbox.y - padding,
+      Math.max(bbox.width + padding * 2, bboxWidth),
+      Math.max(bbox.height + padding * 2, bboxHeight),
+    ])
+  })
+
+  return svg.node()
 }
 
 export function RelationshipChart(

@@ -348,6 +348,7 @@ export class GrampsjsPerson extends GrampsjsObject {
           <grampsjs-person-relationship
             person1="${this.homePersonDetails.handle}"
             person2="${this.data.handle}"
+            person2Sex="${this.data.profile?.sex || 'U'}"
             .appState="${this.appState}"
           ></grampsjs-person-relationship>
         </dd>

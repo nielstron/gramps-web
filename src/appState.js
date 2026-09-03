@@ -309,6 +309,7 @@ export function getInitialAppState() {
       page: 'home',
       pageId: '',
       pageId2: '',
+      pageId3: '',
     },
     apiGet: endpoint => {
       activeGetCount += 1

@@ -3,13 +3,14 @@ import {css, html} from 'lit'
 import '@material/web/tabs/tabs'
 import '@material/web/tabs/primary-tab'
 
-import {mdiFamilyTree} from '@mdi/js'
+import {mdiFamilyTree, mdiTransitConnectionVariant} from '@mdi/js'
 import {GrampsjsView} from './GrampsjsView.js'
 import './GrampsjsViewDescendantChart.js'
 import './GrampsjsViewTreeChart.js'
 import './GrampsjsViewHourglassChart.js'
 import './GrampsjsViewFanChart.js'
 import './GrampsjsViewRelationshipChart.js'
+import './GrampsjsViewConnectionGraph.js'
 import {fireEvent} from '../util.js'
 import {
   chartFanIconPath,
@@ -53,6 +54,7 @@ export class GrampsjsViewTree extends GrampsjsView {
   static get properties() {
     return {
       grampsId: {type: String},
+      targetGrampsId: {type: String},
       view: {type: String},
     }
   }
@@ -60,6 +62,7 @@ export class GrampsjsViewTree extends GrampsjsView {
   constructor() {
     super()
     this.grampsId = ''
+    this.targetGrampsId = ''
     this.view = DEFAULT_TREE_VIEW
   }
 
@@ -97,6 +100,7 @@ export class GrampsjsViewTree extends GrampsjsView {
       ${this._currentTabId === 2 ? this._renderHourglassTree() : ''}
       ${this._currentTabId === 3 ? this._renderRelationshipChart() : ''}
       ${this._currentTabId === 4 ? this._renderFan() : ''}
+      ${this._currentTabId === 5 ? this._renderConnectionGraph() : ''}
     `
   }
 
@@ -107,7 +111,9 @@ export class GrampsjsViewTree extends GrampsjsView {
   _handleTabChange(e) {
     const view = getTreeViewForTab(e.target.activeTabIndex)
     fireEvent(this, 'edit-mode:off', {})
-    fireEvent(this, 'nav', {path: getTreePath(view, this.grampsId)})
+    fireEvent(this, 'nav', {
+      path: getTreePath(view, this.grampsId, this.targetGrampsId),
+    })
   }
 
   renderTabs() {
@@ -153,7 +159,28 @@ export class GrampsjsViewTree extends GrampsjsView {
             >${renderIconSvg(chartFanIconPath, '--md-sys-color-primary')}</span
           >
         </md-primary-tab>
+        <md-primary-tab has-icon>
+          ${this._('Connection Graph')}
+          <span slot="icon"
+            >${renderIconSvg(
+              mdiTransitConnectionVariant,
+              '--md-sys-color-primary'
+            )}</span
+          >
+        </md-primary-tab>
       </md-tabs>
+    `
+  }
+
+  _renderConnectionGraph() {
+    return html`
+      <grampsjs-view-connection-graph
+        grampsId=${this.grampsId}
+        targetGrampsId=${this.targetGrampsId}
+        ?active=${this.active}
+        .appState=${this.appState}
+        .settings=${this.settings}
+      ></grampsjs-view-connection-graph>
     `
   }
 
@@ -234,7 +261,11 @@ export class GrampsjsViewTree extends GrampsjsView {
 
   _backToHomePerson() {
     fireEvent(this, 'nav', {
-      path: getTreePath(this.view, this.settings.homePerson),
+      path: getTreePath(
+        this.view,
+        this.settings.homePerson,
+        this.targetGrampsId
+      ),
     })
   }
 
@@ -261,10 +292,11 @@ export class GrampsjsViewTree extends GrampsjsView {
     const view = normalizeTreeView(this.view)
     if (
       this.appState.path.pageId !== view ||
-      this.appState.path.pageId2 !== this.grampsId
+      this.appState.path.pageId2 !== this.grampsId ||
+      this.appState.path.pageId3 !== this.targetGrampsId
     ) {
       fireEvent(this, 'nav', {
-        path: getTreePath(view, this.grampsId),
+        path: getTreePath(view, this.grampsId, this.targetGrampsId),
         replaceHistory: true,
       })
     }
@@ -275,7 +307,9 @@ export class GrampsjsViewTree extends GrampsjsView {
     if (!this.active || !grampsId) {
       return
     }
-    fireEvent(this, 'nav', {path: getTreePath(this.view, grampsId)})
+    fireEvent(this, 'nav', {
+      path: getTreePath(this.view, grampsId, this.targetGrampsId),
+    })
   }
 }
 

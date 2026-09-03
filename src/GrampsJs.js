@@ -620,13 +620,15 @@ export class GrampsJs extends LitElement {
     }
     if (this.appState.path.page === 'login' && this._metadataConfirmed) {
       window.history.pushState({}, '', '')
-      this._updateAppState({path: {page: 'home', pageId: '', pageId2: ''}})
+      this._updateAppState({
+        path: {page: 'home', pageId: '', pageId2: '', pageId3: ''},
+      })
     }
     if (this.appState.path.page === 'settings' && !this.appState.path.pageId) {
       // needed for backwards compatibility
       window.history.pushState({}, '', 'settings/user')
       this._updateAppState({
-        path: {page: 'settings', pageId: 'user', pageId2: ''},
+        path: {page: 'settings', pageId: 'user', pageId2: '', pageId3: ''},
       })
     }
     if (
@@ -671,6 +673,7 @@ export class GrampsJs extends LitElement {
               .page="${this.appState.path.page}"
               .pageId="${this.appState.path.pageId}"
               .pageId2="${this.appState.path.pageId2}"
+              .pageId3="${this.appState.path.pageId3}"
             >
             </grampsjs-pages>
           </main>
@@ -1052,22 +1055,36 @@ export class GrampsJs extends LitElement {
     }
 
     if (path === '/' || path === appUrl('/')) {
-      this._updateAppState({path: {page: 'home', pageId: '', pageId2: ''}})
+      this._updateAppState({
+        path: {page: 'home', pageId: '', pageId2: '', pageId3: ''},
+      })
     } else if (baseDir === '') {
       const pathId = path.slice(1)
       const page = pathId.split('/')[0]
       const pageId = pathId.split('/')[1]
       const pageId2 = pathId.split('/')[2]
+      const pageId3 = pathId.split('/')[3]
       this._updateAppState({
-        path: {page, pageId: pageId ?? '', pageId2: pageId2 ?? ''},
+        path: {
+          page,
+          pageId: pageId ?? '',
+          pageId2: pageId2 ?? '',
+          pageId3: pageId3 ?? '',
+        },
       })
     } else if (path.split('/')[0] === baseDir.split('/')[0]) {
       const pathId = path.slice(1)
       const page = pathId.split('/')[1]
       const pageId = pathId.split('/')[2]
       const pageId2 = pathId.split('/')[3]
+      const pageId3 = pathId.split('/')[4]
       this._updateAppState({
-        path: {page, pageId: pageId ?? '', pageId2: pageId2 ?? ''},
+        path: {
+          page,
+          pageId: pageId ?? '',
+          pageId2: pageId2 ?? '',
+          pageId3: pageId3 ?? '',
+        },
       })
     }
 
@@ -1126,14 +1143,13 @@ export class GrampsJs extends LitElement {
       replaceHistory = false,
       state = {},
     } = e.detail
-    const page = path.split('/')[0]
-    const pageId = path.split('/')[1]
-    const pageId2 = path.split('/')[2]
+    const [page = '', pageId = '', pageId2 = '', pageId3 = ''] = path.split('/')
     const appPath = this.appState.path
     if (
       page !== appPath.page ||
       pageId !== appPath.pageId ||
-      pageId2 !== appPath.pageId2
+      pageId2 !== appPath.pageId2 ||
+      pageId3 !== appPath.pageId3
     ) {
       const href = appUrl(`/${path}`)
       if (preserveEdit) {
