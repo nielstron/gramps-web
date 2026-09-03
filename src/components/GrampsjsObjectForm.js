@@ -139,6 +139,7 @@ export class GrampsjsObjectForm extends GrampsjsAppStateMixin(LitElement) {
       <md-dialog
         @keydown="${this._handleDialogKeydown}"
         @cancel="${e => e.preventDefault()}"
+        @nav="${this._handleNestedNavigation}"
         open
       >
         <div slot="headline">${this.dialogTitle}</div>
@@ -179,6 +180,12 @@ export class GrampsjsObjectForm extends GrampsjsAppStateMixin(LitElement) {
   _handleDialogCancel() {
     fireEvent(this, 'object:cancel')
     this._reset()
+  }
+
+  _handleNestedNavigation(event) {
+    if (event.detail?.preserveEdit) {
+      this.renderRoot.querySelector('md-dialog')?.close()
+    }
   }
 
   _openDialog() {

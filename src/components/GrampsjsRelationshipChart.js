@@ -45,7 +45,14 @@ class GrampsjsRelationshipChart extends GrampsjsChartBase {
     this._savedZoom = null
   }
 
-  willUpdate() {
+  willUpdate(changedProperties) {
+    // A newly selected person must become the viewport origin after Graphviz
+    // lays out the replacement graph. Reusing the previous pan/zoom transform
+    // would offset that origin and leave the selected person away from center.
+    if (changedProperties.has('grampsId')) {
+      this._savedZoom = null
+      return
+    }
     // Save zoom transform before Lit replaces the SVG node
     const svg = this.renderRoot
       ?.getElementById('container')

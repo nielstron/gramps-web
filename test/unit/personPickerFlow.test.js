@@ -8,6 +8,7 @@ import {GrampsjsRelationships} from '../../src/components/GrampsjsRelationships.
 import {GrampsjsName} from '../../src/components/GrampsjsName.js'
 import {GrampsjsPerson} from '../../src/components/GrampsjsPerson.js'
 import {GrampsjsTreeChartAddPerson} from '../../src/components/GrampsjsTreeChartAddPerson.js'
+import {GrampsjsObjectForm} from '../../src/components/GrampsjsObjectForm.js'
 import {
   PERSON_PICKER_CREATED_EVENT,
   personNameFromQuery,
@@ -17,6 +18,14 @@ import {GrampsjsViewNewPerson} from '../../src/views/GrampsjsViewNewPerson.js'
 const appState = {
   i18n: {lang: 'en', strings: {}},
   permissions: {canAdd: true, canEdit: true},
+}
+
+class TestObjectForm extends GrampsjsObjectForm {
+  firstUpdated() {}
+}
+
+if (!window.customElements.get('test-person-picker-object-form')) {
+  window.customElements.define('test-person-picker-object-form', TestObjectForm)
 }
 
 afterEach(() => {
@@ -36,6 +45,25 @@ function templateMarkup(template) {
 }
 
 describe('unified person picker flow', () => {
+  it('closes the parent form while navigating to create a linked person', async () => {
+    const form = document.createElement('test-person-picker-object-form')
+    form.appState = appState
+    document.body.append(form)
+    await form.updateComplete
+    const dialog = form.shadowRoot.querySelector('md-dialog')
+    const close = vi.spyOn(dialog, 'close')
+
+    dialog.dispatchEvent(
+      new CustomEvent('nav', {
+        bubbles: true,
+        composed: true,
+        detail: {path: 'new_person', preserveEdit: true},
+      })
+    )
+
+    expect(close).toHaveBeenCalledOnce()
+  })
+
   it('shows one add-or-link action for a family child list', () => {
     const children = new GrampsjsChildren()
     expect(children.hasShare).toBe(true)

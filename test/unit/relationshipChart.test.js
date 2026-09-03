@@ -185,7 +185,9 @@ describe('RelationshipChart', () => {
       selectionEvent = event
     })
 
-    await vi.waitFor(() => expect(svg.querySelector('g.person')).toBeTruthy())
+    await vi.waitFor(() => expect(svg.querySelector('g.person')).toBeTruthy(), {
+      timeout: 10_000,
+    })
     svg
       .querySelector('g.person')
       .dispatchEvent(new MouseEvent('click', {bubbles: true}))

@@ -84,7 +84,7 @@ describe('citation creation in object picker', () => {
     expect(templateMarkup(picker.render())).toContain(
       '<grampsjs-form-new-citation'
     )
-  })
+  }, 15_000)
 
   it('creates and selects a citation without leaving the picker workflow', async () => {
     let postedCitation

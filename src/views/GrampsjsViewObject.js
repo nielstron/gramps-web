@@ -961,10 +961,15 @@ export class GrampsjsViewObject extends GrampsjsView {
     const {index} = data
     return this._updateObject(obj, 'person', _obj => {
       if (index === 0) {
-        // keep the entry but delete everything except the name type
-        Object.keys(_obj.primary_name)
-          .filter(key => key !== 'type')
-          .forEach(key => delete _obj.primary_name[key])
+        if (_obj.alternate_names.length > 0) {
+          ;[_obj.primary_name, ..._obj.alternate_names] = _obj.alternate_names
+        } else {
+          // Gramps requires a primary name, so an otherwise nameless person
+          // keeps an empty primary-name object.
+          Object.keys(_obj.primary_name)
+            .filter(key => key !== 'type')
+            .forEach(key => delete _obj.primary_name[key])
+        }
       } else if (index === 1) {
         _obj.alternate_names = [..._obj.alternate_names.slice(1)]
       } else if (index > 1) {
