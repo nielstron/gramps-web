@@ -24,6 +24,7 @@ export class GrampsjsPlaceRefs extends GrampsjsEditableList {
     this.hasShare = true
     this.hasEdit = true
     this.hasReorder = true
+    this.reorderAction = 'reorderPlace'
     this._places = []
   }
 
@@ -55,6 +56,7 @@ export class GrampsjsPlaceRefs extends GrampsjsEditableList {
               placeTypeIconPath[type] || null
             )
           : ''}
+        ${this._renderDragHandle(i)}
       </md-list-item>
     `
   }

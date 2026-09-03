@@ -29,6 +29,7 @@ export class GrampsjsNames extends GrampsjsEditableList {
     this.dialogTitle = ''
     this.hasEdit = true
     this.hasReorder = true
+    this.reorderAction = 'reorderName'
   }
 
   row(obj, i) {
@@ -51,6 +52,7 @@ export class GrampsjsNames extends GrampsjsEditableList {
               .index="${i + 1}"
               ?preferred="${i === 0}"
             ></grampsjs-name>
+            ${this._renderDragHandle(i)}
           </md-list-item>
         `}`
   }

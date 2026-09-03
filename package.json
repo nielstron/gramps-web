@@ -160,6 +160,7 @@
     "marked": "^18.0.4",
     "pwa-helper-components": "^0.2.10",
     "pwa-helpers": "^0.9.1",
+    "sortablejs": "^1.15.7",
     "tippy.js": "^6.3.7"
   }
 }

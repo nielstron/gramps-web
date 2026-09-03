@@ -10,6 +10,11 @@ import {GrampsjsView} from './GrampsjsView.js'
 
 import {fireEvent, objectIconPath, objectTypeToEndpoint} from '../util.js'
 import {linkFamily} from '../util/familyLinks.js'
+import {
+  moveToIndex,
+  reorderEventRefs,
+  reorderPersonEventRefs,
+} from '../util/reorder.js'
 import {clearDraftsWithPrefix} from '../api.js'
 import '../components/GrampsjsBreadcrumbs.js'
 
@@ -517,6 +522,14 @@ export class GrampsjsViewObject extends GrampsjsView {
         'reporef_list',
         'down'
       )
+    } else if (e.detail.action === 'reorderRepository') {
+      this.moveObjectToIndex(
+        e.detail.oldIndex,
+        e.detail.newIndex,
+        this._data,
+        this._className,
+        'reporef_list'
+      )
     } else if (e.detail.action === 'addMediaRef') {
       this.addObject(e.detail.data, this._data, this._className, 'media_list')
     } else if (e.detail.action === 'updateMediaRef') {
@@ -603,6 +616,8 @@ export class GrampsjsViewObject extends GrampsjsView {
       this.moveName(e.detail.handle, this._data, 'up')
     } else if (e.detail.action === 'downName') {
       this.moveName(e.detail.handle, this._data, 'down')
+    } else if (e.detail.action === 'reorderName') {
+      this.moveNameToIndex(e.detail.oldIndex, e.detail.newIndex, this._data)
     } else if (e.detail.action === 'delName') {
       this.delName(e.detail.data, this._data)
     } else if (e.detail.action === 'addName') {
@@ -661,6 +676,13 @@ export class GrampsjsViewObject extends GrampsjsView {
         'event_ref_list',
         'down'
       )
+    } else if (e.detail.action === 'reorderEvent') {
+      this.setEventOrder(
+        e.detail.order,
+        this._data,
+        this._className,
+        e.detail.manual
+      )
     } else if (e.detail.action === 'upPlace') {
       this.moveObjectByIndex(
         e.detail.index,
@@ -676,6 +698,14 @@ export class GrampsjsViewObject extends GrampsjsView {
         this._className,
         'placeref_list',
         'down'
+      )
+    } else if (e.detail.action === 'reorderPlace') {
+      this.moveObjectToIndex(
+        e.detail.oldIndex,
+        e.detail.newIndex,
+        this._data,
+        this._className,
+        'placeref_list'
       )
     } else if (e.detail.action === 'upChildRef') {
       this.moveObject(
@@ -693,6 +723,14 @@ export class GrampsjsViewObject extends GrampsjsView {
         'child_ref_list',
         'down'
       )
+    } else if (e.detail.action === 'reorderChildRef') {
+      this.moveObjectToIndex(
+        e.detail.oldIndex,
+        e.detail.newIndex,
+        this._data,
+        this._className,
+        'child_ref_list'
+      )
     } else if (e.detail.action === 'upCitation') {
       this.moveHandle(
         e.detail.handle,
@@ -708,6 +746,14 @@ export class GrampsjsViewObject extends GrampsjsView {
         this._className,
         'citation_list',
         'down'
+      )
+    } else if (e.detail.action === 'reorderCitation') {
+      this.moveObjectToIndex(
+        e.detail.oldIndex,
+        e.detail.newIndex,
+        this._data,
+        this._className,
+        'citation_list'
       )
     } else if (e.detail.action === 'updateProp') {
       this.updateProp(
@@ -854,6 +900,27 @@ export class GrampsjsViewObject extends GrampsjsView {
     })
   }
 
+  moveObjectToIndex(oldIndex, newIndex, obj, objType, prop) {
+    return this._updateObject(obj, objType, _obj => {
+      _obj[prop] = moveToIndex(_obj[prop], oldIndex, newIndex)
+      return _obj
+    })
+  }
+
+  setEventOrder(sourceOrder, obj, objType, manual) {
+    return this._updateObject(obj, objType, _obj => {
+      if (objType === 'person') {
+        return reorderPersonEventRefs(_obj, sourceOrder, manual)
+      }
+      _obj.event_ref_list = reorderEventRefs(
+        _obj.event_ref_list,
+        sourceOrder,
+        manual
+      )
+      return _obj
+    })
+  }
+
   // for this method, 'handle' is the integer index
   // since names don't have handles!
   moveName(handle, obj, upDown) {
@@ -872,6 +939,18 @@ export class GrampsjsViewObject extends GrampsjsView {
           _obj.alternate_names = moveDown(_obj.alternate_names, handle - 1)
         }
       }
+      return _obj
+    })
+  }
+
+  moveNameToIndex(oldIndex, newIndex, obj) {
+    return this._updateObject(obj, 'person', _obj => {
+      const names = moveToIndex(
+        [_obj.primary_name, ..._obj.alternate_names],
+        oldIndex,
+        newIndex
+      )
+      ;[_obj.primary_name, ..._obj.alternate_names] = names
       return _obj
     })
   }

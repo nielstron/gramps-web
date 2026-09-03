@@ -38,6 +38,7 @@ export class GrampsjsChildren extends GrampsjsEditableList {
     this.hasAdd = false
     this.hasEdit = true
     this.hasReorder = true
+    this.reorderAction = 'reorderChildRef'
     this.objType = 'ChildRef'
   }
 
@@ -73,7 +74,7 @@ export class GrampsjsChildren extends GrampsjsEditableList {
         ${hasNonBirthRel
           ? html`<span slot="supporting-text">${relText}</span>`
           : ''}
-        ${renderPersonAvatar(extPerson, p.sex)}
+        ${renderPersonAvatar(extPerson, p.sex)} ${this._renderDragHandle(i)}
       </md-list-item>
     `
   }

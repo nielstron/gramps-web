@@ -20,6 +20,7 @@ export class GrampsjsRepositories extends GrampsjsEditableList {
     this.objType = 'Repository'
     this.hasEdit = true
     this.hasReorder = true
+    this.reorderAction = 'reorderRepository'
   }
 
   row(obj, i) {
@@ -51,6 +52,7 @@ export class GrampsjsRepositories extends GrampsjsEditableList {
           path="${mdiArchive}"
           color="var(--grampsjs-color-icon)"
         ></grampsjs-icon>
+        ${this._renderDragHandle(i)}
       </md-list-item>
     `
   }

@@ -9,6 +9,7 @@ import {
   eventTypeIconPath,
 } from '../util.js'
 import {renderIcon} from '../objectRender.js'
+import {hasManualEventOrder, sortEventsByDate} from '../util/reorder.js'
 import './GrampsjsFormSelectObject.js'
 import './GrampsjsFormEventRef.js'
 import './GrampsjsFormNewEvent.js'
@@ -51,6 +52,7 @@ export class GrampsjsEvents extends GrampsjsEditableList {
     this.hasAdd = false
     this.hasShare = true
     this.hasReorder = true
+    this.reorderAction = 'reorderEvent'
     this.defaultRole = 'Primary'
   }
 
@@ -96,6 +98,7 @@ export class GrampsjsEvents extends GrampsjsEditableList {
               >${objProfile.profile.age}</span
             >`
           : ''}
+        ${this._renderDragHandle(i)}
       </md-list-item>
     `
   }
@@ -156,12 +159,28 @@ export class GrampsjsEvents extends GrampsjsEditableList {
   // }
 
   sortData(dataCopy) {
-    if (!this.sorted) {
+    if (!this.sorted && hasManualEventOrder(this.eventRef)) {
       return dataCopy
     }
-    return dataCopy.sort(
-      (a, b) => (a?.date?.sortval || 0) - (b?.date?.sortval || 0)
+    return sortEventsByDate(dataCopy)
+  }
+
+  _getReorderDetail(reordered, oldIndex, newIndex) {
+    const order = reordered.map(event => this.data.indexOf(event))
+    const chronologicalOrder = sortEventsByDate([...this.data]).map(event =>
+      this.data.indexOf(event)
     )
+    return {
+      ...super._getReorderDetail(reordered, oldIndex, newIndex),
+      order,
+      manual: order.some((sourceIndex, index) => {
+        return sourceIndex !== chronologicalOrder[index]
+      }),
+    }
+  }
+
+  _sourceIndex(displayIndex) {
+    return this.data.indexOf(this._getDisplayData()[displayIndex])
   }
 
   _handleShare() {
@@ -181,11 +200,12 @@ export class GrampsjsEvents extends GrampsjsEditableList {
   }
 
   _handleEdit() {
-    const data = this.eventRef[this._selectedIndex]
+    const sourceIndex = this._sourceIndex(this._selectedIndex)
+    const data = this.eventRef[sourceIndex]
     this.dialogContent = html`
       <grampsjs-form-eventref
         id="edit-event-ref"
-        @object:save="${this._handleEventRefSaveEdit}"
+        @object:save="${e => this._handleEventRefSaveEdit(e, sourceIndex)}"
         @object:cancel="${this._handleDialogCancel}"
         .appState="${this.appState}"
         objType="${this.objType}"
@@ -227,11 +247,11 @@ export class GrampsjsEvents extends GrampsjsEditableList {
     this.dialogContent = ''
   }
 
-  _handleEventRefSaveEdit(e) {
+  _handleEventRefSaveEdit(e, sourceIndex) {
     fireEvent(this, 'edit:action', {
       action: 'updateEventRef',
       data: e.detail.data,
-      index: this._selectedIndex,
+      index: sourceIndex,
     })
     e.preventDefault()
     e.stopPropagation()
@@ -245,30 +265,16 @@ export class GrampsjsEvents extends GrampsjsEditableList {
   _handleDelete() {
     fireEvent(this, 'edit:action', {
       action: 'delEvent',
-      index: this._selectedIndex,
+      index: this._sourceIndex(this._selectedIndex),
     })
   }
 
   _handleUp() {
-    const handle = this.data?.[this._selectedIndex]?.handle
-    if (handle) {
-      fireEvent(this, 'edit:action', {
-        action: 'upEvent',
-        handle: this.data[this._selectedIndex].handle,
-      })
-      this._updateSelectionAfterReorder(true)
-    }
+    this._handleReorder(this._selectedIndex, this._selectedIndex - 1)
   }
 
   _handleDown() {
-    const handle = this.data?.[this._selectedIndex]?.handle
-    if (handle) {
-      fireEvent(this, 'edit:action', {
-        action: 'downEvent',
-        handle: this.data[this._selectedIndex].handle,
-      })
-      this._updateSelectionAfterReorder(false)
-    }
+    this._handleReorder(this._selectedIndex, this._selectedIndex + 1)
   }
 
   _handleClick(grampsId) {

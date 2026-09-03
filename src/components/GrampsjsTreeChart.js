@@ -111,6 +111,7 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
         bboxHeight: this.containerHeight,
         nameDisplayFormat: this.nameDisplayFormat,
         canEdit: this.canEdit,
+        openProfileLabel: this._('Person Details'),
         initialZoom: this._savedZoom,
       })}
     `

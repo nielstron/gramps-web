@@ -9,6 +9,7 @@ import {
   personGivenNameFromProfile,
 } from '../util.js'
 import {appendAddPersonButton} from './addPersonButton.js'
+import {appendOpenPersonButton} from './openPersonButton.js'
 import {formatDateString} from '../date.js'
 
 const genderColor = {
@@ -61,6 +62,7 @@ function TreeChartCore(
     orientation = 'LTR',
     nameDisplayFormat = chartNameDisplayFormat.surnameThenGiven,
     canEdit = false,
+    openProfileLabel = 'Person Details',
   } = {}
 ) {
   // Create a hierarchical data structure based on the input data
@@ -321,6 +323,14 @@ function TreeChartCore(
       d => d.data.person?.handle
     )
   }
+
+  appendOpenPersonButton(
+    node.filter(d => d.data.person),
+    boxWidth / 2 - 14,
+    boxHeight / 2 - 14,
+    openProfileLabel,
+    d => d.data.person.gramps_id
+  )
 
   node
     .filter(getImageUrl)

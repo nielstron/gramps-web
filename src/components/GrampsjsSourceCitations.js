@@ -19,6 +19,7 @@ export class GrampsjsSourceCitations extends GrampsjsEditableList {
     super()
     this.objType = 'Citation'
     this.hasReorder = true
+    this.reorderAction = 'reorderCitation'
     this.source = undefined
   }
 
@@ -38,6 +39,7 @@ export class GrampsjsSourceCitations extends GrampsjsEditableList {
         ${obj?.profile?.source?.title || this._('Source')}
         <span slot="supporting-text"> ${obj.page || obj.gramps_id} </span>
         ${renderIcon({object: obj, object_type: 'citation'}, 'start')}
+        ${this._renderDragHandle(i)}
       </md-list-item>
     `
   }

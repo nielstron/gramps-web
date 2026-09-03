@@ -2,12 +2,16 @@
 /* eslint-disable class-methods-use-this */
 import {css, html, LitElement} from 'lit'
 import {classMap} from 'lit/directives/class-map.js'
+import {keyed} from 'lit/directives/keyed.js'
+import Sortable from 'sortablejs'
 
 import {fireEvent} from '../util.js'
+import {moveToIndex} from '../util/reorder.js'
 import {
   mdiArrowDown,
   mdiArrowUp,
   mdiDelete,
+  mdiDragVertical,
   mdiLinkPlus,
   mdiPencil,
   mdiPlus,
@@ -76,6 +80,28 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
         md-icon-button[disabled] {
           color: var(--grampsjs-body-font-color-25);
         }
+
+        .drag-handle {
+          cursor: grab;
+          touch-action: none;
+          color: var(--grampsjs-body-font-color-50);
+        }
+
+        .drag-handle:active {
+          cursor: grabbing;
+        }
+
+        md-list-item.drag-ghost {
+          opacity: 0.35;
+        }
+
+        md-list-item.drag-chosen {
+          background-color: color-mix(
+            in srgb,
+            var(--md-sys-color-primary) 12%,
+            var(--md-sys-color-surface)
+          );
+        }
       `,
     ]
   }
@@ -91,7 +117,9 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
       hasShare: {type: Boolean},
       hasEdit: {type: Boolean},
       hasReorder: {type: Boolean},
+      reorderAction: {type: String},
       _selectedIndex: {type: Number},
+      _listRenderKey: {type: Number},
     }
   }
 
@@ -106,7 +134,11 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
     this.hasShare = false
     this.hasEdit = false
     this.hasReorder = false
+    this.reorderAction = ''
     this._selectedIndex = -1
+    this._listRenderKey = 0
+    this._dragData = null
+    this._sortable = null
   }
 
   render() {
@@ -119,11 +151,14 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
             ${this.edit || showCreateActions
               ? this._renderActionBtns(showCreateActions)
               : ''}
-            <md-list class="${classMap({activatable: this.edit})}">
-              ${this.sortData([...this.data]).map((obj, i, arr) =>
-                this.row(obj, i, arr)
-              )}
-            </md-list>
+            ${keyed(
+              this._listRenderKey,
+              html`<md-list class="${classMap({activatable: this.edit})}">
+                ${this._getDisplayData().map((obj, i, arr) =>
+                  this.row(obj, i, arr)
+                )}
+              </md-list>`
+            )}
           `}
       ${this.dialogContent}
     `
@@ -138,8 +173,70 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
     return dataCopy
   }
 
+  _getDisplayData() {
+    return this._dragData || this.sortData([...this.data])
+  }
+
   row(obj, i, arr) {
     return ''
+  }
+
+  _canDragReorder() {
+    return (
+      this.edit &&
+      this.hasReorder &&
+      Boolean(this.reorderAction) &&
+      this.data.length > 1
+    )
+  }
+
+  _renderDragHandle(index) {
+    if (!this._canDragReorder()) {
+      return ''
+    }
+    return html`
+      <md-icon-button
+        slot="end"
+        class="drag-handle"
+        aria-label="${this._('Drag to reorder')}"
+        title="${this._('Drag to reorder')}"
+        @click="${e => e.stopPropagation()}"
+        @keydown="${e => this._handleDragKeydown(e, index)}"
+      >
+        <grampsjs-icon path="${mdiDragVertical}"></grampsjs-icon>
+      </md-icon-button>
+    `
+  }
+
+  _handleDragKeydown(event, index) {
+    const direction =
+      event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0
+    if (!direction) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    this._handleReorder(index, index + direction)
+  }
+
+  _handleReorder(oldIndex, newIndex) {
+    const displayData = this._getDisplayData()
+    const reordered = moveToIndex(displayData, oldIndex, newIndex)
+    if (reordered === displayData) {
+      return
+    }
+    this._dragData = reordered
+    this._listRenderKey += 1
+    this._selectedIndex = -1
+    fireEvent(
+      this,
+      'edit:action',
+      this._getReorderDetail(reordered, oldIndex, newIndex)
+    )
+  }
+
+  _getReorderDetail(reordered, oldIndex, newIndex) {
+    return {action: this.reorderAction, oldIndex, newIndex}
   }
 
   _renderActionBtns(showCreateActions = false) {
@@ -221,11 +318,49 @@ export class GrampsjsEditableList extends GrampsjsAppStateMixin(LitElement) {
     `
   }
 
+  willUpdate(changed) {
+    if (changed.has('data')) {
+      this._dragData = null
+    }
+    super.willUpdate(changed)
+  }
+
   updated(changed) {
     if (changed.has('edit')) {
       this._selectedIndex = -1
       this.dialogContent = ''
     }
+    this._syncSortable()
+  }
+
+  _syncSortable() {
+    const list = this.renderRoot.querySelector('md-list')
+    if (!this._canDragReorder() || !list) {
+      this._destroySortable()
+      return
+    }
+    if (this._sortable?.el === list) {
+      return
+    }
+    this._destroySortable()
+    this._sortable = Sortable.create(list, {
+      animation: 150,
+      chosenClass: 'drag-chosen',
+      draggable: 'md-list-item',
+      ghostClass: 'drag-ghost',
+      handle: '.drag-handle',
+      onEnd: event => this._handleReorder(event.oldIndex, event.newIndex),
+    })
+  }
+
+  _destroySortable() {
+    this._sortable?.destroy()
+    this._sortable = null
+  }
+
+  disconnectedCallback() {
+    this._destroySortable()
+    super.disconnectedCallback()
   }
 
   _updateSelectionAfterReorder(movedUp) {
