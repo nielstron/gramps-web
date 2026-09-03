@@ -138,7 +138,7 @@ export class GrampsjsViewObjectNotes extends GrampsjsViewObjectsDetail {
         @object:cancel="${this._handleNoteCancel}"
         .appState="${this.appState}"
         objType="${this.objType}"
-        dialogTitle=${this._('Select an existing note')}
+        dialogTitle=${this._('Add or link note')}
       >
       </grampsjs-form-noteref>
     `

@@ -1,4 +1,5 @@
 import {html, css, LitElement} from 'lit'
+import {html as staticHtml, unsafeStatic} from 'lit/static-html.js'
 
 import '@material/web/dialog/dialog.js'
 import '@material/web/button/text-button.js'
@@ -6,6 +7,8 @@ import '@material/web/button/filled-button.js'
 import '@material/web/tabs/tabs.js'
 import '@material/web/tabs/primary-tab.js'
 import '@material/web/textfield/filled-text-field.js'
+import '@material/web/menu/menu.js'
+import '@material/web/menu/menu-item.js'
 
 import {mdiHistory, mdiMagnify, mdiUpdate, mdiBookmarkMultiple} from '@mdi/js'
 
@@ -13,16 +16,18 @@ import {sharedStyles} from '../SharedStyles.js'
 import {
   debounce,
   fireEvent,
-  makeHandle,
   objectIconPath,
   objectTypeToEndpoint,
   objectTypePlural,
 } from '../util.js'
 import {getRecentObjects, getTreeBookmarks} from '../api.js'
 import {
-  PERSON_PICKER_CREATED_EVENT,
-  personNameFromQuery,
-} from '../personPicker.js'
+  newObjectLabel,
+  OBJECT_PICKER_CANCELLED_EVENT,
+  OBJECT_PICKER_CREATED_EVENT,
+  loadNewObjectView,
+  pickerObjectTypes,
+} from '../objectPicker.js'
 import './GrampsjsSearchResultList.js'
 import './GrampsjsButtonToggle.js'
 import './GrampsjsIcon.js'
@@ -73,6 +78,16 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
           max-height: 85vh;
           --md-list-container-color: var(--md-sys-color-surface-container-high);
           --md-dialog-content-block-start-space: 12px;
+        }
+
+        .create-object-dialog {
+          min-width: min(1000px, 95vw);
+          max-height: 92vh;
+        }
+
+        .create-object-content > * {
+          display: block;
+          margin: 0;
         }
 
         md-filled-text-field {
@@ -180,6 +195,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
   static get properties() {
     return {
       objectType: {type: String},
+      multiple: {type: Boolean},
       excludeHandles: {type: Array},
       _data: {type: Array},
       _mode: {type: String},
@@ -188,16 +204,15 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
       _error: {type: Boolean},
       _typeFilters: {type: Object},
       _tabIndex: {type: Number},
-      _createMode: {type: String},
-      _newPlaceName: {type: String},
-      _savingPlace: {type: Boolean},
-      _createError: {type: String},
+      _createObjectType: {type: String},
     }
   }
 
   constructor() {
     super()
     this.objectType = ''
+    this.pickerId = crypto.randomUUID()
+    this.multiple = false
     this.excludeHandles = []
     this._data = []
     this._mode = 'changed'
@@ -206,38 +221,42 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     this._error = false
     this._tabIndex = SIDEBAR_MODES.indexOf('changed')
     this._fetchId = 0
-    this._createMode = ''
-    this._newPlaceName = ''
-    this._savingPlace = false
-    this._createError = ''
+    this._createObjectType = ''
     this._typeFilters = Object.fromEntries(
       FILTERABLE_TYPES.map(key => [key, false])
     )
-    this._personPickerRequestId = ''
-    this._boundHandleCreatedPerson = event => this._handleCreatedPerson(event)
+    this._objectPickerRequestId = ''
+    this._boundHandleCreatedObject = event => this._handleCreatedObject(event)
+    this._boundHandleCancelledObject = event =>
+      this._handleCancelledObject(event)
   }
 
   connectedCallback() {
     super.connectedCallback()
     window.addEventListener(
-      PERSON_PICKER_CREATED_EVENT,
-      this._boundHandleCreatedPerson
+      OBJECT_PICKER_CREATED_EVENT,
+      this._boundHandleCreatedObject
+    )
+    window.addEventListener(
+      OBJECT_PICKER_CANCELLED_EVENT,
+      this._boundHandleCancelledObject
     )
   }
 
   disconnectedCallback() {
     window.removeEventListener(
-      PERSON_PICKER_CREATED_EVENT,
-      this._boundHandleCreatedPerson
+      OBJECT_PICKER_CREATED_EVENT,
+      this._boundHandleCreatedObject
+    )
+    window.removeEventListener(
+      OBJECT_PICKER_CANCELLED_EVENT,
+      this._boundHandleCancelledObject
     )
     super.disconnectedCallback()
   }
 
   render() {
-    if (this._createMode === 'place') return this._renderCreatePlaceDialog()
-    if (this._createMode === 'citation') {
-      return this._renderCreateCitationDialog()
-    }
+    if (this._createObjectType) return this._renderCreateObjectDialog()
     return html`
       <md-dialog>
         <div slot="content" class="content-wrapper">
@@ -274,27 +293,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
         </div>
 
         <div slot="actions">
-          ${this._canCreatePerson()
-            ? html`
-                <md-text-button @click="${this._handleAddPerson}">
-                  ${this._('Add person')}
-                </md-text-button>
-              `
-            : ''}
-          ${this._canCreatePlace()
-            ? html`
-                <md-text-button @click="${this._openCreatePlace}">
-                  ${this._('New Place')}
-                </md-text-button>
-              `
-            : ''}
-          ${this._canCreateCitation()
-            ? html`
-                <md-text-button @click="${this._openCreateCitation}">
-                  ${this._('New Citation')}
-                </md-text-button>
-              `
-            : ''}
+          ${this._renderCreateAction()}
           <md-text-button @click="${this._handleCancel}">
             ${this._('Cancel')}
           </md-text-button>
@@ -303,188 +302,110 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     `
   }
 
-  _renderCreatePlaceDialog() {
+  _renderCreateObjectDialog() {
+    const elementName = unsafeStatic(
+      `grampsjs-view-new-${this._createObjectType}`
+    )
+    const form = staticHtml`<${elementName}
+      active
+      .appState="${this.appState}"
+      .objectPickerRequest="${this._objectPickerRequest}"
+    ></${elementName}>`
     return html`
       <md-dialog
         open
-        @cancel="${event => {
-          event.preventDefault()
-          this._cancelCreatePlace()
-        }}"
+        class="create-object-dialog"
+        @cancel="${this._cancelCreateObject}"
       >
-        <div slot="headline">${this._('New Place')}</div>
-        <div slot="content">
-          <md-filled-text-field
-            id="new-place-name"
-            required
-            label="${this._('Name')}"
-            .value="${this._newPlaceName}"
-            @input="${event => {
-              this._newPlaceName = event.target.value
-              this._createError = ''
-            }}"
-          ></md-filled-text-field>
-          ${this._createError
-            ? html`<p class="error-message">${this._createError}</p>`
-            : ''}
-        </div>
-        <div slot="actions">
-          <md-text-button @click="${this._cancelCreatePlace}">
-            ${this._('Cancel')}
-          </md-text-button>
-          <md-filled-button
-            ?disabled="${!this._newPlaceName.trim() || this._savingPlace}"
-            @click="${() => this._createPlace()}"
-          >
-            ${this._('Add')}
-          </md-filled-button>
-        </div>
+        <div slot="content" class="create-object-content">${form}</div>
       </md-dialog>
     `
   }
 
-  _renderCreateCitationDialog() {
+  _renderCreateAction() {
+    if (!this.appState?.permissions?.canAdd) return ''
+    const types = pickerObjectTypes(this.objectType)
+    if (types.length === 0) return ''
+    if (types.length === 1) {
+      const [objectType] = types
+      return html`
+        <md-text-button @click="${() => this._handleAddObject(objectType)}">
+          ${this._(newObjectLabel[objectType])}
+        </md-text-button>
+      `
+    }
     return html`
-      <grampsjs-form-new-citation
-        new
-        .appState="${this.appState}"
-        dialogTitle="${this._('New Citation')}"
-        @object:save="${this._createCitation}"
-        @object:cancel="${this._cancelCreateCitation}"
-      ></grampsjs-form-new-citation>
+      <span style="position:relative;">
+        <md-text-button
+          id="new-object-menu-button"
+          @click="${this._openCreateMenu}"
+        >
+          ${this._('New')}
+        </md-text-button>
+        <md-menu anchor="new-object-menu-button" id="new-object-menu">
+          ${types.map(
+            objectType => html`
+              <md-menu-item @click="${() => this._handleAddObject(objectType)}">
+                <div slot="headline">${this._(newObjectLabel[objectType])}</div>
+              </md-menu-item>
+            `
+          )}
+        </md-menu>
+      </span>
     `
   }
 
-  _canCreatePlace() {
-    return (
-      this.objectType
-        .split(',')
-        .map(type => type.trim())
-        .includes('place') && this.appState?.permissions?.canAdd
-    )
+  _openCreateMenu() {
+    const menu = this.renderRoot.getElementById('new-object-menu')
+    if (menu) menu.open = !menu.open
   }
 
-  _canCreatePerson() {
-    return (
-      this.objectType
-        .split(',')
-        .map(type => type.trim())
-        .includes('person') && this.appState?.permissions?.canAdd
-    )
-  }
-
-  _canCreateCitation() {
-    return (
-      this.objectType
-        .split(',')
-        .map(type => type.trim())
-        .includes('citation') && this.appState?.permissions?.canAdd
-    )
-  }
-
-  _handleAddPerson() {
-    this._personPickerRequestId = crypto.randomUUID()
+  async _handleAddObject(objectType) {
+    this._objectPickerRequestId = crypto.randomUUID()
     const query =
       this.renderRoot.getElementById('textfield')?.value ?? this._query
-    const state = {
-      personPickerRequestId: this._personPickerRequestId,
-      newPersonName: personNameFromQuery(query),
+    this._objectPickerRequest = {
+      id: this._objectPickerRequestId,
+      objectType,
+      query,
     }
     this._close()
-    fireEvent(this, 'nav', {
-      path: 'new_person',
-      preserveEdit: true,
-      state,
+    await loadNewObjectView(objectType)
+    this._createObjectType = objectType
+  }
+
+  _handleCreatedObject(event) {
+    if (event.detail.requestId !== this._objectPickerRequestId) return
+    this._objectPickerRequestId = ''
+    this._createObjectType = ''
+    this._objectPickerRequest = null
+    const objects = event.detail.objects ?? [event.detail.object]
+    const selected = this.multiple ? objects : objects.slice(0, 1)
+    selected.filter(Boolean).forEach(object => {
+      fireEvent(this, 'select-object:selected', {
+        picker_id: this.pickerId,
+        object_type: event.detail.objectType,
+        object,
+        handle: object.handle,
+      })
     })
   }
 
-  _handleCreatedPerson(event) {
-    if (event.detail.requestId !== this._personPickerRequestId) return
-    this._personPickerRequestId = ''
-    const object = event.detail.object
-    fireEvent(this, 'select-object:selected', {
-      object_type: 'person',
-      object,
-      handle: object.handle,
-    })
-  }
-
-  _openCreatePlace() {
-    this._newPlaceName = this._query
-    this._createError = ''
-    this._createMode = 'place'
-  }
-
-  _cancelCreatePlace() {
-    this._createMode = ''
-    this._createError = ''
+  _handleCancelledObject(event) {
+    if (event.detail.requestId !== this._objectPickerRequestId) return
+    this._objectPickerRequestId = ''
+    this._createObjectType = ''
+    this._objectPickerRequest = null
     this.updateComplete.then(() =>
       this.renderRoot.querySelector('md-dialog')?.show()
     )
   }
 
-  async _createPlace(name = this._newPlaceName.trim()) {
-    this._savingPlace = true
-    this._createError = ''
-    const response = await this.appState.apiPost('/api/places/', {
-      _class: 'Place',
-      name: {_class: 'PlaceName', value: name},
-      place_type: 'Unknown',
-    })
-    if ('error' in response) {
-      this._createError = response.error
-      this._savingPlace = false
-      return
-    }
-    const created = response.data.find(item => item.new._class === 'Place').new
-    const result = await this.appState.apiGet(
-      `/api/places/${created.handle}?extend=all&profile=all&locale=${
-        this.appState.i18n.lang || 'en'
-      }`
-    )
-    const object = result.data
-    this._savingPlace = false
-    this._createMode = ''
-    this._close()
-    fireEvent(this, 'select-object:selected', {
-      object_type: 'place',
-      object,
-      handle: object.handle,
-    })
-  }
-
-  async _openCreateCitation() {
-    await import('./GrampsjsFormNewCitation.js')
-    this._createMode = 'citation'
-  }
-
-  _cancelCreateCitation() {
-    this._createMode = ''
-    this.updateComplete.then(() =>
-      this.renderRoot.querySelector('md-dialog')?.show()
-    )
-  }
-
-  async _createCitation(event) {
-    event.preventDefault()
-    event.stopPropagation()
-    const citation = {handle: makeHandle(), ...event.detail.data}
-    const response = await this.appState.apiPost('/api/citations/', citation)
-    const created = response.data.find(
-      item => item.new._class === 'Citation'
-    ).new
-    const result = await this.appState.apiGet(
-      `/api/citations/${created.handle}?extend=all&profile=all&locale=${
-        this.appState.i18n.lang || 'en'
-      }`
-    )
-    const object = result.data
-    this._createMode = ''
-    this._close()
-    fireEvent(this, 'select-object:selected', {
-      object_type: 'citation',
-      object,
-      handle: object.handle,
+  _cancelCreateObject(event) {
+    if (event && event.composedPath()[0] !== event.currentTarget) return
+    event?.preventDefault()
+    this._handleCancelledObject({
+      detail: {requestId: this._objectPickerRequestId},
     })
   }
 
@@ -586,8 +507,6 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
   }
 
   open(initialQuery = '') {
-    this._createMode = ''
-    this._createError = ''
     const textField = this.renderRoot.getElementById('textfield')
     if (textField) textField.value = initialQuery
     this._query = initialQuery
@@ -821,7 +740,10 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
   _handleSelected(e) {
     if (e.detail.loading) return
     this._close()
-    fireEvent(this, 'select-object:selected', e.detail)
+    fireEvent(this, 'select-object:selected', {
+      ...e.detail,
+      picker_id: this.pickerId,
+    })
   }
 
   _handleCancel() {
@@ -829,7 +751,6 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
   }
 
   _close() {
-    this._createMode = ''
     this.renderRoot.querySelector('md-dialog')?.close()
   }
 }

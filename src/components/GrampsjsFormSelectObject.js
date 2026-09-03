@@ -15,13 +15,16 @@ import './GrampsjsIcon.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 
 // labels for button
-const btnLabel = {
+export const objectPickerButtonLabel = {
   person: 'Add or link person',
-  place: 'Select an existing place',
-  source: 'Select an existing source',
-  media: 'Select an existing media object',
-  event: 'Share an existing event',
-  note: 'Select an existing note',
+  family: 'Add or link family',
+  event: 'Add or link event',
+  place: 'Add or link place',
+  source: 'Add or link source',
+  citation: 'Add or link citation',
+  repository: 'Add or link repository',
+  note: 'Add or link note',
+  media: 'Add or link media object',
 }
 
 class GrampsjsFormSelectObject extends GrampsjsAppStateMixin(LitElement) {
@@ -66,11 +69,13 @@ class GrampsjsFormSelectObject extends GrampsjsAppStateMixin(LitElement) {
           path="${this.iconPath}"
           color="var(--md-outlined-button-label-text-color, var(--mdc-theme-primary))"
         ></grampsjs-icon>
-        ${this.label || this._(btnLabel[this.objectType]) || this._('Select')}
+        ${this.label ||
+        this._(objectPickerButtonLabel[this.objectType] || 'Add or link')}
       </md-outlined-button>
 
       <grampsjs-object-picker-dialog
         objectType="${this.objectType}"
+        ?multiple="${this.multiple}"
         .excludeHandles="${this._handleList()}"
         .appState="${this.appState}"
         @select-object:selected="${this._handleSelected}"
@@ -93,8 +98,15 @@ class GrampsjsFormSelectObject extends GrampsjsAppStateMixin(LitElement) {
     // example, creating a citation includes selecting its source). Composed
     // events from those nested pickers also reach this listener on the outer
     // dialog host, so only accept events emitted by this dialog itself.
-    if (e.composedPath()[0] !== e.currentTarget) return
-    const obj = e.detail
+    if (
+      (e.detail.picker_id && e.detail.picker_id !== e.currentTarget.pickerId) ||
+      (!e.detail.picker_id && e.composedPath()[0] !== e.currentTarget)
+    ) {
+      return
+    }
+    e.stopPropagation?.()
+    const obj = {...e.detail}
+    delete obj.picker_id
     const handle = obj.handle ?? obj.object?.handle
     if (!this.multiple) {
       this.objects = [obj]

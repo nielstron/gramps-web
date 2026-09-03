@@ -65,7 +65,7 @@ export class GrampsjsRepositories extends GrampsjsEditableList {
         @object:cancel="${this._handleDialogCancel}"
         .appState="${this.appState}"
         objType="${this.objType}"
-        dialogTitle=${this._('Add an existing repository')}
+        dialogTitle=${this._('Add or link repository')}
       >
       </grampsjs-form-reporef>
     `

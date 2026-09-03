@@ -42,6 +42,7 @@ export class GrampsjsViewNewPlace extends GrampsjsViewNewObject {
           style="width:100%;"
           @input="${this.handleName}"
           id="place-name"
+          .value="${this.data.name?.value ?? ''}"
         ></mwc-textfield>
       </p>
 
@@ -124,6 +125,14 @@ export class GrampsjsViewNewPlace extends GrampsjsViewNewObject {
     this.data = {
       ...this.data,
       name: {_class: 'PlaceName', value: e.target.value.trim()},
+    }
+  }
+
+  _applyPickerPrefill(query) {
+    if (!query.trim()) return
+    this.data = {
+      ...this.data,
+      name: {_class: 'PlaceName', value: query.trim()},
     }
   }
 

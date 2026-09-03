@@ -265,12 +265,9 @@ export class GrampsjsViewNewEvent extends GrampsjsNewEventMixin(
       fireEvent(window, 'db:changed')
     }
 
-    const eventObj = data.data.find(obj => obj.new._class === 'Event')
-    if (!eventObj) return
-    const {gramps_id: grampsId} = eventObj.new
-
-    fireEvent(this, 'nav', {path: this._getItemPath(grampsId)})
-    this._reset()
+    const created = data.data.find(obj => obj.new._class === 'Event')?.new
+    if (!created) return
+    await this._handleCreatedObjects([created])
   }
 
   async _addEventRef(handle, endpoint, eventRef) {

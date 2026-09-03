@@ -491,6 +491,11 @@ export class GrampsjsViewNewMedia extends GrampsjsNewMediaMixin(
       this.error = false
       this.isUploading = false
 
+      if (this._objectPickerRequest) {
+        await this._handleCreatedObjects(this.filesData)
+        return
+      }
+
       // Navigate based on number of files
       if (files.length === 1) {
         // Single file: navigate to the media object

@@ -57,6 +57,9 @@ function createGraph(graph) {
 
 export function generateDot(graph) {
   let dot = ''
+  const familiesWithVisibleChildren = new Set(
+    graph.getEdges().map(edge => edge.sourceFamily)
+  )
 
   // Every person is one graph node, independent of how many families they
   // belong to. Graphviz can then optimize the whole relationship graph rather
@@ -89,12 +92,21 @@ export function generateDot(graph) {
     `
   }
 
-  // A family is a small junction below its parent nodes. Parent-to-family and
-  // family-to-child edges give the layout engine the generational ordering,
-  // while keeping every person in exactly one node.
+  // Families with visible children use a junction to establish the generation
+  // below their parents. A childless partnership needs no generational node:
+  // keeping it as one direct edge prevents its junction from pulling unrelated
+  // partner groups into the same place.
   for (const n of graph.getNodes()) {
     const pf = n.father
     const pm = n.mother
+    if (!familiesWithVisibleChildren.has(n.handle)) {
+      if (pf && pm) {
+        dot += `
+          "node_${pf}" -> "node_${pm}" [id="childless_${n.handle}", class="childless-couple", dir=none, constraint=false, weight=100]
+        `
+      }
+      continue
+    }
     dot += `
       "node_${n.handle}" [
         class="family_${n.handle}"
@@ -386,6 +398,7 @@ function remasterChart(
     .append('g')
     .attr('transform', d => `translate(${d.xCoord} ${d.yCoord})`)
     .attr('class', d => `node ${d.nodetype}`)
+    .attr('data-handle', d => d.handle)
 
   nodes
     .filter(d => d.nodetype === 'person')
@@ -582,6 +595,20 @@ function remasterChart(
   const linkGenerator = linkVertical()
     .x(d => d.x)
     .y(d => d.y)
+  const personBottomCenter = handle => {
+    const person = nodedata.find(
+      node => node.nodetype === 'person' && node.handle === handle
+    )
+    return [person.xCoord + boxWidth / 2, person.yCoord + boxHeight]
+  }
+  const childlessPartnerArc = ([sourceX, sourceY], [targetX, targetY]) => {
+    const arcDepth = Math.min(
+      80,
+      Math.max(36, Math.abs(targetX - sourceX) * 0.2)
+    )
+    const controlY = Math.max(sourceY, targetY) + arcDepth
+    return `M${sourceX},${sourceY}C${sourceX},${controlY} ${targetX},${controlY} ${targetX},${targetY}`
+  }
   // copy edges
   gvchartx.selectAll('.edge').each(function () {
     const graphvizEdge = select(this)
@@ -597,14 +624,30 @@ function remasterChart(
     // we use only the start and end point
     const firstAndLastPoint = [points[0], points[points.length - 1]]
     const isCouple = graphvizEdge.classed('couple')
-    const pathValue = linkGenerator({
-      source: {x: firstAndLastPoint[0][0], y: firstAndLastPoint[0][1]},
-      target: {x: firstAndLastPoint[1][0], y: firstAndLastPoint[1][1]},
-    })
+    const isChildlessCouple = graphvizEdge.classed('childless-couple')
+    const childlessFamily = isChildlessCouple
+      ? graph.getNode(graphvizEdge.attr('id').replace(/^childless_/, ''))
+      : null
+    const pathValue = isChildlessCouple
+      ? childlessPartnerArc(
+          personBottomCenter(childlessFamily.father),
+          personBottomCenter(childlessFamily.mother)
+        )
+      : linkGenerator({
+          source: {x: firstAndLastPoint[0][0], y: firstAndLastPoint[0][1]},
+          target: {x: firstAndLastPoint[1][0], y: firstAndLastPoint[1][1]},
+        })
     // we replace the polyline with a smooth connector from start to end
     edges
       .append('path')
-      .attr('class', isCouple ? 'edge couple' : 'edge child')
+      .attr(
+        'class',
+        isChildlessCouple
+          ? 'edge couple childless-couple'
+          : isCouple
+          ? 'edge couple'
+          : 'edge child'
+      )
       .attr('d', pathValue)
       .attr('fill', 'none')
       .attr('stroke', 'var(--grampsjs-body-font-color-40)')

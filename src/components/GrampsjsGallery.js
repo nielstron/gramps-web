@@ -267,7 +267,7 @@ export class GrampsjsGallery extends GrampsjsAppStateMixin(LitElement) {
         @object:cancel="${this._handleMediaRefCancel}"
         .appState="${this.appState}"
         objType="${this.objType}"
-        dialogTitle=${this._('Select an existing media object')}
+        dialogTitle=${this._('Add or link media object')}
       ></grampsjs-form-mediaref>
     `
   }

@@ -260,14 +260,42 @@ describe('RelationshipChart', () => {
     })
   })
 
-  it('emits one node per person and separate family junctions', () => {
+  it('uses family junctions only for partnerships with children', () => {
     const dot = generateDot(graphWithThreePartners())
 
     expect(dot.match(/class="person_P"/g)).toHaveLength(1)
-    expect(dot.match(/class="family_F[123]"/g)).toHaveLength(3)
-    expect(dot.match(/class="couple"/g)).toHaveLength(6)
+    expect(dot.match(/class="family_F[123]"/g)).toHaveLength(2)
+    expect(dot.match(/class="couple"/g)).toHaveLength(4)
+    expect(dot.match(/class="childless-couple"/g)).toHaveLength(1)
     expect(dot.match(/class="child"/g)).toHaveLength(2)
     expect(dot).not.toContain('fakeparent')
+  })
+
+  it('renders a childless partnership as one curved edge', async () => {
+    const svg = RelationshipChart(graphWithThreePartners().getData(), {
+      grampsId: 'P',
+      getImageUrl: () => '',
+    })
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('.edge.childless-couple')).toBeTruthy()
+    )
+
+    const edge = svg.querySelector('.edge.childless-couple')
+    const path = edge.getAttribute('d')
+    expect(path).toMatch(/C/)
+    const [, sourceY, targetY] = path.match(
+      /^M[-\d.]+,([-\d.]+)C.* [-\d.]+,([-\d.]+)$/
+    )
+    const nodeBottom = handle => {
+      const transform = svg
+        .querySelector(`[data-handle="${handle}"]`)
+        .getAttribute('transform')
+      return Number(transform.match(/translate\([^ ]+ ([-\d.]+)/)[1]) + 90
+    }
+    expect(Number(sourceY)).toBeCloseTo(nodeBottom('P'))
+    expect(Number(targetY)).toBeCloseTo(nodeBottom('S3'))
+    expect(svg.querySelector('.family_F3')).toBeNull()
   })
 
   it('places family junctions between partners and children', async () => {

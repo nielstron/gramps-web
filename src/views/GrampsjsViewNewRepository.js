@@ -33,6 +33,7 @@ export class GrampsjsViewNewRepository extends GrampsjsViewNewObject {
           style="width:100%;"
           @input="${this.handleName}"
           id="repository-name"
+          .value="${this.data.name ?? ''}"
         ></mwc-textfield>
       </p>
 
@@ -63,6 +64,11 @@ export class GrampsjsViewNewRepository extends GrampsjsViewNewObject {
   handleName(e) {
     this.checkFormValidity()
     this.data = {...this.data, name: e.target.value.trim()}
+  }
+
+  _applyPickerPrefill(query) {
+    if (!query.trim()) return
+    this.data = {...this.data, name: query.trim()}
   }
 
   _handleFormData(e) {

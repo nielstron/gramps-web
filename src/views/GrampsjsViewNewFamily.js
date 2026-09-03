@@ -3,7 +3,6 @@ import {html, css} from 'lit'
 import {mdiClose, mdiPlus} from '@mdi/js'
 
 import {GrampsjsViewNewObject} from './GrampsjsViewNewObject.js'
-import {clearDraftsWithPrefix} from '../api.js'
 import '../components/GrampsjsFormPrivate.js'
 import '../components/GrampsjsFormPersonSlot.js'
 import '../components/GrampsjsIcon.js'
@@ -168,7 +167,7 @@ export class GrampsjsViewNewFamily extends GrampsjsViewNewObject {
       slots.some(slot => !slot.isEmpty())
   }
 
-  _submit() {
+  async _submit() {
     const fatherSlot = this.shadowRoot.querySelector('#father-slot')
     const motherSlot = this.shadowRoot.querySelector('#mother-slot')
 
@@ -200,28 +199,16 @@ export class GrampsjsViewNewFamily extends GrampsjsViewNewObject {
       child_ref_list: childRefList,
     }
 
-    this.appState.apiPost(this.postUrl, [familyObj]).then(data => {
-      if ('data' in data) {
-        this.error = false
-        const grampsId = data.data.filter(obj => obj.new._class === 'Family')[0]
-          .new.gramps_id
-
-        const {page, pageId} = this.appState?.path || {page: '', pageId: ''}
-        clearDraftsWithPrefix(`${page}:${pageId}:`)
-
-        this.dispatchEvent(
-          new CustomEvent('nav', {
-            bubbles: true,
-            composed: true,
-            detail: {path: `family/${grampsId}`},
-          })
-        )
-        this._reset()
-      } else if ('error' in data) {
-        this.error = true
-        this._errorMessage = data.error
-      }
-    })
+    const data = await this.appState.apiPost(this.postUrl, [familyObj])
+    if ('error' in data) {
+      this.error = true
+      this._errorMessage = data.error
+      return
+    }
+    this.error = false
+    const created = data.data.find(obj => obj.new._class === 'Family').new
+    this._clearDrafts()
+    await this._handleCreatedObjects([created])
   }
 
   _reset() {

@@ -225,7 +225,7 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
           class="edit"
           @click="${this._handleAddPersonToFamily}"
         >
-          ${this._('Add person as child to an existing family')}
+          ${this._('Add person as child to a family')}
           <grampsjs-icon
             path="${mdiLinkVariantPlus}"
             color="var(--mdc-theme-secondary)"
@@ -269,7 +269,7 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
         @object:cancel="${this._handleDialogCancel}"
         .appState="${this.appState}"
         personHandle="${this.personHandle}"
-        dialogTitle="${this._('Add person as child to an existing family')}"
+        dialogTitle="${this._('Add person as child to a family')}"
       ></grampsjs-form-add-person-to-family>
     `
   }

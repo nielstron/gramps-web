@@ -91,7 +91,7 @@ export class GrampsjsSourceCitations extends GrampsjsEditableList {
         @object:save="${this._handleShareCitSave}"
         @object:cancel="${this._handleCitCancel}"
         .appState="${this.appState}"
-        dialogTitle=${this._('Select an existing citation')}
+        dialogTitle=${this._('Add or link citation')}
       >
       </grampsjs-form-citation>
     `

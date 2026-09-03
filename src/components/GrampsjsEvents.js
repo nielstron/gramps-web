@@ -193,7 +193,7 @@ export class GrampsjsEvents extends GrampsjsEditableList {
         @object:cancel="${this._handleDialogCancel}"
         .appState="${this.appState}"
         objType="${this.objType}"
-        dialogTitle=${this._('Share an existing event')}
+        dialogTitle=${this._('Add or link event')}
       >
       </grampsjs-form-eventref>
     `

@@ -2,7 +2,7 @@ import {html} from 'lit'
 
 import {GrampsjsViewNewObject} from './GrampsjsViewNewObject.js'
 import {GrampsjsNewPersonMixin} from '../mixins/GrampsjsNewPersonMixin.js'
-import {PERSON_PICKER_CREATED_EVENT} from '../personPicker.js'
+import {personNameFromQuery} from '../objectPicker.js'
 
 export class GrampsjsViewNewPerson extends GrampsjsNewPersonMixin(
   GrampsjsViewNewObject
@@ -12,22 +12,11 @@ export class GrampsjsViewNewPerson extends GrampsjsNewPersonMixin(
     this.postUrl = '/api/objects/'
     this.itemPath = 'person'
     this.objClass = 'Person'
-    this._personPickerRequestId = ''
   }
 
-  update(changed) {
-    if (changed.has('active') && this.active) {
-      this._applyNavigationPrefill()
-    }
-    super.update(changed)
-  }
-
-  _applyNavigationPrefill() {
-    const {personPickerRequestId = '', newPersonName} =
-      window.history.state ?? {}
-    if (!personPickerRequestId || !newPersonName) return
-    this._personPickerRequestId = personPickerRequestId
-    this.data = {...this.data, primary_name: newPersonName}
+  _applyPickerPrefill(query) {
+    if (!query.trim()) return
+    this.data = {...this.data, primary_name: personNameFromQuery(query)}
     this.updateComplete.then(() => this.checkFormValidity())
   }
 
@@ -49,39 +38,7 @@ export class GrampsjsViewNewPerson extends GrampsjsNewPersonMixin(
 
     this.error = false
     const created = data.data.find(obj => obj.new._class === 'Person').new
-    if (this._personPickerRequestId) {
-      const result = await this.appState.apiGet(
-        `/api/people/${created.handle}?extend=all&profile=all&locale=${
-          this.appState.i18n.lang || 'en'
-        }`
-      )
-      if ('error' in result) {
-        this.error = true
-        this._errorMessage = result.error
-        return
-      }
-      window.dispatchEvent(
-        new CustomEvent(PERSON_PICKER_CREATED_EVENT, {
-          detail: {
-            requestId: this._personPickerRequestId,
-            object: result.data,
-          },
-        })
-      )
-      this._personPickerRequestId = ''
-      this._reset()
-      window.history.back()
-      return
-    }
-
-    this.dispatchEvent(
-      new CustomEvent('nav', {
-        bubbles: true,
-        composed: true,
-        detail: {path: this._getItemPath(created.gramps_id)},
-      })
-    )
-    this._reset()
+    await this._handleCreatedObjects([created])
   }
 }
 

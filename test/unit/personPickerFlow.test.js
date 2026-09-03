@@ -10,10 +10,11 @@ import {GrampsjsPerson} from '../../src/components/GrampsjsPerson.js'
 import {GrampsjsTreeChartAddPerson} from '../../src/components/GrampsjsTreeChartAddPerson.js'
 import {GrampsjsObjectForm} from '../../src/components/GrampsjsObjectForm.js'
 import {
-  PERSON_PICKER_CREATED_EVENT,
+  OBJECT_PICKER_CREATED_EVENT,
   personNameFromQuery,
-} from '../../src/personPicker.js'
+} from '../../src/objectPicker.js'
 import {GrampsjsViewNewPerson} from '../../src/views/GrampsjsViewNewPerson.js'
+import {GrampsjsViewNewObject} from '../../src/views/GrampsjsViewNewObject.js'
 
 const appState = {
   i18n: {lang: 'en', strings: {}},
@@ -24,8 +25,13 @@ class TestObjectForm extends GrampsjsObjectForm {
   firstUpdated() {}
 }
 
+class TestNewObject extends GrampsjsViewNewObject {}
+
 if (!window.customElements.get('test-person-picker-object-form')) {
   window.customElements.define('test-person-picker-object-form', TestObjectForm)
+}
+if (!window.customElements.get('test-picker-new-object')) {
+  window.customElements.define('test-picker-new-object', TestNewObject)
 }
 
 afterEach(() => {
@@ -45,6 +51,26 @@ function templateMarkup(template) {
 }
 
 describe('unified person picker flow', () => {
+  it('keeps recursive form-data changes inside their immediate owner', () => {
+    const outer = document.createElement('test-picker-new-object')
+    const inner = document.createElement('test-picker-new-object')
+    outer._handleFormData = vi.fn()
+    inner._handleFormData = vi.fn()
+    outer.append(inner)
+    document.body.append(outer)
+
+    inner.dispatchEvent(
+      new CustomEvent('formdata:changed', {
+        bubbles: true,
+        composed: true,
+        detail: {data: ['inner-object']},
+      })
+    )
+
+    expect(inner._handleFormData).toHaveBeenCalledOnce()
+    expect(outer._handleFormData).not.toHaveBeenCalled()
+  })
+
   it('closes the parent form while navigating to create a linked person', async () => {
     const form = document.createElement('test-person-picker-object-form')
     form.appState = appState
@@ -263,9 +289,19 @@ describe('unified person picker flow', () => {
     expect(templateMarkup(second.render())).not.toContain('Preferred')
   })
 
-  it('opens the new-person page with a parsed search query', () => {
+  it.each([
+    ['person', 'new_person'],
+    ['family', 'new_family'],
+    ['event', 'new_event'],
+    ['place', 'new_place'],
+    ['source', 'new_source'],
+    ['citation', 'new_citation'],
+    ['repository', 'new_repository'],
+    ['note', 'new_note'],
+    ['media', 'new_media'],
+  ])('opens the complete new-%s form from the picker', async objectType => {
     const picker = new GrampsjsObjectPickerDialog()
-    picker.objectType = 'person'
+    picker.objectType = objectType
     picker.appState = appState
     picker._query = 'stale debounced value'
     const textField = document.createElement('input')
@@ -274,26 +310,15 @@ describe('unified person picker flow', () => {
     const renderRoot = {getElementById: () => textField}
     Object.defineProperty(picker, 'renderRoot', {value: renderRoot})
     picker._close = vi.fn()
-    let navigation
-    picker.addEventListener('nav', event => {
-      navigation = event.detail
-    })
-
-    picker._handleAddPerson()
+    await picker._handleAddObject(objectType)
 
     expect(picker._close).toHaveBeenCalled()
-    expect(navigation).toMatchObject({
-      path: 'new_person',
-      preserveEdit: true,
-      state: {
-        newPersonName: {
-          _class: 'Name',
-          first_name: 'Ada',
-          surname_list: [{_class: 'Surname', surname: 'Lovelace'}],
-        },
-      },
+    expect(picker._createObjectType).toBe(objectType)
+    expect(picker._objectPickerRequest).toEqual({
+      id: expect.any(String),
+      objectType,
+      query: 'Ada Lovelace',
     })
-    expect(navigation.state.personPickerRequestId).toEqual(expect.any(String))
   })
 
   it.each([
@@ -307,40 +332,104 @@ describe('unified person picker flow', () => {
     expect(name.surname_list?.[0].surname).toBe(surname)
   })
 
-  it('prefills the full new-person form from navigation state', () => {
+  it('prefills the full new-person form from the generic picker request', () => {
     const state = {
-      personPickerRequestId: 'request-1',
-      newPersonName: personNameFromQuery('Ada Lovelace'),
+      objectPickerRequest: {
+        id: 'request-1',
+        objectType: 'person',
+        query: 'Ada Lovelace',
+      },
     }
-    window.history.replaceState(state, '')
     const view = new GrampsjsViewNewPerson()
+    view.objectPickerRequest = state.objectPickerRequest
 
-    view._applyNavigationPrefill()
+    view._applyObjectPickerRequest()
 
-    expect(view.data.primary_name).toEqual(state.newPersonName)
-    expect(view._personPickerRequestId).toBe('request-1')
+    expect(view.data.primary_name).toEqual(personNameFromQuery('Ada Lovelace'))
+    expect(view._objectPickerRequest).toEqual(state.objectPickerRequest)
   })
 
-  it('returns the created person to the originating picker', () => {
+  it('returns a created object only to the originating picker', () => {
     const picker = new GrampsjsObjectPickerDialog()
-    picker._personPickerRequestId = 'request-1'
+    picker._objectPickerRequestId = 'request-1'
     let selected
     picker.addEventListener('select-object:selected', event => {
       selected = event.detail
     })
-    picker._handleCreatedPerson(
-      new CustomEvent(PERSON_PICKER_CREATED_EVENT, {
+    picker._handleCreatedObject(
+      new CustomEvent(OBJECT_PICKER_CREATED_EVENT, {
         detail: {
           requestId: 'request-1',
-          object: {handle: 'person-1', gramps_id: 'I0001'},
+          objectType: 'source',
+          objects: [{handle: 'source-1', gramps_id: 'S0001'}],
         },
       })
     )
 
     expect(selected).toEqual({
-      object_type: 'person',
-      object: {handle: 'person-1', gramps_id: 'I0001'},
-      handle: 'person-1',
+      picker_id: expect.any(String),
+      object_type: 'source',
+      object: {handle: 'source-1', gramps_id: 'S0001'},
+      handle: 'source-1',
     })
+  })
+
+  it('isolates nested picker completions by request ID', () => {
+    const outer = new GrampsjsObjectPickerDialog()
+    const inner = new GrampsjsObjectPickerDialog()
+    outer._objectPickerRequestId = 'outer-request'
+    inner._objectPickerRequestId = 'inner-request'
+    const outerSelected = vi.fn()
+    const innerSelected = vi.fn()
+    outer.addEventListener('select-object:selected', outerSelected)
+    inner.addEventListener('select-object:selected', innerSelected)
+    const event = new CustomEvent(OBJECT_PICKER_CREATED_EVENT, {
+      detail: {
+        requestId: 'inner-request',
+        objectType: 'place',
+        objects: [{handle: 'place-1'}],
+      },
+    })
+
+    outer._handleCreatedObject(event)
+    inner._handleCreatedObject(event)
+
+    expect(outerSelected).not.toHaveBeenCalled()
+    expect(innerSelected).toHaveBeenCalledOnce()
+  })
+
+  it('returns a complete newly created object without leaving its parent form', async () => {
+    const view = new GrampsjsViewNewPerson()
+    view.appState = {
+      ...appState,
+      apiGet: vi.fn().mockResolvedValue({
+        data: {handle: 'person-1', gramps_id: 'I0001', profile: {}},
+      }),
+    }
+    view._objectPickerRequest = {
+      id: 'request-1',
+      objectType: 'person',
+      query: 'Ada Lovelace',
+    }
+    view._reset = vi.fn()
+    const back = vi.spyOn(window.history, 'back')
+    let completion
+    window.addEventListener(
+      OBJECT_PICKER_CREATED_EVENT,
+      event => {
+        completion = event.detail
+      },
+      {once: true}
+    )
+
+    await view._handleCreatedObjects([{handle: 'person-1', gramps_id: 'I0001'}])
+
+    expect(completion).toEqual({
+      requestId: 'request-1',
+      objectType: 'person',
+      objects: [{handle: 'person-1', gramps_id: 'I0001', profile: {}}],
+    })
+    expect(back).not.toHaveBeenCalled()
+    expect(view._reset).toHaveBeenCalledOnce()
   })
 })
