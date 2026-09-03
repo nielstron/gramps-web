@@ -78,14 +78,20 @@ export function translate(strings, s) {
 }
 
 export function personTitleFromProfile(personProfile) {
-  return `${personProfile.name_given || '…'} ${
+  return `${personGivenNameFromProfile(personProfile) || '…'} ${
     personProfile.name_surname || '…'
   } ${personProfile.name_suffix || ''}`.trim()
 }
 
+export function personGivenNameFromProfile(profile) {
+  return [profile?.name_title, profile?.name_given].filter(Boolean).join(' ')
+}
+
 export function personProfileDisplayName(profile) {
   return (
-    [profile?.name_given, profile?.name_surname].filter(Boolean).join(' ') ||
+    [personGivenNameFromProfile(profile), profile?.name_surname]
+      .filter(Boolean)
+      .join(' ') ||
     profile?.name ||
     ''
   )
@@ -96,13 +102,15 @@ function displaySurname(surname) {
 }
 
 export function personDisplayName(person, options = {givenfirst: true}) {
+  const title = person.primary_name?.title ?? ''
   const suffix = person.primary_name?.suffix ?? ''
   const given = person.primary_name?.first_name ?? '…'
   const surname =
     person.primary_name?.surname_list?.map(displaySurname)?.join(' ') ?? '…'
+  const titledGiven = [title, given].filter(Boolean).join(' ')
   return options.givenfirst
-    ? `${given} ${surname} ${suffix}`.trim()
-    : `${surname}, ${given} ${suffix}`.trim()
+    ? `${titledGiven} ${surname} ${suffix}`.trim()
+    : `${surname}, ${titledGiven} ${suffix}`.trim()
 }
 
 export function reportSelectItemLabel(

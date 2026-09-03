@@ -3,6 +3,8 @@ import {render, html} from 'lit'
 import {
   translate,
   personTitleFromProfile,
+  personGivenNameFromProfile,
+  personProfileDisplayName,
   personDisplayName,
   reportSelectItemLabel,
   reportSelectItemValue,
@@ -83,6 +85,36 @@ describe('personTitleFromProfile', () => {
       })
     ).to.equal('John Smith Jr.')
   })
+
+  it('includes an academic title', () => {
+    expect(
+      personTitleFromProfile({
+        name_title: 'Dr.',
+        name_given: 'John',
+        name_surname: 'Smith',
+      })
+    ).to.equal('Dr. John Smith')
+  })
+})
+
+describe('personGivenNameFromProfile', () => {
+  it('prepends the title to the given name', () => {
+    expect(
+      personGivenNameFromProfile({name_title: 'Dr.', name_given: 'Jane'})
+    ).to.equal('Dr. Jane')
+  })
+})
+
+describe('personProfileDisplayName', () => {
+  it('includes an academic title', () => {
+    expect(
+      personProfileDisplayName({
+        name_title: 'Dr.',
+        name_given: 'Jane',
+        name_surname: 'Doe',
+      })
+    ).to.equal('Dr. Jane Doe')
+  })
 })
 
 describe('personDisplayName', () => {
@@ -106,6 +138,14 @@ describe('personDisplayName', () => {
 
   it('handles missing primary_name gracefully', () => {
     expect(personDisplayName({})).to.equal('… …')
+  })
+
+  it('includes the name title', () => {
+    expect(
+      personDisplayName({
+        primary_name: {...person.primary_name, title: 'Dr.'},
+      })
+    ).to.equal('Dr. John Smith')
   })
 })
 

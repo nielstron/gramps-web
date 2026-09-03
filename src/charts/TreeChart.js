@@ -3,7 +3,11 @@ import {create} from 'd3-selection'
 import {hierarchy, tree} from 'd3-hierarchy'
 import {curveBumpX, link, symbolTriangle, symbol} from 'd3-shape'
 import {zoom} from 'd3-zoom'
-import {chartNameDisplayFormat, fireEvent} from '../util.js'
+import {
+  chartNameDisplayFormat,
+  fireEvent,
+  personGivenNameFromProfile,
+} from '../util.js'
 import {appendAddPersonButton} from './addPersonButton.js'
 import {formatDateString} from '../date.js'
 
@@ -249,7 +253,7 @@ function TreeChartCore(
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
           ? `${d.data.name_surname || '…'},`
-          : d.data.name_given || '…',
+          : personGivenNameFromProfile(d.data) || '…',
         textWidth(d)
       )
     )
@@ -270,7 +274,7 @@ function TreeChartCore(
     .text(d =>
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? d.data.name_given || '…'
+          ? personGivenNameFromProfile(d.data) || '…'
           : d.data.name_surname || '…',
         textWidth(d)
       )

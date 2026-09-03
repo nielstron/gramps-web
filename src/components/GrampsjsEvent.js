@@ -12,6 +12,7 @@ import './GrampsjsTooltip.js'
 import {emptyDate, fireEvent, objectIconPath} from '../util.js'
 import {formatDateString} from '../date.js'
 import './GrampsjsObjectLink.js'
+import {degreeFromEvent, isAcademicEvent} from '../degree.js'
 
 export class GrampsjsEvent extends GrampsjsObject {
   static get styles() {
@@ -34,6 +35,7 @@ export class GrampsjsEvent extends GrampsjsObject {
   }
 
   renderProfile() {
+    const degree = degreeFromEvent(this.data)
     return html`
       <h2>
         ${this._renderTitle()}
@@ -61,6 +63,14 @@ export class GrampsjsEvent extends GrampsjsObject {
             <div>
               <dt>${this._('Description')}</dt>
               <dd>${this.data.description}</dd>
+            </div>
+          </dl>`
+        : ''}
+      ${isAcademicEvent(this.data) && (degree || this.edit)
+        ? html`<dl>
+            <div>
+              <dt>${this._('Degree')}</dt>
+              <dd>${degree}</dd>
             </div>
           </dl>`
         : ''}
@@ -192,7 +202,10 @@ export class GrampsjsEvent extends GrampsjsObject {
   }
 
   _handleEditDetails() {
-    const data = {date: this.data.date ?? emptyDate}
+    const data = {
+      date: this.data.date ?? emptyDate,
+      attribute_list: this.data.attribute_list || [],
+    }
     if (this.data.place) {
       data.place = this.data.place
     }
@@ -204,6 +217,7 @@ export class GrampsjsEvent extends GrampsjsObject {
         .appState="${this.appState}"
         .data=${data}
         .place=${place}
+        .eventType=${this.data.type}
       >
       </grampsjs-form-edit-event-details>
     `

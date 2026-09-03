@@ -40,6 +40,7 @@ export const getTree = (
   const tree = {
     name_given: person?.profile ? person?.profile?.name_given : null,
     name_surname: person?.profile ? person?.profile?.name_surname : null,
+    name_title: person?.profile ? person?.profile?.name_title : null,
     id: label,
     depth: i,
     person,
@@ -73,6 +74,7 @@ export const getDescendantTree = (data, handle, depth, i = 0, label = 'p') => {
   const tree = {
     name_given: person?.profile ? person?.profile?.name_given : null,
     name_surname: person?.profile ? person?.profile?.name_surname : null,
+    name_title: person?.profile ? person?.profile?.name_title : null,
     id: label,
     depth: i,
     person,

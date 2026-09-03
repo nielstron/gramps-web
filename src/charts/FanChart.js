@@ -9,7 +9,7 @@ import {
 } from 'd3-scale-chromatic'
 import {zoom} from 'd3-zoom'
 import {LegendCategorical, LegendColorBar} from './util.js'
-import {chartNameDisplayFormat} from '../util.js'
+import {chartNameDisplayFormat, personGivenNameFromProfile} from '../util.js'
 
 const colorFunctions = {
   default: {
@@ -402,8 +402,8 @@ export function FanChart(
     .append('title')
     .text(d =>
       nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-        ? '' + d.data.name_surname + ', ' + d.data.name_given
-        : '' + d.data.name_given + ' ' + d.data.name_surname
+        ? '' + d.data.name_surname + ', ' + personGivenNameFromProfile(d.data)
+        : '' + personGivenNameFromProfile(d.data) + ' ' + d.data.name_surname
     )
 
   const fontSize = d => Math.min(12, (((d.y0 + d.y1) / 2) * (d.x1 - d.x0)) / 10)
@@ -437,7 +437,7 @@ export function FanChart(
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
           ? d.data.name_surname
-          : d.data.name_given,
+          : personGivenNameFromProfile(d.data),
         d,
         true
       )
@@ -457,7 +457,7 @@ export function FanChart(
     .text(d =>
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? d.data.name_given
+          ? personGivenNameFromProfile(d.data)
           : d.data.name_surname,
         d,
         true
@@ -495,7 +495,7 @@ export function FanChart(
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
           ? d.data.name_surname || ''
-          : d.data.name_given || '',
+          : personGivenNameFromProfile(d.data),
         d
       )
     )
@@ -526,7 +526,7 @@ export function FanChart(
       d =>
         clipString(
           nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-            ? d.data.name_given || ''
+            ? personGivenNameFromProfile(d.data)
             : d.data.name_surname || '',
           d
         )

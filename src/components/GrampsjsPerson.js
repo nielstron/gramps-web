@@ -303,7 +303,8 @@ export class GrampsjsPerson extends GrampsjsObject {
             ${given.substring(callIndex + call.length)}
           `
         : given
-    return html`${given} ${surname} ${suffix}`
+    return html`${this.data.profile.name_title || ''} ${given} ${surname}
+    ${suffix}`
   }
 
   _renderBirth() {

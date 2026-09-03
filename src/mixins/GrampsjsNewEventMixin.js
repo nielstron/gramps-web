@@ -6,6 +6,11 @@ import '../components/GrampsjsFormSelectDate.js'
 import '../components/GrampsjsFormSelectObjectList.js'
 import '../components/GrampsjsFormSelectType.js'
 import '../components/GrampsjsFormPrivate.js'
+import {
+  degreeFromEvent,
+  isAcademicEvent,
+  withDegreeAttribute,
+} from '../degree.js'
 
 export const GrampsjsNewEventMixin = superClass =>
   class extends superClass {
@@ -42,6 +47,22 @@ export const GrampsjsNewEventMixin = superClass =>
           </grampsjs-form-string>
         </p>
 
+        ${isAcademicEvent(this.data)
+          ? html`
+              <h3 class="label">${this._('Degree')}</h3>
+              <p>
+                <grampsjs-form-string
+                  fullwidth
+                  id="event-degree"
+                  @formdata:changed="${this._handleFormData}"
+                  label="${this._('Degree')}"
+                  value="${degreeFromEvent(this.data)}"
+                  .appState="${this.appState}"
+                ></grampsjs-form-string>
+              </p>
+            `
+          : ''}
+
         <h3 class="label">${this._('Place')}</h3>
         <grampsjs-form-select-object-list
           fixedMenuPosition
@@ -58,5 +79,13 @@ export const GrampsjsNewEventMixin = superClass =>
           .appState="${this.appState}"
         ></grampsjs-form-private>
       `
+    }
+
+    _handleFormData(e) {
+      const originalTarget = e.composedPath()[0]
+      super._handleFormData(e)
+      if (originalTarget.id === 'event-degree') {
+        this.data = withDegreeAttribute(this.data, e.detail.data)
+      }
     }
   }

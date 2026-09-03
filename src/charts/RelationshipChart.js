@@ -2,7 +2,7 @@ import {create, select} from 'd3-selection'
 import {zoom} from 'd3-zoom'
 import {linkVertical} from 'd3-shape'
 import {Graphviz} from '@hpcc-js/wasm'
-import {chartNameDisplayFormat} from '../util.js'
+import {chartNameDisplayFormat, personGivenNameFromProfile} from '../util.js'
 import {appendAddPersonButton} from './addPersonButton.js'
 import {formatDateString} from '../date.js'
 import {surnameWithBirthName} from '../name.js'
@@ -476,7 +476,7 @@ function remasterChart(
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
           ? `${surnameWithBirthName(d.data, bornLabel)},`
-          : d.profile?.name_given || '…',
+          : personGivenNameFromProfile(d.profile) || '…',
         boxWidthTotal(d)
       )
     )
@@ -499,7 +499,7 @@ function remasterChart(
     .text(d =>
       clipString(
         nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? d.profile?.name_given || '…'
+          ? personGivenNameFromProfile(d.profile) || '…'
           : surnameWithBirthName(d.data, bornLabel),
         boxWidthTotal(d)
       )
