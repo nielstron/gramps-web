@@ -165,13 +165,17 @@ export class GrampsjsViewNewPlace extends GrampsjsViewNewObject {
     this._latLongDialogOpen = true
   }
 
-  _closeLatLongDialog() {
+  _closeLatLongDialog(e) {
     this._latLongDialogOpen = false
+    e?.preventDefault()
+    e?.stopPropagation()
   }
 
   _handleLatLongSave(e) {
     this.data = {...this.data, ...e.detail.data}
     this._latLongDialogOpen = false
+    e.preventDefault()
+    e.stopPropagation()
   }
 
   checkFormValidity() {
