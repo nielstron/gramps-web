@@ -96,6 +96,7 @@
   "SMTP user": "SMTP user",
   "SMTP password": "SMTP password",
   "From address": "From address",
+  "Sender name": "Sender name",
   "Email delivery": "Email delivery",
   "SMTP settings and email delivery test": "SMTP settings and email delivery test",
   "These server-wide settings are used for invitations, registration, and password reset emails.": "These server-wide settings are used for invitations, registration, and password reset emails.",

@@ -7,6 +7,7 @@ const emailSettings = {
   port: 587,
   username: 'mailer',
   from_email: 'family@example.com',
+  from_name: 'Bond family',
   security: 'starttls',
   password_set: true,
 }
@@ -15,6 +16,7 @@ describe('administration email settings', () => {
   it('loads SMTP settings without a password', async () => {
     const view = new GrampsjsViewAdminSettings()
     view.appState = {
+      i18n: {strings: {}},
       apiGet: vi.fn().mockResolvedValue({data: emailSettings}),
     }
 
@@ -31,6 +33,7 @@ describe('administration email settings', () => {
     view._emailPassword = 'new secret'
     view._testEmail = 'admin@example.com'
     view.appState = {
+      i18n: {strings: {}},
       apiPut: vi.fn().mockResolvedValue({data: {}}),
       apiPost: vi.fn().mockResolvedValue({data: {message: 'sent'}}),
     }
@@ -44,6 +47,7 @@ describe('administration email settings', () => {
       username: 'mailer',
       password: 'new secret',
       from_email: 'family@example.com',
+      from_name: 'Bond family',
       security: 'starttls',
     })
     expect(view.appState.apiPost).toHaveBeenCalledWith(

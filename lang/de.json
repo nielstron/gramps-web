@@ -42,6 +42,7 @@
     "SMTP user": "SMTP-Benutzer",
     "SMTP password": "SMTP-Kennwort",
     "From address": "Von Adresse",
+    "Sender name": "Absendername",
     "Email delivery": "E-Mail-Versand",
     "SMTP settings and email delivery test": "SMTP-Einstellungen und Versandtest",
     "These server-wide settings are used for invitations, registration, and password reset emails.": "Diese serverweiten Einstellungen werden für Einladungen, Registrierung und E-Mails zum Zurücksetzen von Kennwörtern verwendet.",

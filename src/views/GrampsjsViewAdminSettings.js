@@ -303,6 +303,7 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
       port: 465,
       username: '',
       from_email: '',
+      from_name: '',
       security: 'ssl',
       password_set: false,
     }
@@ -435,6 +436,17 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
               this._emailSettings = {
                 ...this._emailSettings,
                 from_email: e.target.value,
+              }
+            }}"
+          ></md-filled-text-field>
+          <md-filled-text-field
+            label="${this._('Sender name')}"
+            .value="${this._emailSettings.from_name}"
+            ?disabled="${this._emailSettingsLoading}"
+            @input="${e => {
+              this._emailSettings = {
+                ...this._emailSettings,
+                from_name: e.target.value,
               }
             }}"
           ></md-filled-text-field>
@@ -1630,6 +1642,7 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
       port: Number(this._emailSettings.port),
       username: this._emailSettings.username,
       from_email: this._emailSettings.from_email,
+      from_name: this._emailSettings.from_name,
       security: this._emailSettings.security,
     }
     if (this._emailPassword) {
