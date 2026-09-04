@@ -1,4 +1,5 @@
 import {LitElement} from 'lit'
+import {getGregorianYears} from '../util.js'
 
 const SOURCE_ID = 'person-lines'
 const LAYER_ID = 'person-lines-layer'
@@ -6,15 +7,63 @@ const ARROWS_LAYER_ID = 'person-lines-arrows'
 const ARROW_IMAGE_ID = 'person-line-arrow'
 export const PERSON_ROUTE_HANDLE = 'person-life-event-route'
 
+export const PERSON_ROUTE_COLOR_STOPS = [
+  [0, '#3b4cc0'],
+  [0.25, '#00a6ca'],
+  [0.5, '#40b0a6'],
+  [0.75, '#f6c85f'],
+  [1, '#b2182b'],
+]
+
 const RECENCY_COLOR = [
   'interpolate',
   ['linear'],
   ['get', 'recency'],
-  0,
-  '#4285f4',
-  1,
-  '#ea4335',
+  ...PERSON_ROUTE_COLOR_STOPS.flat(),
 ]
+
+const RECENCY_EXPONENT = 2
+
+export const PERSON_ROUTE_COLOR_GRADIENT = `linear-gradient(to right, ${PERSON_ROUTE_COLOR_STOPS.map(
+  ([position, color]) => `${color} ${position * 100}%`
+).join(', ')})`
+
+function dateYearInfo(date) {
+  if (!Array.isArray(date?.dateval)) return {}
+  const [startYear, endYear] = getGregorianYears(date)
+  if (!Number.isFinite(startYear)) return {}
+  const lastYear = Number.isFinite(endYear) ? endYear : startYear
+  let label =
+    startYear === lastYear ? String(startYear) : `${startYear}–${lastYear}`
+  if (date.modifier === 1 || date.modifier === 8) label = `≤ ${label}`
+  if (date.modifier === 2 || date.modifier === 7) label = `≥ ${label}`
+  if (date.modifier === 3 || date.quality === 1) label = `ca. ${label}`
+  return {
+    year: (startYear + lastYear) / 2,
+    label,
+  }
+}
+
+export function scalePersonRouteRecency(value, oldest, newest) {
+  if (newest === oldest) return 1
+  const linear = (value - oldest) / (newest - oldest)
+  return linear ** RECENCY_EXPONENT
+}
+
+export function personRouteLegendTicks(oldest, newest, count = 5) {
+  if (!Number.isFinite(oldest) || !Number.isFinite(newest)) return []
+  if (oldest === newest) return [{position: 1, year: Math.round(newest)}]
+  return Array.from({length: count}, (_, index) => {
+    const position = index / (count - 1)
+    const linear = position ** (1 / RECENCY_EXPONENT)
+    return {
+      position,
+      year: Math.round(oldest + (newest - oldest) * linear),
+    }
+  }).filter(
+    (tick, index, ticks) => index === 0 || tick.year !== ticks[index - 1].year
+  )
+}
 
 function isComparableEvent(event, placesById) {
   return (
@@ -43,9 +92,12 @@ export function buildPersonRouteGeoJSON(events, places) {
     .sort((a, b) => a.date.sortval - b.date.sortval)
     .map(event => {
       const place = placesById[event.place]
+      const yearInfo = dateYearInfo(event.date)
       return {
         coords: [parseFloat(place.long), parseFloat(place.lat)],
         sortval: event.date.sortval,
+        year: yearInfo.year,
+        yearLabel: yearInfo.label,
       }
     })
     .filter(
@@ -70,6 +122,9 @@ export function buildPersonRouteGeoJSON(events, places) {
         recency: segmentCount === 1 ? 1 : index / (segmentCount - 1),
         fromSortval: stops[index].sortval,
         toSortval: stop.sortval,
+        fromYear: stops[index].year,
+        toYear: stop.year,
+        time: stop.yearLabel,
       },
     })),
   }
@@ -84,14 +139,15 @@ export function buildPersonRoutesGeoJSON(eventGroups, places) {
       const existing = segments.get(key)
       if (existing) {
         existing.properties.travelerCount += 1
-        existing.properties.fromSortval = Math.max(
-          existing.properties.fromSortval,
-          feature.properties.fromSortval
-        )
-        existing.properties.toSortval = Math.max(
-          existing.properties.toSortval,
-          feature.properties.toSortval
-        )
+        if (feature.properties.toSortval > existing.properties.toSortval) {
+          Object.assign(existing.properties, {
+            fromSortval: feature.properties.fromSortval,
+            toSortval: feature.properties.toSortval,
+            fromYear: feature.properties.fromYear,
+            toYear: feature.properties.toYear,
+            time: feature.properties.time,
+          })
+        }
       } else {
         segments.set(key, {
           ...feature,
@@ -112,7 +168,7 @@ export function buildPersonRoutesGeoJSON(eventGroups, places) {
     feature.properties.recency =
       newest === oldest
         ? 1
-        : (feature.properties.toSortval - oldest) / (newest - oldest)
+        : scalePersonRouteRecency(feature.properties.toSortval, oldest, newest)
   }
   return {
     type: 'FeatureCollection',
@@ -177,8 +233,12 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     this.visible = true
     this.handle = PERSON_ROUTE_HANDLE
     this._map = null
+    this._popup = null
     // Re-add the arrow image after every style swap (images don't survive setStyle).
     this._onStyleLoad = () => this._addArrowImage()
+    this._onArrowEnter = event => this._showTimePopup(event)
+    this._onArrowMove = event => this._moveTimePopup(event)
+    this._onArrowLeave = () => this._hideTimePopup()
   }
 
   // No shadow DOM — this component renders no UI.
@@ -230,6 +290,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     map.addSource(SOURCE_ID, {type: 'geojson', data: this._buildGeoJSON()})
     map.addLayer(this._lineLayerDef())
     map.addLayer(this._arrowsLayerDef())
+    this._addHoverHandlers()
   }
 
   getTransformStyleContribution(_prev, next) {
@@ -247,6 +308,8 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     super.disconnectedCallback()
     if (this._map) {
       this._map.off('style.load', this._onStyleLoad)
+      this._removeHoverHandlers()
+      this._popup?.remove()
       if (this._map.getLayer(ARROWS_LAYER_ID))
         this._map.removeLayer(ARROWS_LAYER_ID)
       if (this._map.getLayer(LAYER_ID)) this._map.removeLayer(LAYER_ID)
@@ -288,6 +351,44 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     }
   }
 
+  _addHoverHandlers() {
+    this._removeHoverHandlers()
+    this._map.on('mouseenter', ARROWS_LAYER_ID, this._onArrowEnter)
+    this._map.on('mousemove', ARROWS_LAYER_ID, this._onArrowMove)
+    this._map.on('mouseleave', ARROWS_LAYER_ID, this._onArrowLeave)
+  }
+
+  _removeHoverHandlers() {
+    if (!this._map) return
+    this._map.off('mouseenter', ARROWS_LAYER_ID, this._onArrowEnter)
+    this._map.off('mousemove', ARROWS_LAYER_ID, this._onArrowMove)
+    this._map.off('mouseleave', ARROWS_LAYER_ID, this._onArrowLeave)
+  }
+
+  _showTimePopup(event) {
+    const text = event.features?.[0]?.properties?.time
+    if (!text) return
+    this._map.getCanvas().style.cursor = 'pointer'
+    if (!this._popup) {
+      this._popup = new window.maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 14,
+        className: 'grampsjs-route-time-tooltip',
+      })
+    }
+    this._popup.setLngLat(event.lngLat).setText(text).addTo(this._map)
+  }
+
+  _moveTimePopup(event) {
+    if (this._popup?.isOpen()) this._popup.setLngLat(event.lngLat)
+  }
+
+  _hideTimePopup() {
+    if (this._map) this._map.getCanvas().style.cursor = ''
+    this._popup?.remove()
+  }
+
   // Draw a filled right-pointing triangle as a white SDF image so MapLibre can
   // tint it via icon-color at render time.
   _addArrowImage() {
@@ -317,15 +418,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     return {
       'line-color': RECENCY_COLOR,
       'line-width': 3,
-      'line-opacity': [
-        'interpolate',
-        ['linear'],
-        ['get', 'recency'],
-        0,
-        0.5,
-        1,
-        0.9,
-      ],
+      'line-opacity': 0.85,
     }
   }
 }

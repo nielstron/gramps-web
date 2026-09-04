@@ -3,6 +3,8 @@ import {describe, expect, it} from 'vitest'
 import {
   buildPersonEventGroups,
   buildPersonRoutesGeoJSON,
+  PERSON_ROUTE_COLOR_STOPS,
+  personRouteLegendTicks,
 } from '../../src/components/GrampsjsMapPersonLinesLayer.js'
 import {GrampsjsViewMap} from '../../src/views/GrampsjsViewMap.js'
 
@@ -81,6 +83,7 @@ describe('person life-event routes on the map', () => {
     expect(
       JSON.stringify(layer._arrowsLayerDef().paint['icon-color'])
     ).toContain('recency')
+    expect(PERSON_ROUTE_COLOR_STOPS).toHaveLength(5)
   })
 
   it('uses one color scale for all currently visible routes', () => {
@@ -94,22 +97,79 @@ describe('person life-event routes on the map', () => {
     ]
     const routes = [
       [
-        {date: {sortval: 1700, modifier: 0}, place: 'before-pavia'},
-        {date: {sortval: 1800, modifier: 0}, place: 'pavia'},
+        {
+          date: {
+            sortval: 1700,
+            modifier: 0,
+            dateval: [0, 0, 1700, false],
+          },
+          place: 'before-pavia',
+        },
+        {
+          date: {
+            sortval: 1800,
+            modifier: 0,
+            dateval: [0, 0, 1800, false],
+          },
+          place: 'pavia',
+        },
       ],
       [
-        {date: {sortval: 1750, modifier: 0}, place: 'before-paris'},
-        {date: {sortval: 1860, modifier: 0}, place: 'paris'},
+        {
+          date: {
+            sortval: 1750,
+            modifier: 0,
+            dateval: [0, 0, 1750, false],
+          },
+          place: 'before-paris',
+        },
+        {
+          date: {
+            sortval: 1860,
+            modifier: 0,
+            dateval: [0, 0, 1860, false],
+          },
+          place: 'paris',
+        },
       ],
       [
-        {date: {sortval: 1900, modifier: 0}, place: 'before-1920'},
-        {date: {sortval: 1920, modifier: 0}, place: 'place-1920'},
+        {
+          date: {
+            sortval: 1900,
+            modifier: 0,
+            dateval: [0, 0, 1900, false],
+          },
+          place: 'before-1920',
+        },
+        {
+          date: {
+            sortval: 1920,
+            modifier: 0,
+            dateval: [0, 0, 1920, false],
+          },
+          place: 'place-1920',
+        },
       ],
     ]
 
     const features = buildPersonRoutesGeoJSON(routes, places).features
     expect(features.map(feature => feature.properties.recency)).toEqual([
-      0, 0.5, 1,
+      0, 0.25, 1,
+    ])
+    expect(features.map(feature => feature.properties.toYear)).toEqual([
+      1800, 1860, 1920,
+    ])
+    expect(features.map(feature => feature.properties.time)).toEqual([
+      '1800',
+      '1860',
+      '1920',
+    ])
+    expect(personRouteLegendTicks(1800, 1920)).toEqual([
+      {position: 0, year: 1800},
+      {position: 0.25, year: 1860},
+      {position: 0.5, year: 1885},
+      {position: 0.75, year: 1904},
+      {position: 1, year: 1920},
     ])
   })
 

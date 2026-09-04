@@ -6,7 +6,9 @@ import '../components/GrampsjsMap.js'
 import {
   buildPersonEventGroups,
   buildPersonRoutesGeoJSON,
+  PERSON_ROUTE_COLOR_GRADIENT,
   PERSON_ROUTE_HANDLE,
+  personRouteLegendTicks,
 } from '../components/GrampsjsMapPersonLinesLayer.js'
 import '../components/GrampsjsMapPlacesLayer.js'
 import {
@@ -50,6 +52,68 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
         .person-scope {
           display: block;
           margin: 12px 16px 0;
+        }
+
+        .person-route-legend {
+          position: absolute;
+          z-index: 2;
+          bottom: 44px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: min(420px, calc(100% - 120px));
+          box-sizing: border-box;
+          padding: 6px 10px 5px;
+          border-radius: 10px;
+          background: var(--md-sys-color-surface-container-high);
+          background: color-mix(
+            in srgb,
+            var(--md-sys-color-surface-container-high) 92%,
+            transparent
+          );
+          color: var(--md-sys-color-on-surface);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.24);
+          pointer-events: none;
+        }
+
+        .person-route-legend-title {
+          margin-bottom: 3px;
+          font-size: 11px;
+          font-weight: 600;
+          line-height: 13px;
+        }
+
+        .person-route-legend-bar {
+          height: 8px;
+          border: 1px solid rgba(0, 0, 0, 0.24);
+          border-radius: 4px;
+        }
+
+        .person-route-legend-ticks {
+          position: relative;
+          height: 14px;
+          margin-top: 1px;
+          font-size: 10px;
+          line-height: 14px;
+        }
+
+        .person-route-legend-tick {
+          position: absolute;
+          transform: translateX(-50%);
+          white-space: nowrap;
+        }
+
+        .person-route-legend-tick:first-child {
+          transform: none;
+        }
+
+        .person-route-legend-tick:last-child {
+          transform: translateX(-100%);
+        }
+
+        @media (max-width: 600px) {
+          .person-route-legend {
+            width: calc(100% - 32px);
+          }
         }
       `,
     ]
@@ -252,6 +316,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
           .highlightedHandles="${this._handlesHighlight}"
         ></grampsjs-map-places-layer
       ></grampsjs-map>
+      ${this._renderPersonRouteLegend()}
       <grampsjs-map-searchbox
         @mapsearch:input="${this._handleSearchInput}"
         @mapsearch:clear="${this._handleSearchClear}"
@@ -269,6 +334,53 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
         @timeslider:change="${this._handleTimeSliderChange}"
         .appState="${this.appState}"
       ></grampsjs-map-time-slider>
+    `
+  }
+
+  _personRouteGeoJSON() {
+    if (!this._selectedPersonData) {
+      return {type: 'FeatureCollection', features: []}
+    }
+    const eventGroups = this._personEventGroups.length
+      ? this._personEventGroups
+      : buildPersonEventGroups(
+          [this._selectedPersonData],
+          this._dataFamilies,
+          this._dataEvents
+        )
+    return buildPersonRoutesGeoJSON(eventGroups, this._dataPlaces)
+  }
+
+  _renderPersonRouteLegend() {
+    if (!this._showPersonRoute) return ''
+    const years = this._personRouteGeoJSON()
+      .features.map(feature => feature.properties.toYear)
+      .filter(Number.isFinite)
+    if (!years.length) return ''
+    const ticks = personRouteLegendTicks(Math.min(...years), Math.max(...years))
+    return html`
+      <div
+        class="person-route-legend"
+        role="img"
+        aria-label="${this._('Year')}"
+      >
+        <div class="person-route-legend-title">${this._('Year')}</div>
+        <div
+          class="person-route-legend-bar"
+          style="background:${PERSON_ROUTE_COLOR_GRADIENT}"
+        ></div>
+        <div class="person-route-legend-ticks">
+          ${ticks.map(
+            tick => html`
+              <span
+                class="person-route-legend-tick"
+                style="left:${tick.position * 100}%"
+                >${tick.year}</span
+              >
+            `
+          )}
+        </div>
+      </div>
     `
   }
 
@@ -623,16 +735,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
       desc: obj.desc,
       visible: !this._hiddenOverlaysHandles.includes(obj.handle),
     }))
-    const eventGroups = this._personEventGroups.length
-      ? this._personEventGroups
-      : this._selectedPersonData
-      ? buildPersonEventGroups(
-          [this._selectedPersonData],
-          this._dataFamilies,
-          this._dataEvents
-        )
-      : EMPTY_ARRAY
-    const personRoute = buildPersonRoutesGeoJSON(eventGroups, this._dataPlaces)
+    const personRoute = this._personRouteGeoJSON()
     if (personRoute.features.length) {
       overlays.push({
         handle: PERSON_ROUTE_HANDLE,

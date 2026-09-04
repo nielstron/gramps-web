@@ -38,7 +38,8 @@ class GrampsjsMap extends GrampsjsAppStateMixin(LitElement) {
         .maplibregl-ctrl-bottom-right {
           right: 8px;
         }
-        .grampsjs-place-tooltip .maplibregl-popup-content {
+        .grampsjs-place-tooltip .maplibregl-popup-content,
+        .grampsjs-route-time-tooltip .maplibregl-popup-content {
           padding: 4px 12px;
           border-radius: 9999px;
           font-size: 13px;
@@ -48,7 +49,8 @@ class GrampsjsMap extends GrampsjsAppStateMixin(LitElement) {
           box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
           white-space: nowrap;
         }
-        .grampsjs-place-tooltip .maplibregl-popup-tip {
+        .grampsjs-place-tooltip .maplibregl-popup-tip,
+        .grampsjs-route-time-tooltip .maplibregl-popup-tip {
           border-top-color: var(
             --md-sys-color-surface-container-high
           ) !important;
