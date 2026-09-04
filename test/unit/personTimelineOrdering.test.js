@@ -11,6 +11,19 @@ const event = (handle, type, sortval) => ({
 })
 
 describe('person timeline defaults and ordering', () => {
+  it('includes the selected person in map navigation from the profile', () => {
+    const person = new GrampsjsPerson()
+    person.data = {gramps_id: 'I1000010'}
+    let navigation
+    person.addEventListener('nav', event => {
+      navigation = event.detail
+    })
+
+    person._handleMapButtonClick()
+
+    expect(navigation).toEqual({path: 'map?person=I1000010'})
+  })
+
   it('shows family events by default', () => {
     const person = new GrampsjsPerson()
 

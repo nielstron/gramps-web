@@ -469,7 +469,9 @@ export class GrampsjsPerson extends GrampsjsObject {
         detail: {person: this.data},
       })
     )
-    fireEvent(this, 'nav', {path: 'map'})
+    const personId = this.data?.gramps_id
+    const path = personId ? `map?person=${encodeURIComponent(personId)}` : 'map'
+    fireEvent(this, 'nav', {path})
   }
 
   _handleExternalSearchClick() {
