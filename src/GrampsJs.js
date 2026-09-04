@@ -31,6 +31,7 @@ import {fireEvent, getBrowserLanguage, apiVersionAtLeast} from './util.js'
 
 import {appStateUpdatePermissions, getInitialAppState} from './appState.js'
 import {appUrl, baseDir} from './appUrl.js'
+import {getLoginUrl} from './loginRedirect.js'
 import {
   LOADING_STATE_INITIAL,
   LOADING_STATE_UNAUTHORIZED,
@@ -574,9 +575,12 @@ export class GrampsJs extends LitElement {
   _renderPreReadyView(decision) {
     if (decision.redirect) {
       window.location.href = decision.redirect
-    }
-    if (decision.navigateTo) {
-      window.history.pushState({}, '', decision.navigateTo)
+    } else if (decision.navigateTo) {
+      if (decision.navigateTo === 'login') {
+        window.location.href = getLoginUrl()
+      } else {
+        window.history.pushState({}, '', decision.navigateTo)
+      }
     }
     switch (decision.view) {
       case 'initial':
