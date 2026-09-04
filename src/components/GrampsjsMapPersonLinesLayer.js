@@ -106,6 +106,44 @@ export function buildPersonRoutesGeoJSON(eventGroups, places) {
   }
 }
 
+export function buildPersonEventGroups(people, families, events) {
+  const eventsByHandle = new Map(
+    (events || []).map(event => [event.handle, event])
+  )
+  const familiesByHandle = new Map(
+    (families || []).map(family => [family.handle, family])
+  )
+
+  return (people || []).map(person => {
+    const familyObjects = new Map(
+      (person.extended?.families || []).map(family => [family.handle, family])
+    )
+    for (const handle of person.family_list || []) {
+      const family = familiesByHandle.get(handle)
+      if (family) familyObjects.set(handle, family)
+    }
+
+    const eventHandles = [
+      ...(person.event_ref_list || []).map(ref => ref.ref),
+      ...[...familyObjects.values()].flatMap(family =>
+        (family.event_ref_list || []).map(ref => ref.ref)
+      ),
+    ]
+    const personEvents = [...(person.extended?.events || [])]
+    const seenHandles = new Set(
+      personEvents.map(event => event.handle).filter(Boolean)
+    )
+    for (const handle of eventHandles) {
+      const event = eventsByHandle.get(handle)
+      if (event && !seenHandles.has(handle)) {
+        personEvents.push(event)
+        seenHandles.add(handle)
+      }
+    }
+    return personEvents
+  })
+}
+
 class GrampsjsMapPersonLinesLayer extends LitElement {
   static get properties() {
     return {

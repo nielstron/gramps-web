@@ -1,6 +1,9 @@
 import {describe, expect, it} from 'vitest'
 
-import '../../src/components/GrampsjsMapPersonLinesLayer.js'
+import {
+  buildPersonEventGroups,
+  buildPersonRoutesGeoJSON,
+} from '../../src/components/GrampsjsMapPersonLinesLayer.js'
 import {GrampsjsViewMap} from '../../src/views/GrampsjsViewMap.js'
 
 describe('person life-event routes on the map', () => {
@@ -135,5 +138,73 @@ describe('person life-event routes on the map', () => {
     const features = layer._buildGeoJSON().features
     expect(features).toHaveLength(1)
     expect(features[0].properties.travelerCount).toBe(2)
+  })
+
+  it('uses a family event as a shared waypoint for both partners', () => {
+    const places = [
+      {handle: 'gruenbach', profile: {lat: '1', long: '2'}},
+      {handle: 'kempten', profile: {lat: '3', long: '4'}},
+      {handle: 'buoch', profile: {lat: '5', long: '6'}},
+      {handle: 'heidelberg', profile: {lat: '7', long: '8'}},
+    ]
+    const events = [
+      {
+        handle: 'emilie-birth',
+        date: {sortval: 1, modifier: 0},
+        place: 'gruenbach',
+      },
+      {
+        handle: 'partner-birth',
+        date: {sortval: 1, modifier: 0},
+        place: 'kempten',
+      },
+      {
+        handle: 'marriage',
+        date: {sortval: 2, modifier: 0},
+        place: 'buoch',
+      },
+      {
+        handle: 'emilie-death',
+        date: {sortval: 3, modifier: 0},
+        place: 'heidelberg',
+      },
+      {
+        handle: 'partner-death',
+        date: {sortval: 4, modifier: 0},
+        place: 'heidelberg',
+      },
+    ]
+    const people = [
+      {
+        handle: 'emilie',
+        event_ref_list: [{ref: 'emilie-birth'}, {ref: 'emilie-death'}],
+        family_list: ['family'],
+      },
+      {
+        handle: 'partner',
+        event_ref_list: [{ref: 'partner-birth'}, {ref: 'partner-death'}],
+        family_list: ['family'],
+      },
+    ]
+    const families = [{handle: 'family', event_ref_list: [{ref: 'marriage'}]}]
+
+    const groups = buildPersonEventGroups(people, families, events)
+    const features = buildPersonRoutesGeoJSON(groups, places).features
+
+    expect(features.map(feature => feature.geometry.coordinates)).toEqual([
+      [
+        [2, 1],
+        [6, 5],
+      ],
+      [
+        [6, 5],
+        [8, 7],
+      ],
+      [
+        [4, 3],
+        [6, 5],
+      ],
+    ])
+    expect(features[1].properties.travelerCount).toBe(2)
   })
 })

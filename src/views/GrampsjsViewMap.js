@@ -4,6 +4,7 @@ import '@material/mwc-textfield'
 import {GrampsjsView} from './GrampsjsView.js'
 import '../components/GrampsjsMap.js'
 import {
+  buildPersonEventGroups,
   buildPersonRoutesGeoJSON,
   PERSON_ROUTE_HANDLE,
 } from '../components/GrampsjsMapPersonLinesLayer.js'
@@ -58,6 +59,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     return {
       _dataPlaces: {type: Array},
       _dataEvents: {type: Array},
+      _dataFamilies: {type: Array},
       _filteredPlaces: {type: Array},
       _handlesHighlight: {type: Array},
       _dataLayers: {type: Array},
@@ -83,6 +85,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     super()
     this._dataPlaces = []
     this._dataEvents = []
+    this._dataFamilies = []
     this._filteredPlaces = []
     this._handlesHighlight = []
     this._dataLayers = []
@@ -438,8 +441,20 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     if (this._selectedPerson?.handle !== person.handle) return
     const extPerson = data.data
     this._selectedPersonData = extPerson
-    this._setPersonEventGroups([extPerson.extended?.events ?? EMPTY_ARRAY])
+    this._refreshPersonEventGroups()
     this._handlesHighlight = []
+  }
+
+  _refreshPersonEventGroups() {
+    const people =
+      this._personFilterMode === PERSON_SCOPE_SELF
+        ? this._selectedPersonData
+          ? [this._selectedPersonData]
+          : EMPTY_ARRAY
+        : this._scopePeople ?? EMPTY_ARRAY
+    this._setPersonEventGroups(
+      buildPersonEventGroups(people, this._dataFamilies, this._dataEvents)
+    )
   }
 
   _setPersonEventGroups(eventGroups) {
@@ -457,9 +472,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._personFilterMode = mode
     this._scopePeople = null
     if (mode === PERSON_SCOPE_SELF) {
-      this._setPersonEventGroups([
-        this._selectedPersonData?.extended?.events ?? EMPTY_ARRAY,
-      ])
+      this._refreshPersonEventGroups()
       return
     }
 
@@ -472,7 +485,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     const result = await this.appState.apiGet(
       `/api/people/?rules=${encodeURIComponent(
         JSON.stringify(rules)
-      )}&keys=handle,event_ref_list`
+      )}&keys=handle,event_ref_list,family_list`
     )
     if (
       seq !== this._personScopeSeq ||
@@ -492,16 +505,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
 
   _applyScopePeople() {
     if (!this._scopePeople) return
-    const eventsByHandle = new Map(
-      this._dataEvents.map(event => [event.handle, event])
-    )
-    this._setPersonEventGroups(
-      this._scopePeople.map(person =>
-        (person.event_ref_list ?? [])
-          .map(ref => eventsByHandle.get(ref.ref))
-          .filter(Boolean)
-      )
-    )
+    this._refreshPersonEventGroups()
   }
 
   _fitPersonPlaces(handles) {
@@ -622,7 +626,11 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     const eventGroups = this._personEventGroups.length
       ? this._personEventGroups
       : this._selectedPersonData
-      ? [this._selectedPersonData.extended?.events ?? EMPTY_ARRAY]
+      ? buildPersonEventGroups(
+          [this._selectedPersonData],
+          this._dataFamilies,
+          this._dataEvents
+        )
       : EMPTY_ARRAY
     const personRoute = buildPersonRoutesGeoJSON(eventGroups, this._dataPlaces)
     if (personRoute.features.length) {
@@ -684,12 +692,14 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._fetchPlaces()
     this._fetchDataLayers()
     this._fetchEvents()
+    this._fetchFamilies()
   }
 
   _fetchDataAll() {
     this._fetchPlaces()
     this._fetchDataLayers()
     this._fetchEvents()
+    this._fetchFamilies()
   }
 
   async _fetchDataSearch(value) {
@@ -792,14 +802,24 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     if ('data' in data) {
       this.error = false
       this._dataEvents = data.data.filter(event => event.place)
-      if (this._personFilterMode !== PERSON_SCOPE_SELF) {
-        this._applyScopePeople()
-      }
+      this._refreshPersonEventGroups()
       this._minYear = this._getMinYear()
       this._applyPlaceFilter()
     } else if ('error' in data) {
       this.error = true
       this._errorMessage = data.error
+    }
+  }
+
+  async _fetchFamilies() {
+    const data = await this.appState.apiGet(
+      '/api/families/?keys=handle,event_ref_list'
+    )
+    if ('data' in data) {
+      this._dataFamilies = data.data
+      this._refreshPersonEventGroups()
+    } else if ('error' in data) {
+      fireEvent(this, 'grampsjs:error', {message: data.error})
     }
   }
 
