@@ -1,6 +1,10 @@
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 
-import {getLoginReturnUrl, getLoginUrl} from '../../src/loginRedirect.js'
+import {
+  getLoginReturnUrl,
+  getLoginUrl,
+  restoreLoginReturnPath,
+} from '../../src/loginRedirect.js'
 
 const origin = 'https://misc.niels.bond'
 
@@ -32,6 +36,31 @@ describe('login deep-link redirects', () => {
         '/stammbaum'
       )
     ).toBe('/stammbaum/person/ISCHLATTERANNELIESE?section=events#names')
+  })
+
+  it('restores the preserved path when authentication becomes ready on login', () => {
+    const history = {replaceState: vi.fn()}
+    const loadPage = vi.fn()
+    const location = {
+      origin,
+      pathname: '/stammbaum/login',
+      search:
+        '?next=%2Fstammbaum%2Fperson%2FISCHLATTERANNELIESE%3Fsection%3Devents%23names',
+      hash: '',
+    }
+
+    const destination = restoreLoginReturnPath({
+      location,
+      history,
+      loadPage,
+      configuredBaseDir: '/stammbaum',
+    })
+
+    expect(destination).toBe(
+      '/stammbaum/person/ISCHLATTERANNELIESE?section=events#names'
+    )
+    expect(history.replaceState).toHaveBeenCalledWith({}, '', destination)
+    expect(loadPage).toHaveBeenCalledWith(destination)
   })
 
   it('rejects external and out-of-app return paths', () => {

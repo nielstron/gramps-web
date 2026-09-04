@@ -35,3 +35,15 @@ export function getLoginReturnUrl(
   }
   return `${target.pathname}${target.search}${target.hash}`
 }
+
+export function restoreLoginReturnPath({
+  location = window.location,
+  history = window.history,
+  loadPage,
+  configuredBaseDir = baseDir,
+} = {}) {
+  const destination = getLoginReturnUrl(location, configuredBaseDir)
+  history.replaceState({}, '', destination)
+  loadPage(destination)
+  return destination
+}

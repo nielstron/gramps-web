@@ -31,7 +31,7 @@ import {fireEvent, getBrowserLanguage, apiVersionAtLeast} from './util.js'
 
 import {appStateUpdatePermissions, getInitialAppState} from './appState.js'
 import {appUrl, baseDir} from './appUrl.js'
-import {getLoginUrl} from './loginRedirect.js'
+import {getLoginUrl, restoreLoginReturnPath} from './loginRedirect.js'
 import {
   LOADING_STATE_INITIAL,
   LOADING_STATE_UNAUTHORIZED,
@@ -623,9 +623,8 @@ export class GrampsJs extends LitElement {
       return this._renderSchemaMismatch()
     }
     if (this.appState.path.page === 'login' && this._metadataConfirmed) {
-      window.history.pushState({}, '', '')
-      this._updateAppState({
-        path: {page: 'home', pageId: '', pageId2: '', pageId3: ''},
+      restoreLoginReturnPath({
+        loadPage: path => this._loadPage(path),
       })
     }
     if (this.appState.path.page === 'settings' && !this.appState.path.pageId) {
