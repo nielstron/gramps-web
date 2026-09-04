@@ -1,5 +1,5 @@
 import {LitElement} from 'lit'
-import {getGregorianYears} from '../util.js'
+import {fireEvent, getGregorianYears} from '../util.js'
 
 const SOURCE_ID = 'person-lines'
 const LAYER_ID = 'person-lines-layer'
@@ -50,6 +50,29 @@ export function scalePersonRouteRecency(value, oldest, newest) {
   return linear ** RECENCY_EXPONENT
 }
 
+function hexToRgb(color) {
+  return [1, 3, 5].map(index => parseInt(color.slice(index, index + 2), 16))
+}
+
+export function personRouteColorAt(recency) {
+  const value = Math.max(0, Math.min(1, recency))
+  const upperIndex = PERSON_ROUTE_COLOR_STOPS.findIndex(
+    ([position]) => position >= value
+  )
+  if (upperIndex <= 0) return PERSON_ROUTE_COLOR_STOPS[0][1]
+  const [upperPosition, upperColor] = PERSON_ROUTE_COLOR_STOPS[upperIndex]
+  const [lowerPosition, lowerColor] = PERSON_ROUTE_COLOR_STOPS[upperIndex - 1]
+  const ratio = (value - lowerPosition) / (upperPosition - lowerPosition)
+  const lowerRgb = hexToRgb(lowerColor)
+  const upperRgb = hexToRgb(upperColor)
+  const rgb = lowerRgb.map((channel, index) =>
+    Math.round(channel + (upperRgb[index] - channel) * ratio)
+  )
+  return `#${rgb
+    .map(channel => channel.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
 export function personRouteLegendTicks(oldest, newest, count = 5) {
   if (!Number.isFinite(oldest) || !Number.isFinite(newest)) return []
   if (oldest === newest) return [{position: 1, year: Math.round(newest)}]
@@ -95,6 +118,7 @@ export function buildPersonRouteGeoJSON(events, places) {
       const yearInfo = dateYearInfo(event.date)
       return {
         coords: [parseFloat(place.long), parseFloat(place.lat)],
+        handle: event.handle,
         sortval: event.date.sortval,
         year: yearInfo.year,
         yearLabel: yearInfo.label,
@@ -125,12 +149,19 @@ export function buildPersonRouteGeoJSON(events, places) {
         fromYear: stops[index].year,
         toYear: stop.year,
         time: stop.yearLabel,
+        eventHandles: JSON.stringify(
+          [stops[index].handle, stop.handle].filter(Boolean)
+        ),
       },
     })),
   }
 }
 
-export function buildPersonRoutesGeoJSON(eventGroups, places) {
+export function buildPersonRoutesGeoJSON(
+  eventGroups,
+  places,
+  dateRange = null
+) {
   const segments = new Map()
   const groups = eventGroups || []
   groups.forEach((events, route) => {
@@ -139,6 +170,12 @@ export function buildPersonRoutesGeoJSON(eventGroups, places) {
       const existing = segments.get(key)
       if (existing) {
         existing.properties.travelerCount += 1
+        existing.properties.eventHandles = JSON.stringify([
+          ...new Set([
+            ...JSON.parse(existing.properties.eventHandles),
+            ...JSON.parse(feature.properties.eventHandles),
+          ]),
+        ])
         if (feature.properties.toSortval > existing.properties.toSortval) {
           Object.assign(existing.properties, {
             fromSortval: feature.properties.fromSortval,
@@ -162,8 +199,8 @@ export function buildPersonRoutesGeoJSON(eventGroups, places) {
   })
   const features = [...segments.values()]
   const arrivalDates = features.map(feature => feature.properties.toSortval)
-  const oldest = Math.min(...arrivalDates)
-  const newest = Math.max(...arrivalDates)
+  const oldest = dateRange?.[0] ?? Math.min(...arrivalDates)
+  const newest = dateRange?.[1] ?? Math.max(...arrivalDates)
   for (const feature of features) {
     feature.properties.recency =
       newest === oldest
@@ -222,6 +259,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
       places: {type: Array},
       visible: {type: Boolean},
       handle: {type: String},
+      dateRange: {type: Array},
     }
   }
 
@@ -232,6 +270,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     this.places = []
     this.visible = true
     this.handle = PERSON_ROUTE_HANDLE
+    this.dateRange = null
     this._map = null
     this._popup = null
     // Re-add the arrow image after every style swap (images don't survive setStyle).
@@ -239,6 +278,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     this._onArrowEnter = event => this._showTimePopup(event)
     this._onArrowMove = event => this._moveTimePopup(event)
     this._onArrowLeave = () => this._hideTimePopup()
+    this._onArrowClick = event => this._handleArrowClick(event)
   }
 
   // No shadow DOM — this component renders no UI.
@@ -324,7 +364,8 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     if (
       changed.has('events') ||
       changed.has('eventGroups') ||
-      changed.has('places')
+      changed.has('places') ||
+      changed.has('dateRange')
     ) {
       this._updateSource()
     }
@@ -356,6 +397,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     this._map.on('mouseenter', ARROWS_LAYER_ID, this._onArrowEnter)
     this._map.on('mousemove', ARROWS_LAYER_ID, this._onArrowMove)
     this._map.on('mouseleave', ARROWS_LAYER_ID, this._onArrowLeave)
+    this._map.on('click', ARROWS_LAYER_ID, this._onArrowClick)
   }
 
   _removeHoverHandlers() {
@@ -363,6 +405,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     this._map.off('mouseenter', ARROWS_LAYER_ID, this._onArrowEnter)
     this._map.off('mousemove', ARROWS_LAYER_ID, this._onArrowMove)
     this._map.off('mouseleave', ARROWS_LAYER_ID, this._onArrowLeave)
+    this._map.off('click', ARROWS_LAYER_ID, this._onArrowClick)
   }
 
   _showTimePopup(event) {
@@ -389,6 +432,16 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     this._popup?.remove()
   }
 
+  _handleArrowClick(event) {
+    const feature = event.features?.[0]
+    if (!feature) return
+    event.originalEvent?.stopPropagation()
+    fireEvent(this, 'map:route-clicked', {
+      eventHandles: JSON.parse(feature.properties.eventHandles || '[]'),
+      time: feature.properties.time || '',
+    })
+  }
+
   // Draw a filled right-pointing triangle as a white SDF image so MapLibre can
   // tint it via icon-color at render time.
   _addArrowImage() {
@@ -411,7 +464,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
 
   _buildGeoJSON() {
     const groups = this.eventGroups.length ? this.eventGroups : [this.events]
-    return buildPersonRoutesGeoJSON(groups, this.places)
+    return buildPersonRoutesGeoJSON(groups, this.places, this.dateRange)
   }
 
   _linePaint() {

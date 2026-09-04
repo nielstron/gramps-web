@@ -16,6 +16,7 @@ import {
   personScopeOptions,
   personScopeRules,
 } from '../personScope.js'
+import {parseTimelineUrlState, timelineUrlFromState} from '../viewUrlState.js'
 
 const MIN_LABEL_WIDTH = 90
 
@@ -98,23 +99,31 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
       _filterEventHandles: {type: Object},
       _filterPlaceHandles: {type: Object},
       _detailsLoading: {type: Boolean},
+      _timelineDomain: {type: Array},
     }
   }
 
   constructor() {
     super()
+    const urlState = parseTimelineUrlState(window.location.search)
     this._data = []
     this._details = {}
     this._clickedHandle = null
     this._clickedDetail = null
     this._activeFilter = null
-    this._personFilterMode = PERSON_SCOPE_SELF
-    this._placeFilterMode = 'exact'
-    this._eventTypeFilter = ''
+    this._personFilterMode = urlState.personScope
+    this._placeFilterMode = urlState.placeScope
+    this._eventTypeFilter = urlState.eventType
     this._filterEventHandles = null
     this._filterPlaceHandles = null
-    this._pendingHandle = null
+    this._pendingHandle = urlState.selectedEvent
+    this._pendingHandleShouldScroll = Boolean(
+      urlState.selectedEvent && !(urlState.start && urlState.end)
+    )
     this._detailsLoading = false
+    this._timelineDomain =
+      urlState.start && urlState.end ? [urlState.start, urlState.end] : null
+    this._suppressUrlWrites = false
   }
 
   connectedCallback() {
@@ -126,6 +135,8 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
       'timeline:person-selected',
       this._boundPersonSelected
     )
+    this._boundPopState = () => this._restoreTimelineUrlState()
+    window.addEventListener('popstate', this._boundPopState)
   }
 
   disconnectedCallback() {
@@ -138,6 +149,8 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
       'timeline:person-selected',
       this._boundPersonSelected
     )
+    window.removeEventListener('popstate', this._boundPopState)
+    clearTimeout(this._urlTimer)
   }
 
   _handleExternalPersonSelected({detail: {object}}) {
@@ -148,6 +161,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._filterEventHandles = null
     this._filterPlaceHandles = null
     this._resetClickedState()
+    this._writeTimelineUrl()
   }
 
   _handleExternalEventSelected({detail: {handle}}) {
@@ -156,7 +170,9 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     }
     this._eventTypeFilter = ''
     this._pendingHandle = handle
+    this._pendingHandleShouldScroll = true
     this._applyPendingHandle()
+    this._writeTimelineUrl()
   }
 
   async _applyPendingHandle() {
@@ -164,14 +180,19 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     const event = this._data.find(e => e.handle === this._pendingHandle)
     if (!event?.jsDate) {
       this._pendingHandle = null
+      this._pendingHandleShouldScroll = false
       return
     }
-    // Wait for Lit to propagate new events to grampsjs-timeline so that
-    // updateEvents() runs before scrollToDate — otherwise updateEvents resets
-    // the zoom to zoomIdentity and cancels our scroll transition.
-    await this.updateComplete
-    if (!this._timelineEl()?.scrollToDate(event.jsDate)) return
+    if (this._pendingHandleShouldScroll) {
+      // Wait for Lit to propagate new events to grampsjs-timeline so that
+      // updateEvents() runs before scrollToDate — otherwise updateEvents resets
+      // the zoom to zoomIdentity and cancels our scroll transition.
+      await this.updateComplete
+      if (!this._timelineEl()?.scrollToDate(event.jsDate)) return
+    }
+    this._clickedHandle = this._pendingHandle
     this._pendingHandle = null
+    this._pendingHandleShouldScroll = false
   }
 
   async _fetchData() {
@@ -227,9 +248,8 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     }
   }
 
-  firstUpdated() {
+  async firstUpdated() {
     super.firstUpdated()
-    this._fetchData()
     // Debounce so a fetch only starts once the user pauses zooming.
     let debounceTimer = null
     this.addEventListener('timeline:zoom-end', e => {
@@ -242,11 +262,15 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     this.addEventListener('timeline:dot-click', e =>
       this._handleDotClick(e.detail.handle)
     )
+    await this._restoreTimelineUrlState()
+    await this._fetchData()
   }
 
   _resetClickedState() {
     this._clickedHandle = null
     this._clickedDetail = null
+    this._pendingHandle = null
+    this._pendingHandleShouldScroll = false
     this._details = {}
     this._timelineEl()?.updateDetails({})
   }
@@ -259,6 +283,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._filterEventHandles = null
     this._filterPlaceHandles = null
     this._resetClickedState()
+    this._writeTimelineUrl()
   }
 
   _clearFilter() {
@@ -269,6 +294,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._filterEventHandles = null
     this._filterPlaceHandles = null
     this._resetClickedState()
+    this._writeTimelineUrl()
   }
 
   _handleFilterModeChange(e) {
@@ -278,6 +304,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     if (this._personFilterMode !== PERSON_SCOPE_SELF) {
       this._fetchRelationshipEvents()
     }
+    this._writeTimelineUrl()
   }
 
   _handlePlaceFilterModeChange(e) {
@@ -287,11 +314,13 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     if (this._placeFilterMode !== 'exact') {
       this._fetchEnclosedPlaces()
     }
+    this._writeTimelineUrl()
   }
 
   _handleEventTypeFilterChange(e) {
     this._eventTypeFilter = e.target.value === '__all__' ? '' : e.target.value
     this._resetClickedState()
+    this._writeTimelineUrl()
   }
 
   get _eventTypes() {
@@ -344,9 +373,11 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
       this._clickedHandle = null
       this._clickedDetail = null
       this._timelineEl()?.updateDetails(this._details)
+      this._writeTimelineUrl()
       return
     }
     this._clickedHandle = handle
+    this._writeTimelineUrl()
     const handles = this._colocatedHandles(handle)
     const toFetch = handles.filter(h => !(h in this._details))
     if (!toFetch.length) {
@@ -373,7 +404,18 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     return this.renderRoot.querySelector('grampsjs-timeline')
   }
 
-  async _handleZoomEnd({detail: {handles, innerWidth}}) {
+  async _handleZoomEnd({detail: {handles, innerWidth, domain}}) {
+    const domainChanged =
+      domain &&
+      (!this._timelineDomain ||
+        domain.some(
+          (date, index) =>
+            Math.abs(date.getTime() - this._timelineDomain[index].getTime()) > 1
+        ))
+    if (domainChanged) {
+      this._timelineDomain = domain
+      this._scheduleTimelineUrlUpdate()
+    }
     const threshold = Math.max(5, Math.floor(innerWidth / MIN_LABEL_WIDTH))
     if (handles.length === 0 || handles.length > threshold) {
       this._pendingHandlesKey = null
@@ -413,6 +455,86 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     }
   }
 
+  _timelineUrlState() {
+    const type = this._activeFilter?.object_type
+    const grampsId = this._activeFilter?.object?.gramps_id
+    return {
+      start: this._timelineDomain?.[0],
+      end: this._timelineDomain?.[1],
+      eventType: this._eventTypeFilter,
+      person: type === 'person' ? grampsId : null,
+      place: type === 'place' ? grampsId : null,
+      personScope: this._personFilterMode,
+      placeScope: this._placeFilterMode,
+      selectedEvent: this._clickedHandle || this._pendingHandle,
+    }
+  }
+
+  _writeTimelineUrl({replace = false} = {}) {
+    if (
+      this._suppressUrlWrites ||
+      !window.location.pathname.endsWith('/timeline')
+    ) {
+      return
+    }
+    const url = timelineUrlFromState(
+      window.location.href,
+      this._timelineUrlState()
+    )
+    if (url.href === window.location.href) return
+    window.history[replace ? 'replaceState' : 'pushState'](
+      window.history.state,
+      '',
+      url
+    )
+  }
+
+  _scheduleTimelineUrlUpdate() {
+    clearTimeout(this._urlTimer)
+    this._urlTimer = setTimeout(() => this._writeTimelineUrl(), 200)
+  }
+
+  async _restoreTimelineUrlState() {
+    if (!window.location.pathname.endsWith('/timeline')) return
+    clearTimeout(this._urlTimer)
+    const state = parseTimelineUrlState(window.location.search)
+    this._suppressUrlWrites = true
+    this._eventTypeFilter = state.eventType
+    this._personFilterMode = state.personScope
+    this._placeFilterMode = state.placeScope
+    this._timelineDomain =
+      state.start && state.end ? [state.start, state.end] : null
+    this._activeFilter = null
+    this._filterEventHandles = null
+    this._filterPlaceHandles = null
+    this._resetClickedState()
+
+    const locale = this.appState.i18n.lang || 'en'
+    const objectType = state.person ? 'person' : state.place ? 'place' : null
+    const grampsId = state.person || state.place
+    if (objectType) {
+      const collection = objectType === 'person' ? 'people' : 'places'
+      const result = await this.appState.apiGet(
+        `/api/${collection}/?gramps_id=${encodeURIComponent(
+          grampsId
+        )}&profile=self&locale=${locale}`
+      )
+      const object = result.data?.[0]
+      if (object) this._activeFilter = {object_type: objectType, object}
+    }
+    if (this._activeFilter?.object_type === 'person') {
+      await this._fetchRelationshipEvents()
+    } else if (this._activeFilter?.object_type === 'place') {
+      await this._fetchEnclosedPlaces()
+    }
+    this._pendingHandle = state.selectedEvent
+    this._pendingHandleShouldScroll = Boolean(
+      state.selectedEvent && !(state.start && state.end)
+    )
+    if (this._pendingHandle && !this._timelineDomain) this._applyPendingHandle()
+    this._suppressUrlWrites = false
+  }
+
   handleUpdateStaleData() {
     this._fetchData()
   }
@@ -428,6 +550,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
     return html`
       <grampsjs-timeline
         .events="${this._filteredData}"
+        .domain="${this._timelineDomain}"
         .detailsLoading="${this._detailsLoading}"
         .appState="${this.appState}"
       >
@@ -436,14 +559,23 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
           class="event-type-filter"
           label="${this._('Event Type')}"
           .value="${this._eventTypeFilter || '__all__'}"
+          .displayText="${this._eventTypeFilter
+            ? this._(this._eventTypeFilter)
+            : this._('All event types')}"
           @change="${this._handleEventTypeFilterChange}"
         >
-          <md-select-option value="__all__">
+          <md-select-option
+            value="__all__"
+            ?selected="${!this._eventTypeFilter}"
+          >
             <div slot="headline">${this._('All event types')}</div>
           </md-select-option>
           ${this._eventTypes.map(
             type => html`
-              <md-select-option value="${type}">
+              <md-select-option
+                value="${type}"
+                ?selected="${type === this._eventTypeFilter}"
+              >
                 <div slot="headline">${this._(type)}</div>
               </md-select-option>
             `

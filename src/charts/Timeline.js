@@ -163,6 +163,7 @@ export function Timeline(
     onZoomEnd = null,
     onDotClick = null,
     onDetailClick = null,
+    visibleDomain = null,
   } = {}
 ) {
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right)
@@ -418,6 +419,7 @@ export function Timeline(
 
   let rafId = null
   let pendingTransform = zoomIdentity
+  let requestedDomain = null
 
   const zoomBehavior = d3zoom()
     .scaleExtent([1, 1000])
@@ -451,7 +453,16 @@ export function Timeline(
 
   if (onDotClick) svg.on('click', () => onDotClick(null))
 
-  if (onZoomEnd)
+  function setDomain(domain) {
+    const [d0, d1] = domain || []
+    if (!(d0 instanceof Date) || !(d1 instanceof Date) || d1 <= d0) return
+    requestedDomain = [d0, d1]
+    const k = innerWidth / (x(d1) - x(d0))
+    svg.call(zoomBehavior.transform, zoomIdentity.scale(k).translate(-x(d0), 0))
+  }
+
+  if (visibleDomain) setDomain(visibleDomain)
+  else if (onZoomEnd)
     requestAnimationFrame(() => onZoomEnd([start, end], innerWidth))
 
   const pan = dx =>
@@ -467,9 +478,10 @@ export function Timeline(
       x.domain([newStart, newEnd])
       updateScaleExtent()
       axisGroup.call(axis.scale(x))
-      svg.call(zoomBehavior.transform, zoomIdentity)
+      if (requestedDomain) setDomain(requestedDomain)
+      else svg.call(zoomBehavior.transform, zoomIdentity)
       if (onZoomEnd)
-        requestAnimationFrame(() => onZoomEnd([newStart, newEnd], innerWidth))
+        requestAnimationFrame(() => onZoomEnd(currentX.domain(), innerWidth))
     }
     dotGroup
       .selectAll('.event-dot')
@@ -507,6 +519,8 @@ export function Timeline(
     node: svg.node(),
     updateEvents,
     updateDetails,
+    setDomain,
+    getDomain: () => currentX.domain(),
     zoomIn: () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 2),
     zoomOut: () =>
       svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.5),

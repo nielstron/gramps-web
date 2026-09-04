@@ -7,8 +7,27 @@ import {
   personRouteLegendTicks,
 } from '../../src/components/GrampsjsMapPersonLinesLayer.js'
 import {GrampsjsViewMap} from '../../src/views/GrampsjsViewMap.js'
+import {buildPlaceMarkerGeoJSON} from '../../src/components/GrampsjsMapPlacesLayer.js'
 
 describe('person life-event routes on the map', () => {
+  it('keeps an initial URL selection until asynchronous restoration runs', () => {
+    const originalUrl = window.location.href
+    window.history.replaceState(
+      null,
+      '',
+      '/stammbaum/map?lat=48.4&lng=9.99&zoom=7&place=P0006&events=E1'
+    )
+    const view = new GrampsjsViewMap()
+    Object.defineProperty(view, '_mapEl', {value: null})
+
+    view._writeMapUrl()
+
+    expect(new URL(window.location.href).searchParams.get('place')).toBe(
+      'P0006'
+    )
+    window.history.replaceState(null, '', originalUrl)
+  })
+
   it('can hide both the route and its direction arrows', () => {
     const layer = document.createElement('grampsjs-map-person-lines-layer')
     layer.visible = false
@@ -171,6 +190,49 @@ describe('person life-event routes on the map', () => {
       {position: 0.75, year: 1904},
       {position: 1, year: 1920},
     ])
+  })
+
+  it('uses a supplied global date range and keeps the related events', () => {
+    const places = [
+      {handle: 'p1', profile: {lat: '1', long: '2'}},
+      {handle: 'p2', profile: {lat: '3', long: '4'}},
+    ]
+    const events = [
+      {handle: 'e1', date: {sortval: 1800, modifier: 0}, place: 'p1'},
+      {handle: 'e2', date: {sortval: 1860, modifier: 0}, place: 'p2'},
+    ]
+
+    const [feature] = buildPersonRoutesGeoJSON(
+      [events],
+      places,
+      [1800, 1920]
+    ).features
+    expect(feature.properties.recency).toBe(0.25)
+    expect(JSON.parse(feature.properties.eventHandles)).toEqual(['e1', 'e2'])
+  })
+
+  it('creates chronological pie markers with their related events', () => {
+    const geojson = buildPlaceMarkerGeoJSON(
+      [
+        {
+          handle: 'p1',
+          name: 'Kempten',
+          lat: 47.7,
+          long: 10.3,
+          events: [
+            {handle: 'new', date: {sortval: 1920}},
+            {handle: 'old', date: {sortval: 1800}},
+          ],
+        },
+      ],
+      [],
+      [1800, 1920]
+    )
+
+    const properties = geojson.features[0].properties
+    expect(JSON.parse(properties.eventHandles)).toEqual(['old', 'new'])
+    expect(JSON.parse(properties.colors)).toEqual(['#3b4cc0', '#b2182b'])
+    expect(properties.icon).toContain('3b4cc0-b2182b')
   })
 
   it('keeps different relatives as separate routes', () => {

@@ -97,6 +97,7 @@ class GrampsjsMap extends GrampsjsAppStateMixin(LitElement) {
       year: {type: Number},
       mapid: {type: String},
       zoom: {type: Number},
+      mapStyle: {type: String},
       latMin: {type: Number},
       latMax: {type: Number},
       longMin: {type: Number},
@@ -113,6 +114,7 @@ class GrampsjsMap extends GrampsjsAppStateMixin(LitElement) {
     this.height = '500px'
     this.width = '100%'
     this.zoom = 13
+    this.mapStyle = MAP_STYLE_BASE
     this.mapid = 'mapid'
     this.latitude = 0
     this.longitude = 0
@@ -140,6 +142,7 @@ class GrampsjsMap extends GrampsjsAppStateMixin(LitElement) {
 
   firstUpdated() {
     const mapel = this.shadowRoot.getElementById(this.mapid)
+    this._currentStyle = this.mapStyle
     const styleUrl = this._getStyleUrl(this._currentStyle)
     this._map = new maplibregl.Map({
       container: mapel,
@@ -280,6 +283,14 @@ class GrampsjsMap extends GrampsjsAppStateMixin(LitElement) {
 
   updated(changed) {
     if (
+      changed.has('mapStyle') &&
+      this.mapStyle &&
+      this.mapStyle !== this._currentStyle
+    ) {
+      this._currentStyle = this.mapStyle
+      this._handleStyleChange(this.mapStyle)
+    }
+    if (
       changed.has('year') &&
       this.year > 0 &&
       this._map &&
@@ -317,6 +328,7 @@ class GrampsjsMap extends GrampsjsAppStateMixin(LitElement) {
 
   _onStyleChange(e) {
     const {style} = e.detail
+    this.mapStyle = style
     this._currentStyle = style
     this._handleStyleChange(style)
   }

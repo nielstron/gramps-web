@@ -1,5 +1,8 @@
-import {describe, it, expect} from 'vitest'
+import {render} from 'lit'
+import {describe, it, expect, vi} from 'vitest'
+import {GrampsjsTimeline} from '../../src/components/GrampsjsTimeline.js'
 import {
+  Timeline,
   normalizeLocale,
   initialDomain,
   tickLabel,
@@ -43,6 +46,68 @@ describe('initialDomain', () => {
     const now = new Date('2000-01-01')
     const [start] = initialDomain(now)
     expect(start.getFullYear()).toBe(1900)
+  })
+})
+
+describe('visible domain', () => {
+  it('survives the first event batch arriving asynchronously', async () => {
+    const domain = [new Date(1900, 0, 1), new Date(2030, 11, 31)]
+    const chart = Timeline([], {width: 800, height: 300, visibleDomain: domain})
+
+    chart.updateEvents([
+      {
+        handle: 'e1',
+        jsDate: new Date(1995, 0, 27),
+        eventType: 'Birth',
+        modifier: 0,
+      },
+    ])
+    await new Promise(resolve => requestAnimationFrame(resolve))
+
+    const restored = chart.getDomain()
+    expect(Math.abs(restored[0] - domain[0])).toBeLessThanOrEqual(1)
+    expect(Math.abs(restored[1] - domain[1])).toBeLessThanOrEqual(1)
+  })
+
+  it('updates its domain when the zoom control is used', async () => {
+    const domain = [new Date(1900, 0, 1), new Date(2030, 11, 31)]
+    const chart = Timeline([], {
+      width: 800,
+      height: 300,
+      visibleDomain: domain,
+    })
+    chart.updateEvents([
+      {
+        handle: 'e1',
+        jsDate: new Date(1995, 0, 27),
+        eventType: 'Birth',
+        modifier: 0,
+      },
+    ])
+    await new Promise(resolve => requestAnimationFrame(resolve))
+    const before = chart.getDomain()
+
+    chart.zoomIn()
+    await new Promise(resolve => setTimeout(resolve, 400))
+
+    const after = chart.getDomain()
+    expect(after[1] - after[0]).toBeLessThan(before[1] - before[0])
+  })
+})
+
+describe('timeline controls', () => {
+  it('calls the chart zoom action from the zoom-in button', () => {
+    const timeline = new GrampsjsTimeline()
+    timeline.appState = {i18n: {strings: {}}}
+    timeline._width = 800
+    timeline._height = 300
+    timeline._chart = {node: document.createElement('svg'), zoomIn: vi.fn()}
+    const container = document.createElement('div')
+    render(timeline.render(), container)
+
+    container.querySelector('#btn-zoom-in').click()
+
+    expect(timeline._chart.zoomIn).toHaveBeenCalledOnce()
   })
 })
 

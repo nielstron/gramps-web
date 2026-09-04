@@ -86,6 +86,7 @@ export class GrampsjsTimeline extends GrampsjsAppStateMixin(LitElement) {
   static get properties() {
     return {
       events: {type: Array},
+      domain: {type: Array},
       detailsLoading: {type: Boolean},
       _width: {type: Number},
       _height: {type: Number},
@@ -97,6 +98,7 @@ export class GrampsjsTimeline extends GrampsjsAppStateMixin(LitElement) {
   constructor() {
     super()
     this.events = []
+    this.domain = null
     this.detailsLoading = false
     this._width = -1
     this._height = -1
@@ -159,6 +161,7 @@ export class GrampsjsTimeline extends GrampsjsAppStateMixin(LitElement) {
         width: this._width,
         height: this._height,
         locale: this.appState?.i18n?.lang || 'en',
+        visibleDomain: this.domain,
         onDotClick: handle => fireEvent(this, 'timeline:dot-click', {handle}),
         onDetailClick: grampsId =>
           fireEvent(this, 'nav', {path: `event/${grampsId}`}),
@@ -167,12 +170,25 @@ export class GrampsjsTimeline extends GrampsjsAppStateMixin(LitElement) {
             .filter(e => e.jsDate != null && e.jsDate >= d0 && e.jsDate <= d1)
             .map(e => e.handle)
           this._hasVisibleEvents = handles.length > 0
-          fireEvent(this, 'timeline:zoom-end', {handles, innerWidth})
+          fireEvent(this, 'timeline:zoom-end', {
+            handles,
+            innerWidth,
+            domain: [d0, d1],
+          })
         },
       })
       this.requestUpdate()
     } else if (changed.has('events') && this._chart) {
       this._chart.updateEvents(this.events)
+    }
+    if (changed.has('domain') && this._chart && this.domain) {
+      const current = this._chart.getDomain()
+      if (
+        current[0].getTime() !== this.domain[0].getTime() ||
+        current[1].getTime() !== this.domain[1].getTime()
+      ) {
+        this._chart.setDomain(this.domain)
+      }
     }
   }
 
