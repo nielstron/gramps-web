@@ -18,7 +18,6 @@ import {
 } from '../api.js'
 import {fireEvent} from '../util.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
-import {appUrl} from '../appUrl.js'
 
 class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
   static get styles() {
@@ -427,7 +426,9 @@ class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
         submitProgress.closed = true
         this._showError(res.error)
       } else {
-        document.location.href = appUrl('/')
+        // The login view can be rendered over a protected deep link. Reload
+        // that same URL now that tokens exist instead of discarding it.
+        document.location.reload()
       }
     })
   }

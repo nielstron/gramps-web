@@ -32,10 +32,10 @@ describe('selectPreReadyView', () => {
       ).toEqual({view: 'register'})
     })
 
-    it('navigates to login when not already there', () => {
+    it('keeps a requested deep link while rendering login', () => {
       expect(
-        selectPreReadyView(LOADING_STATE_UNAUTHORIZED, {page: 'home'})
-      ).toEqual({view: 'login', navigateTo: 'login', redirect: null})
+        selectPreReadyView(LOADING_STATE_UNAUTHORIZED, {page: 'person'})
+      ).toEqual({view: 'login', navigateTo: null, redirect: null})
     })
 
     it('does not re-navigate when already on the login page', () => {
@@ -50,7 +50,7 @@ describe('selectPreReadyView', () => {
         frontendConfig: {loginRedirect: 'https://sso.example.com'},
       })
       expect(decision.redirect).toBe('https://sso.example.com')
-      expect(decision.navigateTo).toBe('login')
+      expect(decision.navigateTo).toBe(null)
     })
 
     it('does not redirect when already on the login page', () => {

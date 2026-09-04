@@ -42,7 +42,10 @@ export function selectPreReadyView(
       const {loginRedirect} = frontendConfig
       return {
         view: 'login',
-        navigateTo: page !== 'login' ? 'login' : null,
+        // Keep the requested deep link in the address bar. Replacing it with
+        // /login loses the object or chart position when authentication is
+        // renewed during a reload.
+        navigateTo: null,
         redirect: loginRedirect && page !== 'login' ? loginRedirect : null,
       }
     }
