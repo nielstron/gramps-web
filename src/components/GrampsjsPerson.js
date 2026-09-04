@@ -24,6 +24,7 @@ import {fireEvent, objectIconPath} from '../util.js'
 import {formatDateString} from '../date.js'
 import {surnameWithBirthName} from '../name.js'
 import {DEFAULT_TREE_VIEW, getTreePath} from '../treeDefaults.js'
+import {sortEventsByKnownOrder} from '../util/reorder.js'
 
 export class GrampsjsPerson extends GrampsjsObject {
   static get styles() {
@@ -154,7 +155,7 @@ export class GrampsjsPerson extends GrampsjsObject {
     this._objectIcon = objectIconPath.person
     this._showReferences = false
     this.timelineData = []
-    this._showFamilyEvents = false
+    this._showFamilyEvents = true
     this._showRelatedEvents = false
   }
 
@@ -545,7 +546,7 @@ export class GrampsjsPerson extends GrampsjsObject {
     // event's position in that array as a sort key so we can interleave
     // personal and family/related events correctly.
     const timelineOrder = new Map(
-      this.timelineData.map((te, i) => [te.handle, i])
+      this.timelineData.map((te, i) => [te.handle, i + 1])
     )
     const timelineAge = new Map(
       this.timelineData.map(te => [te.handle, te.age || ''])
@@ -555,9 +556,7 @@ export class GrampsjsPerson extends GrampsjsObject {
 
     // Personal events: always from main data (timeline may omit undated ones).
     for (const [i, event] of (this.data?.extended?.events || []).entries()) {
-      const sortKey = timelineOrder.has(event.handle)
-        ? timelineOrder.get(event.handle)
-        : event.date?.sortval ?? Infinity
+      const sortKey = timelineOrder.get(event.handle)
       const baseProfile = (this.data?.profile?.events || [])[i] || {}
       entries.push({
         sortKey,
@@ -602,11 +601,14 @@ export class GrampsjsPerson extends GrampsjsObject {
       })
     }
 
-    entries.sort((a, b) => a.sortKey - b.sortKey)
+    const orderedEntries = sortEventsByKnownOrder(entries, {
+      getEvent: entry => entry.data,
+      getOrder: entry => entry.sortKey,
+    })
 
     return {
-      data: entries.map(e => e.data),
-      profile: entries.map(e => e.profile),
+      data: orderedEntries.map(entry => entry.data),
+      profile: orderedEntries.map(entry => entry.profile),
     }
   }
 
@@ -672,6 +674,7 @@ export class GrampsjsPerson extends GrampsjsObject {
     return html`
       ${chips}
       <grampsjs-events
+        preserveOrder
         .appState="${this.appState}"
         .data=${data}
         .profile=${profile}

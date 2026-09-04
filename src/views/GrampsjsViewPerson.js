@@ -50,6 +50,16 @@ export class GrampsjsViewPerson extends GrampsjsViewObject {
     }
   }
 
+  _handleObjectLoaded() {
+    const hasFamilies =
+      (this._data?.family_list?.length || 0) +
+        (this._data?.parent_family_list?.length || 0) >
+      0
+    if (hasFamilies) {
+      this._handleTimelineNeeded()
+    }
+  }
+
   _fetchTimeline() {
     const handle = this._data?.handle
     if (!handle) return

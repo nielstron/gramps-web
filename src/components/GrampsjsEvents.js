@@ -36,6 +36,7 @@ export class GrampsjsEvents extends GrampsjsEditableList {
       dialogContent: {type: String},
       useSummary: {type: Boolean},
       sorted: {type: Boolean},
+      preserveOrder: {type: Boolean},
       hideAge: {type: Boolean},
       defaultRole: {type: String},
     }
@@ -48,6 +49,7 @@ export class GrampsjsEvents extends GrampsjsEditableList {
     this.objType = 'Event'
     this.useSummary = false
     this.sorted = false
+    this.preserveOrder = false
     this.hideAge = false
     this.hasAdd = false
     this.hasShare = true
@@ -159,6 +161,9 @@ export class GrampsjsEvents extends GrampsjsEditableList {
   // }
 
   sortData(dataCopy) {
+    if (this.preserveOrder) {
+      return dataCopy
+    }
     if (!this.sorted && hasManualEventOrder(this.eventRef)) {
       return dataCopy
     }
