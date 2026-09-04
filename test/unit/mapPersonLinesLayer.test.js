@@ -83,6 +83,36 @@ describe('person life-event routes on the map', () => {
     ).toContain('recency')
   })
 
+  it('uses one color scale for all currently visible routes', () => {
+    const places = [
+      {handle: 'before-pavia', profile: {lat: '1', long: '2'}},
+      {handle: 'pavia', profile: {lat: '3', long: '4'}},
+      {handle: 'before-paris', profile: {lat: '5', long: '6'}},
+      {handle: 'paris', profile: {lat: '7', long: '8'}},
+      {handle: 'before-1920', profile: {lat: '9', long: '10'}},
+      {handle: 'place-1920', profile: {lat: '11', long: '12'}},
+    ]
+    const routes = [
+      [
+        {date: {sortval: 1700, modifier: 0}, place: 'before-pavia'},
+        {date: {sortval: 1800, modifier: 0}, place: 'pavia'},
+      ],
+      [
+        {date: {sortval: 1750, modifier: 0}, place: 'before-paris'},
+        {date: {sortval: 1860, modifier: 0}, place: 'paris'},
+      ],
+      [
+        {date: {sortval: 1900, modifier: 0}, place: 'before-1920'},
+        {date: {sortval: 1920, modifier: 0}, place: 'place-1920'},
+      ],
+    ]
+
+    const features = buildPersonRoutesGeoJSON(routes, places).features
+    expect(features.map(feature => feature.properties.recency)).toEqual([
+      0, 0.5, 1,
+    ])
+  })
+
   it('keeps different relatives as separate routes', () => {
     const layer = document.createElement('grampsjs-map-person-lines-layer')
     layer.places = [
@@ -138,6 +168,7 @@ describe('person life-event routes on the map', () => {
     const features = layer._buildGeoJSON().features
     expect(features).toHaveLength(1)
     expect(features[0].properties.travelerCount).toBe(2)
+    expect(features[0].properties.toSortval).toBe(4)
   })
 
   it('uses a family event as a shared waypoint for both partners', () => {

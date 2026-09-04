@@ -84,9 +84,13 @@ export function buildPersonRoutesGeoJSON(eventGroups, places) {
       const existing = segments.get(key)
       if (existing) {
         existing.properties.travelerCount += 1
-        existing.properties.recency = Math.max(
-          existing.properties.recency,
-          feature.properties.recency
+        existing.properties.fromSortval = Math.max(
+          existing.properties.fromSortval,
+          feature.properties.fromSortval
+        )
+        existing.properties.toSortval = Math.max(
+          existing.properties.toSortval,
+          feature.properties.toSortval
         )
       } else {
         segments.set(key, {
@@ -100,9 +104,19 @@ export function buildPersonRoutesGeoJSON(eventGroups, places) {
       }
     })
   })
+  const features = [...segments.values()]
+  const arrivalDates = features.map(feature => feature.properties.toSortval)
+  const oldest = Math.min(...arrivalDates)
+  const newest = Math.max(...arrivalDates)
+  for (const feature of features) {
+    feature.properties.recency =
+      newest === oldest
+        ? 1
+        : (feature.properties.toSortval - oldest) / (newest - oldest)
+  }
   return {
     type: 'FeatureCollection',
-    features: [...segments.values()],
+    features,
   }
 }
 
