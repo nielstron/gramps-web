@@ -966,7 +966,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
   _handleMoveEnd(e) {
     this._bounds = e.detail.bounds
     const {center, zoom} = e.detail
-    if (center && zoom != null) {
+    if (center && zoom != null && !this._suppressUrlWrites) {
       saveMapViewport(center.lat, center.lng, zoom)
       this._urlViewport = {lat: center.lat, lng: center.lng, zoom}
       this._scheduleMapUrlUpdate()
@@ -1034,6 +1034,8 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
           zoom: state.zoom,
         }
         this._mapEl?.jumpTo(state.latitude, state.longitude, state.zoom)
+      } else {
+        this._urlViewport = null
       }
       await this._restoreMapSelection(state)
       if (state.eventHandles.length) {

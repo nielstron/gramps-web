@@ -10,6 +10,22 @@ import {GrampsjsViewMap} from '../../src/views/GrampsjsViewMap.js'
 import {buildPlaceMarkerGeoJSON} from '../../src/components/GrampsjsMapPlacesLayer.js'
 
 describe('person life-event routes on the map', () => {
+  it('does not treat the initial suppressed move as an explicit URL viewport', () => {
+    const view = new GrampsjsViewMap()
+    view._urlViewport = null
+    view._suppressUrlWrites = true
+
+    view._handleMoveEnd({
+      detail: {
+        bounds: {},
+        center: {lat: 20, lng: 0},
+        zoom: 2,
+      },
+    })
+
+    expect(view._urlViewport).toBeNull()
+  })
+
   it('keeps an initial URL selection until asynchronous restoration runs', () => {
     const originalUrl = window.location.href
     window.history.replaceState(
