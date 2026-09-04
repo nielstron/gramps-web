@@ -8,13 +8,17 @@ import {GrampsjsRelationships} from '../../src/components/GrampsjsRelationships.
 import {GrampsjsName} from '../../src/components/GrampsjsName.js'
 import {GrampsjsPerson} from '../../src/components/GrampsjsPerson.js'
 import {GrampsjsTreeChartAddPerson} from '../../src/components/GrampsjsTreeChartAddPerson.js'
+import {GrampsjsFormFamilyChildRef} from '../../src/components/GrampsjsFormFamilyChildRef.js'
+import {GrampsjsFormChildRef} from '../../src/components/GrampsjsFormChildRef.js'
 import {GrampsjsObjectForm} from '../../src/components/GrampsjsObjectForm.js'
 import {
   OBJECT_PICKER_CREATED_EVENT,
   personNameFromQuery,
 } from '../../src/objectPicker.js'
 import {GrampsjsViewNewPerson} from '../../src/views/GrampsjsViewNewPerson.js'
+import {GrampsjsViewNewFamily} from '../../src/views/GrampsjsViewNewFamily.js'
 import {GrampsjsViewNewObject} from '../../src/views/GrampsjsViewNewObject.js'
+import {GrampsjsViewObject} from '../../src/views/GrampsjsViewObject.js'
 
 const appState = {
   i18n: {lang: 'en', strings: {}},
@@ -26,12 +30,16 @@ class TestObjectForm extends GrampsjsObjectForm {
 }
 
 class TestNewObject extends GrampsjsViewNewObject {}
+class TestViewObject extends GrampsjsViewObject {}
 
 if (!window.customElements.get('test-person-picker-object-form')) {
   window.customElements.define('test-person-picker-object-form', TestObjectForm)
 }
 if (!window.customElements.get('test-picker-new-object')) {
   window.customElements.define('test-picker-new-object', TestNewObject)
+}
+if (!window.customElements.get('test-picker-view-object')) {
+  window.customElements.define('test-picker-view-object', TestViewObject)
 }
 
 afterEach(() => {
@@ -154,6 +162,202 @@ describe('unified person picker flow', () => {
     addPerson._personData = {extended: {primary_parent_family: {}}}
 
     expect(templateMarkup(addPerson._renderPickerDialog())).toContain('Sibling')
+  })
+
+  it('requires a parent family when adding a child from a person', () => {
+    const addPerson = new GrampsjsTreeChartAddPerson()
+    addPerson.appState = appState
+    addPerson._relationship = 'child'
+    addPerson._formOpen = true
+    addPerson._personData = {
+      handle: 'P1',
+      extended: {
+        families: [
+          {handle: 'F1', gramps_id: 'F0001'},
+          {handle: 'F2', gramps_id: 'F0002'},
+        ],
+      },
+      profile: {
+        families: [
+          {handle: 'F1', gramps_id: 'F0001'},
+          {handle: 'F2', gramps_id: 'F0002'},
+        ],
+      },
+    }
+
+    const markup = templateMarkup(addPerson._renderFormDialog())
+    expect(markup).toContain('<grampsjs-form-family-childref')
+
+    const form = new GrampsjsFormFamilyChildRef()
+    form.appState = appState
+    form.families = [
+      {handle: 'F1', label: 'Parent & Partner 1'},
+      {handle: 'F2', label: 'Parent & Partner 2'},
+    ]
+    const formMarkup = templateMarkup(form.renderForm())
+    expect(formMarkup).toContain('family-select')
+    expect(formMarkup).toContain('F1')
+    expect(formMarkup).toContain('F2')
+  })
+
+  it('requires a parent family and child relationship types when adding a sibling', () => {
+    const addPerson = new GrampsjsTreeChartAddPerson()
+    addPerson.appState = appState
+    addPerson._relationship = 'sibling'
+    addPerson._formOpen = true
+    addPerson._personData = {
+      handle: 'P1',
+      extended: {
+        parent_families: [
+          {handle: 'F1', gramps_id: 'F0001'},
+          {handle: 'F2', gramps_id: 'F0002'},
+        ],
+      },
+      profile: {
+        primary_parent_family: {handle: 'F1', gramps_id: 'F0001'},
+        other_parent_families: [{handle: 'F2', gramps_id: 'F0002'}],
+      },
+    }
+
+    expect(templateMarkup(addPerson._renderFormDialog())).toContain(
+      '<grampsjs-form-family-childref'
+    )
+  })
+
+  it('offers a missing parent from any parent family, not only the primary one', () => {
+    const addPerson = new GrampsjsTreeChartAddPerson()
+    addPerson.appState = appState
+    addPerson._personData = {
+      extended: {
+        primary_parent_family: {
+          handle: 'F1',
+          father_handle: 'P1',
+          mother_handle: 'P2',
+        },
+        parent_families: [
+          {
+            handle: 'F1',
+            father_handle: 'P1',
+            mother_handle: 'P2',
+          },
+          {handle: 'F2', mother_handle: 'P3'},
+        ],
+      },
+    }
+
+    expect(templateMarkup(addPerson._renderPickerDialog())).toContain('Father')
+  })
+
+  it('requires an exact parent family when adding a parent to an existing set', () => {
+    const addPerson = new GrampsjsTreeChartAddPerson()
+    addPerson.appState = appState
+    addPerson._relationship = 'father'
+    addPerson._formOpen = true
+    addPerson._personData = {
+      handle: 'C',
+      extended: {
+        parent_families: [
+          {handle: 'F1', mother_handle: 'M1'},
+          {handle: 'F2', mother_handle: 'M2'},
+        ],
+      },
+      profile: {other_parent_families: []},
+    }
+
+    expect(templateMarkup(addPerson._renderFormDialog())).toContain(
+      '<grampsjs-form-family-childref'
+    )
+  })
+
+  it('requires both child relationship types in every child-link form', () => {
+    const childRef = new GrampsjsFormChildRef()
+    childRef.data = {ref: 'C'}
+    expect(childRef.isValid).toBe(false)
+    childRef.data = {ref: 'C', frel: 'Birth', mrel: 'Birth'}
+    expect(childRef.isValid).toBe(true)
+
+    const addToFamily = document.createElement(
+      'grampsjs-form-add-person-to-family'
+    )
+    addToFamily.data = {familyHandle: 'F1'}
+    expect(addToFamily.isValid).toBe(false)
+    addToFamily.data = {
+      familyHandle: 'F1',
+      frel: 'Birth',
+      mrel: 'Birth',
+    }
+    expect(addToFamily.isValid).toBe(true)
+  })
+
+  it('requires at least one parent and both child relationships for a new parent family', () => {
+    const form = document.createElement('grampsjs-form-new-parent-family')
+    form.data = {frel: 'Birth', mrel: 'Birth'}
+    expect(form.isValid).toBe(false)
+    form.data = {
+      father_handle: 'F',
+      frel: 'Birth',
+      mrel: 'Birth',
+    }
+    expect(form.isValid).toBe(true)
+  })
+
+  it('rejects duplicate roles in the full new-family path', () => {
+    const form = new GrampsjsViewNewFamily()
+
+    expect(form._slotHandlesAreValid('P1', 'P1', [])).toBe(false)
+    expect(form._slotHandlesAreValid('P1', 'P2', ['P1'])).toBe(false)
+    expect(form._slotHandlesAreValid('P1', 'P2', ['C1', 'C1'])).toBe(false)
+    expect(form._slotHandlesAreValid('P1', 'P2', ['C1', 'C2'])).toBe(true)
+  })
+
+  it('routes direct family parent additions through the checked linker', () => {
+    const family = new GrampsjsFamily()
+    family.data = {handle: 'F1'}
+    let action
+    family.addEventListener('edit:action', event => {
+      action = event.detail
+    })
+
+    family._handleParentChanged({detail: {data: {ref: 'P1'}}}, 'father')
+
+    expect(action).toEqual({
+      action: 'linkParentToFamily',
+      data: {familyHandle: 'F1', parentHandle: 'P1', role: 'father'},
+    })
+  })
+
+  it('routes direct family child additions through the checked linker', async () => {
+    const familyData = {
+      handle: 'F1',
+      father_handle: 'P1',
+      child_ref_list: [],
+    }
+    const state = {
+      ...appState,
+      apiGet: vi.fn().mockResolvedValue({data: familyData}),
+      apiPut: vi.fn().mockResolvedValue({data: familyData}),
+    }
+    const view = new TestViewObject()
+    view.appState = state
+    view._className = 'family'
+    view._data = familyData
+    view._updateData = vi.fn()
+
+    view.handleEditAction({
+      detail: {
+        action: 'addChildRef',
+        data: {ref: 'C1', frel: 'Birth', mrel: 'Birth'},
+      },
+    })
+
+    await vi.waitFor(() => expect(state.apiPut).toHaveBeenCalledOnce())
+    expect(state.apiPut).toHaveBeenCalledWith('/api/families/F1', {
+      _class: 'Family',
+      ...familyData,
+      child_ref_list: [
+        {_class: 'ChildRef', ref: 'C1', frel: 'Birth', mrel: 'Birth'},
+      ],
+    })
   })
 
   it('offers the family-member flow from the person profile', () => {

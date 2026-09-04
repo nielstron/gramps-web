@@ -3,16 +3,19 @@ import '@material/web/dialog/dialog.js'
 import '@material/web/iconbutton/icon-button.js'
 import {mdiLinkPlus} from '@mdi/js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
-import {fireEvent} from '../util.js'
+import {familyTitleFromProfile, fireEvent} from '../util.js'
 import {
   linkParent,
+  linkParentToFamily,
   linkChild,
+  linkChildToFamily,
   linkSibling,
   linkSpouse,
 } from '../util/familyLinks.js'
 import './GrampsjsFormPersonRef.js'
 import './GrampsjsFormSpouseRef.js'
 import './GrampsjsFormChildRef.js'
+import './GrampsjsFormFamilyChildRef.js'
 import './GrampsjsIcon.js'
 
 export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
@@ -59,22 +62,53 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
     this._formOpen = true
   }
 
-  async _dispatch(handle, frel, mrel, relType) {
+  async _dispatch(handle, frel, mrel, relType, familyHandle) {
     const personData = this._personData
     let result
     if (this._relationship === 'father' || this._relationship === 'mother') {
-      result = await linkParent(
-        this.appState,
-        personData,
-        handle,
-        this._relationship
-      )
+      result = familyHandle
+        ? await linkParentToFamily(
+            this.appState,
+            personData,
+            familyHandle,
+            handle,
+            this._relationship,
+            frel,
+            mrel
+          )
+        : await linkParent(
+            this.appState,
+            personData,
+            handle,
+            this._relationship,
+            frel,
+            mrel
+          )
     } else if (this._relationship === 'child') {
-      result = await linkChild(this.appState, personData, handle, frel, mrel)
+      result = familyHandle
+        ? await linkChildToFamily(
+            this.appState,
+            personData,
+            familyHandle,
+            handle,
+            frel,
+            mrel
+          )
+        : await linkChild(this.appState, personData, handle, frel, mrel)
     } else if (this._relationship === 'spouse') {
       result = await linkSpouse(this.appState, personData, handle, relType)
     } else if (this._relationship === 'sibling') {
-      result = await linkSibling(this.appState, personData, handle)
+      result = familyHandle
+        ? await linkChildToFamily(
+            this.appState,
+            personData,
+            familyHandle,
+            handle,
+            frel,
+            mrel,
+            'child'
+          )
+        : await linkSibling(this.appState, personData, handle, frel, mrel)
     }
     if (result && 'error' in result) {
       fireEvent(this, 'grampsjs:error', {message: result.error})
@@ -94,7 +128,8 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
       handle,
       e.detail.data?.frel,
       e.detail.data?.mrel,
-      e.detail.data?.type
+      e.detail.data?.type,
+      e.detail.data?.familyHandle
     )
     if (ok) {
       this._reset()
@@ -134,8 +169,16 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
 
   _renderPickerDialog() {
     const primaryFamily = this._personData?.extended?.primary_parent_family
-    const hasFather = !!primaryFamily?.father_handle
-    const hasMother = !!primaryFamily?.mother_handle
+    const parentFamilies = [
+      ...(this._personData?.extended?.parent_families ?? []),
+      ...(primaryFamily?.handle ? [primaryFamily] : []),
+    ]
+    const canAddFather =
+      parentFamilies.length === 0 ||
+      parentFamilies.some(family => !family.father_handle)
+    const canAddMother =
+      parentFamilies.length === 0 ||
+      parentFamilies.some(family => !family.mother_handle)
 
     return html`
       <md-dialog
@@ -149,12 +192,12 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
       >
         <div slot="headline">${this._('Add Family Member')}</div>
         <div slot="content">
-          ${hasFather
-            ? ''
-            : this._renderRelationRow(this._('Father'), 'father')}
-          ${hasMother
-            ? ''
-            : this._renderRelationRow(this._('Mother'), 'mother')}
+          ${canAddFather
+            ? this._renderRelationRow(this._('Father'), 'father')
+            : ''}
+          ${canAddMother
+            ? this._renderRelationRow(this._('Mother'), 'mother')
+            : ''}
           ${this._renderRelationRow(this._('Child'), 'child')}
           ${this._renderRelationRow(this._('Sibling'), 'sibling')}
           ${this._renderRelationRow(this._('Spouse'), 'spouse')}
@@ -168,8 +211,38 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
       return ''
     }
 
-    const isChild = this._relationship === 'child'
-    if (isChild) {
+    const familyRelationship = [
+      'father',
+      'mother',
+      'child',
+      'sibling',
+    ].includes(this._relationship)
+    const families = this._familyChoices(this._relationship)
+    if (familyRelationship && families.length > 0) {
+      return html`
+        <grampsjs-form-family-childref
+          @object:save="${this._handleExistingPersonSave}"
+          @object:cancel="${this._cancelForm}"
+          .appState="${this.appState}"
+          .families="${families}"
+          dialogTitle="${this._('Add or link person')}"
+        ></grampsjs-form-family-childref>
+      `
+    }
+
+    if (['child', 'sibling'].includes(this._relationship)) {
+      return html`
+        <grampsjs-form-family-childref
+          @object:save="${this._handleExistingPersonSave}"
+          @object:cancel="${this._cancelForm}"
+          .appState="${this.appState}"
+          .families="${[]}"
+          dialogTitle="${this._('Add or link person')}"
+        ></grampsjs-form-family-childref>
+      `
+    }
+
+    if (['father', 'mother'].includes(this._relationship)) {
       return html`
         <grampsjs-form-childref
           @object:save="${this._handleExistingPersonSave}"
@@ -199,6 +272,47 @@ export class GrampsjsTreeChartAddPerson extends GrampsjsAppStateMixin(
             dialogTitle="${this._('Add or link person')}"
           ></grampsjs-form-personref>
         `
+  }
+
+  _familyChoices(relationship) {
+    const isChild = relationship === 'child'
+    const isParent = ['father', 'mother'].includes(relationship)
+    const primaryParentFamily =
+      this._personData?.extended?.primary_parent_family
+    const rawFamilies = isChild
+      ? this._personData?.extended?.families ?? []
+      : [
+          ...(this._personData?.extended?.parent_families ?? []),
+          ...(primaryParentFamily?.handle ? [primaryParentFamily] : []),
+        ]
+    const eligibleFamilies = isParent
+      ? rawFamilies.filter(family => !family[`${relationship}_handle`])
+      : rawFamilies
+    const uniqueRawFamilies = [
+      ...new Map(
+        eligibleFamilies.map(family => [family.handle, family])
+      ).values(),
+    ]
+    const familyProfiles = isChild
+      ? this._personData?.profile?.families ?? []
+      : [
+          this._personData?.profile?.primary_parent_family,
+          ...(this._personData?.profile?.other_parent_families ?? []),
+        ].filter(Boolean)
+    return uniqueRawFamilies.map((family, index) => {
+      const profile =
+        familyProfiles.find(item => item.handle === family.handle) ??
+        familyProfiles[index] ??
+        {}
+      return {
+        ...family,
+        label:
+          familyTitleFromProfile(profile) ||
+          profile.gramps_id ||
+          family.gramps_id ||
+          family.handle,
+      }
+    })
   }
 
   render() {

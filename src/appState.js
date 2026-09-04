@@ -18,8 +18,9 @@ import {
   TASK_LABELS,
   stripTaskPrefix,
 } from './taskLabels.js'
+import {parseAppPath} from './appUrl.js'
 
-export function getInitialAppState() {
+export function getInitialAppState(initialPath = window.location.pathname) {
   const auth = new Auth()
   let activeGetCount = 0
   let activeSaveCount = 0
@@ -284,6 +285,13 @@ export function getInitialAppState() {
     return result
   }
 
+  const path = parseAppPath(initialPath) ?? {
+    page: 'home',
+    pageId: '',
+    pageId2: '',
+    pageId3: '',
+  }
+
   return {
     auth,
     screenSize: 'small',
@@ -305,12 +313,7 @@ export function getInitialAppState() {
       strings: {},
       lang: '',
     },
-    path: {
-      page: 'home',
-      pageId: '',
-      pageId2: '',
-      pageId3: '',
-    },
+    path,
     apiGet: endpoint => {
       activeGetCount += 1
       notifyCounters()

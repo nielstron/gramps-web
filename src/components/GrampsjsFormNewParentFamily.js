@@ -21,6 +21,9 @@ class GrampsjsFormNewParentFamily extends GrampsjsObjectForm {
   get isValid() {
     const fatherHandle = this.data?.father_handle
     const motherHandle = this.data?.mother_handle
+    if (!fatherHandle && !motherHandle) {
+      return false
+    }
     if (
       this.personHandle &&
       (fatherHandle === this.personHandle || motherHandle === this.personHandle)
@@ -30,7 +33,7 @@ class GrampsjsFormNewParentFamily extends GrampsjsObjectForm {
     if (fatherHandle && motherHandle && fatherHandle === motherHandle) {
       return false
     }
-    return true
+    return Boolean(this.data?.frel && this.data?.mrel)
   }
 
   _handleDialogSave() {

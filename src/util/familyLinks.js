@@ -201,6 +201,8 @@ export async function linkFamily(
   appState,
   {fatherHandle, motherHandle, childHandle, frel, mrel, type}
 ) {
+  const childFrel = childHandle ? frel || 'Birth' : frel
+  const childMrel = childHandle ? mrel || 'Birth' : mrel
   const handles = [
     ...new Set([fatherHandle, motherHandle, childHandle].filter(Boolean)),
   ]
@@ -232,7 +234,7 @@ export async function linkFamily(
 
   if (!target) {
     const childRef = childHandle
-      ? addOrUpdateChildRef({}, childHandle, frel, mrel)
+      ? addOrUpdateChildRef({}, childHandle, childFrel, childMrel)
       : undefined
     return appState.apiPost('/api/families/', {
       _class: 'Family',
@@ -257,13 +259,20 @@ export async function linkFamily(
     fatherHandle,
     motherHandle,
     childHandle,
-    frel,
-    mrel,
+    frel: childFrel,
+    mrel: childMrel,
     type,
   })
 }
 
-export async function linkParent(appState, personData, parentHandle, role) {
+export async function linkParent(
+  appState,
+  personData,
+  parentHandle,
+  role,
+  frel = 'Birth',
+  mrel = 'Birth'
+) {
   const childResult = await freshPerson(appState, personData.handle, personData)
   if ('error' in childResult) return childResult
   const child = childResult.data
@@ -281,17 +290,15 @@ export async function linkParent(appState, personData, parentHandle, role) {
   const parentFamily =
     child.extended?.primary_parent_family ?? parentFamilies[0]
   if (parentFamily?.handle) {
-    const slot = `${role}_handle`
-    if (parentFamily[slot]) {
-      return {error: `The family already has a ${role}.`}
-    }
-    return linkFamily(appState, {
-      fatherHandle:
-        role === 'father' ? parentHandle : parentFamily.father_handle,
-      motherHandle:
-        role === 'mother' ? parentHandle : parentFamily.mother_handle,
-      childHandle: personData.handle,
-    })
+    return linkParentToFamily(
+      appState,
+      personData,
+      parentFamily.handle,
+      parentHandle,
+      role,
+      frel,
+      mrel
+    )
   }
 
   // If the parent belongs to exactly one union, adding the parent from the
@@ -302,17 +309,68 @@ export async function linkParent(appState, personData, parentHandle, role) {
   if (families.length === 1) {
     return saveReconciledFamily(appState, families[0], [], {
       childHandle: personData.handle,
+      frel,
+      mrel,
     })
   }
 
+  const childRef = {
+    _class: 'ChildRef',
+    ref: personData.handle,
+    frel,
+    mrel,
+  }
   return appState.apiPost('/api/families/', {
     _class: 'Family',
     [`${role}_handle`]: parentHandle,
-    child_ref_list: [{_class: 'ChildRef', ref: personData.handle}],
+    child_ref_list: [childRef],
   })
 }
 
-export async function linkChild(appState, personData, childHandle, frel, mrel) {
+/** Add a parent to one exact family, without reconciling another union. */
+export async function linkParentToFamily(
+  appState,
+  personData,
+  familyHandle,
+  parentHandle,
+  role,
+  frel,
+  mrel
+) {
+  const result = await appState.apiGet(`/api/families/${familyHandle}`)
+  if ('error' in result) return result
+
+  const family = result.data
+  if (personData?.handle && !familyHasChild(family, personData.handle)) {
+    return {error: 'The selected person is not a child in this family.'}
+  }
+  if (familyHasChild(family, parentHandle)) {
+    return {error: 'A child in a family cannot also be its parent.'}
+  }
+
+  const slot = `${role}_handle`
+  const otherSlot = role === 'father' ? 'mother_handle' : 'father_handle'
+  if (family[slot] === parentHandle) return {data: cleanFamily(family)}
+  if (family[slot]) return {error: `The family already has a ${role}.`}
+  if (family[otherSlot] === parentHandle) {
+    return {error: 'One person cannot occupy both parent slots.'}
+  }
+
+  return saveReconciledFamily(appState, family, [], {
+    [`${role}Handle`]: parentHandle,
+    childHandle: personData?.handle,
+    frel,
+    mrel,
+  })
+}
+
+export async function linkChild(
+  appState,
+  personData,
+  childHandle,
+  frel = 'Birth',
+  mrel = 'Birth'
+) {
   const localFamilies = personData.extended?.families ?? []
   const localExisting = localFamilies.find(family =>
     familyHasChild(family, childHandle)
@@ -372,7 +430,58 @@ export async function linkChild(appState, personData, childHandle, frel, mrel) {
   })
 }
 
-export async function linkSibling(appState, personData, siblingHandle) {
+/**
+ * Add a child to a family explicitly selected from a person's partner
+ * families. Unlike linkChild(), this never guesses between several unions.
+ */
+export async function linkChildToFamily(
+  appState,
+  personData,
+  familyHandle,
+  childHandle,
+  frel = 'Birth',
+  mrel = 'Birth',
+  anchorRole = 'parent'
+) {
+  const result = await appState.apiGet(`/api/families/${familyHandle}`)
+  if ('error' in result) return result
+
+  const family = result.data
+  if (
+    personData?.handle &&
+    anchorRole === 'parent' &&
+    !familyHasParent(family, personData.handle)
+  ) {
+    return {error: 'The selected person is not a parent in this family.'}
+  }
+  if (
+    personData?.handle &&
+    anchorRole === 'child' &&
+    !familyHasChild(family, personData.handle)
+  ) {
+    return {error: 'The selected person is not a child in this family.'}
+  }
+  if (familyHasParent(family, childHandle)) {
+    return {error: 'A parent in a family cannot also be its child.'}
+  }
+  if (familyHasChild(family, childHandle)) {
+    return {data: cleanFamily(family)}
+  }
+
+  return saveReconciledFamily(appState, family, [], {
+    childHandle,
+    frel,
+    mrel,
+  })
+}
+
+export async function linkSibling(
+  appState,
+  personData,
+  siblingHandle,
+  frel = 'Birth',
+  mrel = 'Birth'
+) {
   const [personResult, siblingResult] = await Promise.all([
     freshPerson(appState, personData.handle, personData),
     freshPerson(appState, siblingHandle),
@@ -399,7 +508,11 @@ export async function linkSibling(appState, personData, siblingHandle) {
     const childHandle = personFamilies.length
       ? siblingHandle
       : personData.handle
-    return saveReconciledFamily(appState, target, [], {childHandle})
+    return saveReconciledFamily(appState, target, [], {
+      childHandle,
+      frel,
+      mrel,
+    })
   }
 
   return appState.apiPost('/api/families/', {
@@ -407,6 +520,8 @@ export async function linkSibling(appState, personData, siblingHandle) {
     child_ref_list: [personData.handle, siblingHandle].map(ref => ({
       _class: 'ChildRef',
       ref,
+      frel,
+      mrel,
     })),
   })
 }

@@ -1,6 +1,7 @@
 import {describe, expect, it, vi} from 'vitest'
 import {
   linkChild,
+  linkChildToFamily,
   linkFamily,
   linkParent,
   linkSibling,
@@ -82,6 +83,57 @@ describe('family links', () => {
     expect(state.apiPut).not.toHaveBeenCalled()
   })
 
+  it('adds a child to the explicitly selected parent family', async () => {
+    const selected = {
+      handle: 'F2',
+      father_handle: 'P',
+      mother_handle: 'Q2',
+      child_ref_list: [],
+    }
+    const state = appState({getResult: {data: selected}})
+
+    await linkChildToFamily(state, person('P', 1), 'F2', 'C', 'Birth', 'Birth')
+
+    expect(state.apiGet).toHaveBeenCalledWith('/api/families/F2')
+    expect(state.apiPost).not.toHaveBeenCalled()
+    expect(state.apiPut).toHaveBeenCalledWith('/api/families/F2', {
+      _class: 'Family',
+      ...selected,
+      child_ref_list: [
+        {_class: 'ChildRef', ref: 'C', frel: 'Birth', mrel: 'Birth'},
+      ],
+    })
+  })
+
+  it('adds a sibling to the explicitly selected shared parent family', async () => {
+    const selected = {
+      handle: 'F1',
+      father_handle: 'F',
+      mother_handle: 'M',
+      child_ref_list: [{_class: 'ChildRef', ref: 'P'}],
+    }
+    const state = appState({getResult: {data: selected}})
+
+    await linkChildToFamily(
+      state,
+      person('P', 2),
+      'F1',
+      'S',
+      'Birth',
+      'Birth',
+      'child'
+    )
+
+    expect(state.apiPut).toHaveBeenCalledWith('/api/families/F1', {
+      _class: 'Family',
+      ...selected,
+      child_ref_list: [
+        {_class: 'ChildRef', ref: 'P'},
+        {_class: 'ChildRef', ref: 'S', frel: 'Birth', mrel: 'Birth'},
+      ],
+    })
+  })
+
   it('adds a sibling to the existing parent family', async () => {
     const family = {
       handle: 'F1',
@@ -117,7 +169,7 @@ describe('family links', () => {
       ...family,
       child_ref_list: [
         {_class: 'ChildRef', ref: 'C'},
-        {_class: 'ChildRef', ref: 'S'},
+        {_class: 'ChildRef', ref: 'S', frel: 'Birth', mrel: 'Birth'},
       ],
     })
   })
@@ -164,6 +216,51 @@ describe('family links', () => {
     expect(state.apiPut).not.toHaveBeenCalled()
   })
 
+  it('adds a parent to the selected existing parent family without switching unions', async () => {
+    const selected = {
+      handle: 'F-selected',
+      mother_handle: 'Q',
+      child_ref_list: [{_class: 'ChildRef', ref: 'C'}],
+    }
+    const otherUnion = {
+      handle: 'F-other',
+      father_handle: 'P',
+      mother_handle: 'Q',
+      child_ref_list: [],
+    }
+    const current = {
+      ...person('C', 2),
+      extended: {
+        families: [],
+        parent_families: [selected],
+        primary_parent_family: selected,
+      },
+    }
+    const state = appState({
+      getResults: {
+        '/api/people/C?extend=family_list,parent_family_list,primary_parent_family':
+          {data: current},
+        '/api/people/P?extend=family_list,parent_family_list,primary_parent_family':
+          {data: person('P', 1, [otherUnion])},
+        '/api/people/Q?extend=family_list,parent_family_list,primary_parent_family':
+          {data: person('Q', 0, [otherUnion, selected])},
+        '/api/families/F-selected': {data: selected},
+      },
+    })
+
+    await linkParent(state, current, 'P', 'father')
+
+    expect(state.apiPut).toHaveBeenCalledWith('/api/families/F-selected', {
+      _class: 'Family',
+      ...selected,
+      father_handle: 'P',
+      child_ref_list: [
+        {_class: 'ChildRef', ref: 'C', frel: 'Birth', mrel: 'Birth'},
+      ],
+    })
+    expect(state.apiDelete).not.toHaveBeenCalled()
+  })
+
   it('uses a freshly loaded couple when a parent is added from the child', async () => {
     const couple = {
       handle: 'F1',
@@ -190,7 +287,31 @@ describe('family links', () => {
     expect(state.apiPut).toHaveBeenCalledWith('/api/families/F1', {
       _class: 'Family',
       ...couple,
-      child_ref_list: [{_class: 'ChildRef', ref: 'C'}],
+      child_ref_list: [
+        {_class: 'ChildRef', ref: 'C', frel: 'Birth', mrel: 'Birth'},
+      ],
+    })
+  })
+
+  it('stores explicit birth relationships when a quick parent link creates a family', async () => {
+    const current = person('C', 2)
+    const state = appState({
+      getResults: {
+        '/api/people/C?extend=family_list,parent_family_list,primary_parent_family':
+          {data: current},
+        '/api/people/P?extend=family_list,parent_family_list,primary_parent_family':
+          {data: person('P', 1)},
+      },
+    })
+
+    await linkParent(state, current, 'P', 'father', 'Birth', 'Birth')
+
+    expect(state.apiPost).toHaveBeenCalledWith('/api/families/', {
+      _class: 'Family',
+      father_handle: 'P',
+      child_ref_list: [
+        {_class: 'ChildRef', ref: 'C', frel: 'Birth', mrel: 'Birth'},
+      ],
     })
   })
 
@@ -360,6 +481,9 @@ describe('family links', () => {
       _class: 'Family',
       ...partial,
       father_handle: 'P',
+      child_ref_list: [
+        {_class: 'ChildRef', ref: 'C', frel: 'Birth', mrel: 'Birth'},
+      ],
     })
   })
 

@@ -238,8 +238,21 @@ export class GrampsjsFamily extends GrampsjsObject {
 
   _handleParentChanged(e, parent) {
     const handle = e.detail.data?.ref ?? ''
-    const updatedFamily = {[`${parent}_handle`]: handle}
-    fireEvent(this, 'edit:action', {action: 'updateProp', data: updatedFamily})
+    if (handle) {
+      fireEvent(this, 'edit:action', {
+        action: 'linkParentToFamily',
+        data: {
+          familyHandle: this.data.handle,
+          parentHandle: handle,
+          role: parent,
+        },
+      })
+    } else {
+      fireEvent(this, 'edit:action', {
+        action: 'updateProp',
+        data: {[`${parent}_handle`]: ''},
+      })
+    }
     this.dialogContent = ''
   }
 

@@ -9,7 +9,11 @@ import '../components/GrampsjsIcon.js'
 import {GrampsjsView} from './GrampsjsView.js'
 
 import {fireEvent, objectIconPath, objectTypeToEndpoint} from '../util.js'
-import {linkFamily} from '../util/familyLinks.js'
+import {
+  linkChildToFamily,
+  linkFamily,
+  linkParentToFamily,
+} from '../util/familyLinks.js'
 import {
   moveToIndex,
   reorderEventRefs,
@@ -379,12 +383,30 @@ export class GrampsjsViewObject extends GrampsjsView {
         'placeref_list'
       )
     } else if (e.detail.action === 'addChildRef') {
-      this.addObject(
-        e.detail.data,
-        this._data,
-        this._className,
-        'child_ref_list'
-      )
+      if (this._className === 'family') {
+        const {ref, frel, mrel} = e.detail.data
+        linkChildToFamily(
+          this.appState,
+          null,
+          this._data.handle,
+          ref,
+          frel,
+          mrel
+        ).then(result => {
+          if ('error' in result) {
+            fireEvent(this, 'grampsjs:error', {message: result.error})
+          } else {
+            this._updateData(false)
+          }
+        })
+      } else {
+        this.addObject(
+          e.detail.data,
+          this._data,
+          this._className,
+          'child_ref_list'
+        )
+      }
     } else if (e.detail.action === 'updateChildRef') {
       this.updateObjectByIndex(
         e.detail.index,
@@ -427,8 +449,19 @@ export class GrampsjsViewObject extends GrampsjsView {
       const {handle} = processedData.filter(obj => obj._class === 'Person')[0]
       this._postObject(processedData, 'object').then(data => {
         if ('data' in data) {
-          const updatedFamily = {[`${parent}_handle`]: handle}
-          this.updateProp(this._data, this._className, updatedFamily)
+          linkParentToFamily(
+            this.appState,
+            null,
+            this._data.handle,
+            handle,
+            parent
+          ).then(result => {
+            if ('error' in result) {
+              fireEvent(this, 'grampsjs:error', {message: result.error})
+            } else {
+              this._updateData(false)
+            }
+          })
         }
       })
     } else if (e.detail.action === 'newChild') {
@@ -436,17 +469,20 @@ export class GrampsjsViewObject extends GrampsjsView {
       const {handle} = processedData.filter(obj => obj._class === 'Person')[0]
       this._postObject(processedData, 'object').then(data => {
         if ('data' in data) {
-          const childRefData = {
-            ref: handle,
+          linkChildToFamily(
+            this.appState,
+            null,
+            this._data.handle,
+            handle,
             frel,
-            mrel,
-          }
-          this.addObject(
-            childRefData,
-            this._data,
-            this._className,
-            'child_ref_list'
-          )
+            mrel
+          ).then(result => {
+            if ('error' in result) {
+              fireEvent(this, 'grampsjs:error', {message: result.error})
+            } else {
+              this._updateData(false)
+            }
+          })
         }
       })
     } else if (e.detail.action === 'newEvent') {
@@ -765,51 +801,33 @@ export class GrampsjsViewObject extends GrampsjsView {
     } else if (e.detail.action === 'addPersonToExistingFamily') {
       const {familyHandle, frel, mrel} = e.detail.data
       const personHandle = this._data.handle
-      this.appState.apiGet(`/api/families/${familyHandle}`).then(result => {
-        if ('data' in result) {
-          const {extended, profile, backlinks, formatted, ...family} =
-            result.data
-          // Prevent adding the person as a child to a family where they are already a parent
-          if (
-            family.father_handle === personHandle ||
-            family.mother_handle === personHandle
-          ) {
-            fireEvent(this, 'grampsjs:error', {
-              message:
-                'Cannot add person as child of a family they are already a parent of.',
-            })
-            return
-          }
-          // Prevent duplicate child entries
-          const alreadyChild = (family.child_ref_list || []).some(
-            ref => ref.ref === personHandle
-          )
-          if (alreadyChild) {
-            this._updateData(false)
-            return
-          }
-          const childRef = {
-            _class: 'ChildRef',
-            ref: personHandle,
-            frel: frel || 'Birth',
-            mrel: mrel || 'Birth',
-          }
-          const updatedFamily = {
-            _class: 'Family',
-            ...family,
-            child_ref_list: [...(family.child_ref_list || []), childRef],
-          }
-          this.appState
-            .apiPut(`/api/families/${familyHandle}`, updatedFamily)
-            .then(resultPut => {
-              if ('error' in resultPut) {
-                fireEvent(this, 'grampsjs:error', {message: resultPut.error})
-              } else {
-                this._updateData(false)
-              }
-            })
-        } else if ('error' in result) {
+      linkChildToFamily(
+        this.appState,
+        null,
+        familyHandle,
+        personHandle,
+        frel,
+        mrel
+      ).then(result => {
+        if ('error' in result) {
           fireEvent(this, 'grampsjs:error', {message: result.error})
+        } else {
+          this._updateData(false)
+        }
+      })
+    } else if (e.detail.action === 'linkParentToFamily') {
+      const {familyHandle, parentHandle, role} = e.detail.data
+      linkParentToFamily(
+        this.appState,
+        null,
+        familyHandle,
+        parentHandle,
+        role
+      ).then(result => {
+        if ('error' in result) {
+          fireEvent(this, 'grampsjs:error', {message: result.error})
+        } else {
+          this._updateData(false)
         }
       })
     } else if (e.detail.action === 'newParentFamily') {

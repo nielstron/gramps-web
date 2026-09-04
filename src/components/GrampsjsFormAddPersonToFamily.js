@@ -21,7 +21,9 @@ class GrampsjsFormAddPersonToFamily extends GrampsjsObjectForm {
   }
 
   get isValid() {
-    return !!this.data?.familyHandle
+    return Boolean(
+      this.data?.familyHandle && this.data?.frel && this.data?.mrel
+    )
   }
 
   _handleDialogSave() {

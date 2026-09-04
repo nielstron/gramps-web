@@ -12,7 +12,7 @@ import './GrampsjsFormSelectObjectList.js'
 import './GrampsjsFormString.js'
 import {GrampsjsObjectForm} from './GrampsjsObjectForm.js'
 
-class GrampsjsFormChildRef extends GrampsjsObjectForm {
+export class GrampsjsFormChildRef extends GrampsjsObjectForm {
   // the form edits an existing reference if the data it was opened with
   // already points at a child; determined once, since selecting a person
   // sets `ref` on the data as well
@@ -69,7 +69,7 @@ class GrampsjsFormChildRef extends GrampsjsObjectForm {
   }
 
   get isValid() {
-    return !!this.data.ref
+    return Boolean(this.data.ref && this.data.frel && this.data.mrel)
   }
 }
 

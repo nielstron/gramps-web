@@ -162,9 +162,28 @@ export class GrampsjsViewNewFamily extends GrampsjsViewNewObject {
     const slots = [
       ...this.shadowRoot.querySelectorAll('grampsjs-form-person-slot'),
     ]
+    const fatherHandle = this.shadowRoot
+      .querySelector('#father-slot')
+      .getData()?.handle
+    const motherHandle = this.shadowRoot
+      .querySelector('#mother-slot')
+      .getData()?.handle
+    const childHandles = this._childKeys
+      .map(key => this.shadowRoot.querySelector(`#child-slot-${key}`).getData())
+      .filter(Boolean)
+      .map(child => child.handle)
     this.isFormValid =
       slots.every(slot => slot.checkValidity()) &&
-      slots.some(slot => !slot.isEmpty())
+      slots.some(slot => !slot.isEmpty()) &&
+      this._slotHandlesAreValid(fatherHandle, motherHandle, childHandles)
+  }
+
+  // A person can occupy only one role in a family, and a child can occur once.
+  _slotHandlesAreValid(fatherHandle, motherHandle, childHandles) {
+    const parents = [fatherHandle, motherHandle].filter(Boolean)
+    if (new Set(parents).size !== parents.length) return false
+    if (new Set(childHandles).size !== childHandles.length) return false
+    return childHandles.every(handle => !parents.includes(handle))
   }
 
   async _submit() {
