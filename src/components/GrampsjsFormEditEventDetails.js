@@ -10,9 +10,10 @@ import './GrampsjsFormString.js'
 
 import {GrampsjsObjectForm} from './GrampsjsObjectForm.js'
 import {
-  degreeFromEvent,
-  isAcademicEvent,
-  withDegreeAttribute,
+  eventTitleAttributeType,
+  eventTitleFromEvent,
+  isTitleEvent,
+  withEventTitleAttribute,
 } from '../degree.js'
 
 class GrampsjsFormEditEventDetails extends GrampsjsObjectForm {
@@ -43,16 +44,23 @@ class GrampsjsFormEditEventDetails extends GrampsjsObjectForm {
         >
         </grampsjs-form-select-date>
       </p>
-      ${isAcademicEvent({type: this.eventType})
+      ${isTitleEvent({type: this.eventType})
         ? html`
-            <h4 class="label">${this._('Degree')}</h4>
+            <h4 class="label">
+              ${this._(eventTitleAttributeType({type: this.eventType}))}
+            </h4>
             <p>
               <grampsjs-form-string
                 fullwidth
-                id="event-degree"
+                id="event-title"
                 @formdata:changed="${this._handleFormData}"
-                label="${this._('Degree')}"
-                value="${degreeFromEvent(this.data)}"
+                label="${this._(
+                  eventTitleAttributeType({type: this.eventType})
+                )}"
+                value="${eventTitleFromEvent({
+                  ...this.data,
+                  type: this.eventType,
+                })}"
                 .appState="${this.appState}"
               ></grampsjs-form-string>
             </p>
@@ -89,8 +97,11 @@ class GrampsjsFormEditEventDetails extends GrampsjsObjectForm {
   _handleFormData(e) {
     const originalTarget = e.composedPath()[0]
     super._handleFormData(e)
-    if (originalTarget.id === 'event-degree') {
-      this.data = withDegreeAttribute(this.data, e.detail.data)
+    if (originalTarget.id === 'event-title') {
+      this.data = withEventTitleAttribute(
+        {...this.data, type: this.eventType},
+        e.detail.data
+      )
     }
   }
 }

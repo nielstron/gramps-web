@@ -1,7 +1,11 @@
 import {describe, expect, it} from 'vitest'
 import {
   degreeFromEvent,
+  eventTitleAttributeType,
+  eventTitleFromEvent,
   isAcademicEvent,
+  isTitleEvent,
+  withEventTitleAttribute,
   withDegreeAttribute,
 } from '../../src/degree.js'
 
@@ -37,5 +41,31 @@ describe('degree event helpers', () => {
       attribute_list: [{_class: 'Attribute', type: 'Degree', value: 'Dr.'}],
     }
     expect(withDegreeAttribute(event, '  ').attribute_list).to.deep.equal([])
+  })
+
+  it('treats coronations as title-bearing events', () => {
+    const event = {
+      type: {string: 'Coronation'},
+      attribute_list: [{type: 'Title', value: 'Kaiser'}],
+    }
+    expect(isTitleEvent(event)).to.equal(true)
+    expect(eventTitleAttributeType(event)).to.equal('Title')
+    expect(eventTitleFromEvent(event)).to.equal('Kaiser')
+  })
+
+  it('updates only the title attribute appropriate to the event type', () => {
+    const event = {
+      type: 'Coronation',
+      attribute_list: [
+        {_class: 'Attribute', type: 'Place in succession', value: '2'},
+        {_class: 'Attribute', type: 'Title', value: 'König'},
+      ],
+    }
+    expect(
+      withEventTitleAttribute(event, ' Kaiser ').attribute_list
+    ).to.deep.equal([
+      {_class: 'Attribute', type: 'Place in succession', value: '2'},
+      {_class: 'Attribute', type: 'Title', value: 'Kaiser'},
+    ])
   })
 })
