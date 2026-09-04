@@ -30,7 +30,7 @@ import {
 import {fireEvent, getBrowserLanguage, apiVersionAtLeast} from './util.js'
 
 import {appStateUpdatePermissions, getInitialAppState} from './appState.js'
-import {appUrl, baseDir} from './appUrl.js'
+import {appUrl, baseDir, parseAppPath} from './appUrl.js'
 import {getLoginUrl, restoreLoginReturnPath} from './loginRedirect.js'
 import {
   LOADING_STATE_INITIAL,
@@ -791,7 +791,7 @@ export class GrampsJs extends LitElement {
 
   firstUpdated() {
     installRouter(location =>
-      this._loadPage(decodeURIComponent(location.pathname), {
+      this._loadPage(location.pathname, {
         preserveEdit: Boolean(window.history.state?.preserveEdit),
       })
     )
@@ -1057,39 +1057,8 @@ export class GrampsJs extends LitElement {
       return
     }
 
-    if (path === '/' || path === appUrl('/')) {
-      this._updateAppState({
-        path: {page: 'home', pageId: '', pageId2: '', pageId3: ''},
-      })
-    } else if (baseDir === '') {
-      const pathId = path.slice(1)
-      const page = pathId.split('/')[0]
-      const pageId = pathId.split('/')[1]
-      const pageId2 = pathId.split('/')[2]
-      const pageId3 = pathId.split('/')[3]
-      this._updateAppState({
-        path: {
-          page,
-          pageId: pageId ?? '',
-          pageId2: pageId2 ?? '',
-          pageId3: pageId3 ?? '',
-        },
-      })
-    } else if (path.split('/')[0] === baseDir.split('/')[0]) {
-      const pathId = path.slice(1)
-      const page = pathId.split('/')[1]
-      const pageId = pathId.split('/')[2]
-      const pageId2 = pathId.split('/')[3]
-      const pageId3 = pathId.split('/')[4]
-      this._updateAppState({
-        path: {
-          page,
-          pageId: pageId ?? '',
-          pageId2: pageId2 ?? '',
-          pageId3: pageId3 ?? '',
-        },
-      })
-    }
+    const parsedPath = parseAppPath(path, baseDir)
+    if (parsedPath) this._updateAppState({path: parsedPath})
 
     if (this.appState.screenSize === 'small') {
       this._closeDrawer()

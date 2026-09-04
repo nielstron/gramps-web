@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "build": "rimraf dist && rollup -c rollup.config.js",
     "start:build": "npm run build && web-dev-server --root-dir dist --app-index index.html --open --compatibility none",
+    "start:prefix": "BASE_DIR=/stammbaum API_URL=http://127.0.0.1:5555 npm run build && web-dev-server --config web-dev-server.prefix.config.mjs --host 127.0.0.1 --port 8001",
     "start": "web-dev-server --app-index index.html --host 0.0.0.0 --node-resolve --open --watch --port 8001",
     "typecheck": "tsc --noEmit"
   },

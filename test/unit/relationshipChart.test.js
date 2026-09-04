@@ -184,6 +184,22 @@ describe('RelationshipChart', () => {
     expect(navigationEvent.detail).toEqual({path: 'person/I0042'})
   })
 
+  it('keeps unconventional Gramps IDs inside one route segment', () => {
+    let navigationEvent
+    const personNode = document.createElement('div')
+    personNode.addEventListener('nav', event => {
+      navigationEvent = event
+    })
+
+    openPersonProfile.call(personNode, undefined, {
+      data: {gramps_id: 'I/Mieszko I'},
+    })
+
+    expect(navigationEvent.detail).toEqual({
+      path: 'person/I%2FMieszko%20I',
+    })
+  })
+
   it('refocuses the tree when a person node is clicked', async () => {
     const selected = person('I0042', [])
     const svg = RelationshipChart([selected], {

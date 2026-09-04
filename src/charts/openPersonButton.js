@@ -6,7 +6,7 @@ export function openPersonProfile(event, d, getGrampsId = defaultGetGrampsId) {
     new CustomEvent('nav', {
       bubbles: true,
       composed: true,
-      detail: {path: `person/${grampsId}`},
+      detail: {path: `person/${encodeURIComponent(grampsId)}`},
     })
   )
 }
