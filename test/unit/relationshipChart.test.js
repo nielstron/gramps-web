@@ -90,6 +90,28 @@ function graphWithPartnerNetworkAndSiblings() {
   return new Relgraph(data, 190, 90, 'N')
 }
 
+function graphWithChildRelationships() {
+  const childRefs = [
+    {ref: 'B', frel: 'Birth', mrel: 'Birth'},
+    {ref: 'U', frel: 'Birth', mrel: 'Unknown'},
+    {ref: 'A', frel: 'Adopted', mrel: 'Adopted'},
+    {ref: 'F', frel: 'Foster', mrel: 'Foster'},
+    {ref: 'S', frel: 'Stepchild', mrel: 'Stepchild'},
+  ]
+  const family = {
+    handle: 'FR',
+    father_handle: 'P1',
+    mother_handle: 'P2',
+    type: 'Married',
+    child_ref_list: childRefs,
+  }
+  return [
+    person('P1', [family]),
+    person('P2', [family]),
+    ...childRefs.map(ref => person(ref.ref, [], family)),
+  ]
+}
+
 function personXPositions(svg) {
   return [...svg.querySelectorAll('[class*="person_"]')]
     .map(node => ({
@@ -312,6 +334,55 @@ describe('RelationshipChart', () => {
     expect(Number(sourceY)).toBeCloseTo(nodeBottom('P'))
     expect(Number(targetY)).toBeCloseTo(nodeBottom('S3'))
     expect(svg.querySelector('.family_F3')).toBeNull()
+  })
+
+  it('uses distinct line styles for non-birth child relationships', async () => {
+    const svg = RelationshipChart(graphWithChildRelationships(), {
+      grampsId: 'B',
+      getImageUrl: () => '',
+    })
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('[data-child-handle="S"]')).toBeTruthy()
+    )
+
+    const edge = handle => svg.querySelector(`[data-child-handle="${handle}"]`)
+    expect(edge('B').hasAttribute('stroke-dasharray')).toBe(false)
+    expect(edge('U').getAttribute('stroke-dasharray')).toBe('8 5')
+    expect(edge('A').getAttribute('stroke-dasharray')).toBe('10 3 2 3')
+    expect(edge('F').getAttribute('stroke-dasharray')).toBe('2 4')
+    expect(edge('S').getAttribute('stroke-dasharray')).toBe('14 4 2 4')
+    expect(edge('U').getAttribute('data-frel')).toBe('Birth')
+    expect(edge('U').getAttribute('data-mrel')).toBe('Unknown')
+  })
+
+  it('renders a married family with two rings', async () => {
+    const svg = RelationshipChart(graphWithChildRelationships(), {
+      grampsId: 'B',
+      getImageUrl: () => '',
+    })
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('.marriage-rings')).toBeTruthy()
+    )
+
+    expect(svg.querySelectorAll('.marriage-rings circle')).toHaveLength(2)
+  })
+
+  it('renders rings on a childless marriage arc', async () => {
+    const data = graphWithThreePartners().getData()
+    data[0].extended.families.find(family => family.handle === 'F3').type =
+      'Married'
+    const svg = RelationshipChart(data, {
+      grampsId: 'P',
+      getImageUrl: () => '',
+    })
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('.edge.childless-couple')).toBeTruthy()
+    )
+
+    expect(svg.querySelectorAll('.marriage-rings circle')).toHaveLength(2)
   })
 
   it('places family junctions between partners and children', async () => {

@@ -18,6 +18,48 @@ const sexColor = {
   U: 'var(--color-unknown)',
 }
 
+const childRelationshipDasharray = {
+  unknown: '8 5',
+  adopted: '10 3 2 3',
+  foster: '2 4',
+  stepchild: '14 4 2 4',
+  sponsored: '6 3 2 3 2 3',
+  other: '5 4',
+}
+
+function childRelationshipStyle(frel, mrel) {
+  const relationships = [frel, mrel].map(value =>
+    (value || 'Unknown').toLowerCase()
+  )
+  if (relationships.every(value => value === 'birth')) return 'birth'
+  if (relationships.includes('unknown')) return 'unknown'
+  if (relationships.every(value => value === relationships[0])) {
+    if (relationships[0] === 'adopted') return 'adopted'
+    if (relationships[0] === 'foster') return 'foster'
+    if (relationships[0] === 'stepchild') return 'stepchild'
+    if (relationships[0] === 'sponsored') return 'sponsored'
+  }
+  return 'other'
+}
+
+function appendMarriageRings(container, x = 0, y = 0) {
+  const rings = container
+    .append('g')
+    .attr('class', 'marriage-rings')
+    .attr('transform', `translate(${x} ${y})`)
+  for (const cx of [-3.5, 3.5]) {
+    rings
+      .append('circle')
+      .attr('cx', cx)
+      .attr('cy', 0)
+      .attr('r', 5.5)
+      .attr('fill', 'var(--grampsjs-color-shade-220)')
+      .attr('stroke', 'var(--grampsjs-body-font-color-60)')
+      .attr('stroke-width', 1.5)
+  }
+  return rings
+}
+
 function createGraph(graph) {
   const data = graph.getData()
 
@@ -45,12 +87,17 @@ function createGraph(graph) {
     const me = p.handle
     const father = f.father_handle
     const mother = f.mother_handle
+    const childRef = f.child_ref_list?.find(ref => ref.ref === me)
+    const relationships = {
+      frel: childRef?.frel || 'Unknown',
+      mrel: childRef?.mrel || 'Unknown',
+    }
     if (graph.known(father) && graph.known(mother)) {
-      graph.addEdge(f.handle, false, me)
+      graph.addEdge(f.handle, false, me, relationships)
     } else if (graph.known(father)) {
-      graph.addEdge(f.handle, father, me)
+      graph.addEdge(f.handle, father, me, relationships)
     } else if (graph.known(mother)) {
-      graph.addEdge(f.handle, mother, me)
+      graph.addEdge(f.handle, mother, me, relationships)
     }
   }
 }
@@ -131,9 +178,9 @@ export function generateDot(graph) {
   }
 
   // Family-to-child relationships determine the vertical generation layout.
-  for (const e of graph.getEdges()) {
+  for (const [index, e] of graph.getEdges().entries()) {
     if (graph.getNode(e.sourceFamily) && graph.known(e.targetPerson)) {
-      dot += `"node_${e.sourceFamily}" -> "node_${e.targetPerson}" [class="child", label="", arrowhead=none, color="#555"]
+      dot += `"node_${e.sourceFamily}" -> "node_${e.targetPerson}" [id="child_${index}", class="child", label="", arrowhead=none, color="#555"]
       `
     }
   }
@@ -290,12 +337,14 @@ export class Relgraph {
     return components
   }
 
-  addEdge(sourcefamily, sourceperson, targetperson) {
+  addEdge(sourcefamily, sourceperson, targetperson, relationships = {}) {
     const key = `${sourcefamily}__${sourceperson}__${targetperson}`
     this.edges[key] = {
       sourceFamily: sourcefamily,
       sourcePerson: sourceperson,
       targetPerson: targetperson,
+      frel: relationships.frel || 'Unknown',
+      mrel: relationships.mrel || 'Unknown',
     }
   }
 
@@ -534,17 +583,12 @@ function remasterChart(
     .attr('width', 70)
     .attr('xlink:href', d => d.imageUrl)
 
-  nodes
-    .filter(d => d.type === 'Married' && d.nodetype === 'family')
-    .append('circle')
-    .attr('class', 'married')
-    .attr('r', 6)
-    .attr('cy', 0)
-    .attr('stroke', 'var(--grampsjs-body-font-color-40)')
-    .attr('fill', 'var(--grampsjs-color-shade-220)')
+  const marriedFamilies = nodes.filter(
+    d => d.type === 'Married' && d.nodetype === 'family'
+  )
+  appendMarriageRings(marriedFamilies)
 
-  nodes
-    .filter(d => d.type === 'Married' && d.nodetype === 'family')
+  marriedFamilies
     .insert('line', ':first-child')
     .attr('class', 'married')
     .attr('x1', -11)
@@ -611,6 +655,18 @@ function remasterChart(
     const controlY = Math.max(sourceY, targetY) + arcDepth
     return `M${sourceX},${sourceY}C${sourceX},${controlY} ${targetX},${controlY} ${targetX},${targetY}`
   }
+  const childlessPartnerArcMidpoint = (
+    [sourceX, sourceY],
+    [targetX, targetY]
+  ) => {
+    const controlY =
+      Math.max(sourceY, targetY) +
+      Math.min(80, Math.max(36, Math.abs(targetX - sourceX) * 0.2))
+    return [
+      (sourceX + targetX) / 2,
+      sourceY / 8 + (3 * controlY) / 4 + targetY / 8,
+    ]
+  }
   // copy edges
   gvchartx.selectAll('.edge').each(function () {
     const graphvizEdge = select(this)
@@ -630,6 +686,13 @@ function remasterChart(
     const connectionMatch = graphvizEdge
       .attr('id')
       ?.match(/^connection_(?<index>\d+)$/)
+    const childMatch = graphvizEdge.attr('id')?.match(/^child_(?<index>\d+)$/)
+    const childRelationship = childMatch
+      ? graph.getEdges()[Number(childMatch.groups.index)]
+      : null
+    const relationshipStyle = childRelationship
+      ? childRelationshipStyle(childRelationship.frel, childRelationship.mrel)
+      : null
     const childlessFamily = isChildlessCouple
       ? graph.getNode(graphvizEdge.attr('id').replace(/^childless_/, ''))
       : null
@@ -666,6 +729,30 @@ function remasterChart(
           : 'var(--grampsjs-body-font-color-40)'
       )
       .attr('stroke-width', connectionMatch ? 4 : 1)
+
+    if (childRelationship) {
+      edge
+        .attr('class', `edge child relation-${relationshipStyle}`)
+        .attr('data-child-handle', childRelationship.targetPerson)
+        .attr('data-frel', childRelationship.frel)
+        .attr('data-mrel', childRelationship.mrel)
+      const dasharray = childRelationshipDasharray[relationshipStyle]
+      if (dasharray) {
+        edge.attr('stroke-dasharray', dasharray).attr('stroke-linecap', 'round')
+      }
+      edge
+        .append('title')
+        .text(
+          `frel: ${childRelationship.frel} · mrel: ${childRelationship.mrel}`
+        )
+    }
+
+    if (isChildlessCouple && childlessFamily.type === 'Married') {
+      const source = personBottomCenter(childlessFamily.father)
+      const target = personBottomCenter(childlessFamily.mother)
+      const [ringX, ringY] = childlessPartnerArcMidpoint(source, target)
+      appendMarriageRings(edges, ringX, ringY)
+    }
 
     if (connectionMatch) {
       edge.attr('stroke-linecap', 'round')
