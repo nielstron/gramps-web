@@ -42,6 +42,15 @@ function childRelationshipStyle(frel, mrel) {
   return 'other'
 }
 
+function connectionRelationshipStyle(step) {
+  const relationship = (step.relationship_type || 'Unknown').toLowerCase()
+  if (step.relation === 'partner') {
+    return relationship === 'unknown' ? 'unknown' : null
+  }
+  if (relationship === 'birth') return null
+  return childRelationshipDasharray[relationship] ? relationship : 'other'
+}
+
 function appendMarriageRings(container, x = 0, y = 0) {
   const rings = container
     .append('g')
@@ -394,7 +403,9 @@ function remasterChart(
   openProfileLabel,
   canEdit = false,
   connectionLabels = {},
-  connectionColors = {}
+  connectionColors = {},
+  connectionStyles = {},
+  connectionRelationshipTypes = {}
 ) {
   const gvchartx = divhidden.select('svg')
   const nodedata = []
@@ -755,8 +766,21 @@ function remasterChart(
     }
 
     if (connectionMatch) {
-      edge.attr('stroke-linecap', 'round')
-      const label = connectionLabels[connectionMatch.groups.index]
+      const connectionIndex = connectionMatch.groups.index
+      const connectionStyle = connectionStyles[connectionIndex]
+      const relationshipType = connectionRelationshipTypes[connectionIndex]
+      edge
+        .attr('stroke-linecap', 'round')
+        .attr('data-relationship-type', relationshipType)
+      if (connectionStyle) {
+        edge
+          .attr('class', `edge connection relation-${connectionStyle}`)
+          .attr('stroke-dasharray', childRelationshipDasharray[connectionStyle])
+      }
+      if (relationshipType) {
+        edge.append('title').text(relationshipType)
+      }
+      const label = connectionLabels[connectionIndex]
       if (label) {
         const [source, target] = firstAndLastPoint
         edges
@@ -931,6 +955,12 @@ export function ConnectionPathChart(
   const colors = Object.fromEntries(
     steps.map((step, index) => [index, connectionColor(step.relation)])
   )
+  const styles = Object.fromEntries(
+    steps.map((step, index) => [index, connectionRelationshipStyle(step)])
+  )
+  const relationshipTypes = Object.fromEntries(
+    steps.map((step, index) => [index, step.relationship_type])
+  )
 
   Graphviz.load().then(graphviz => {
     divhidden.html(graphviz.layout(dot, 'svg', 'dot'))
@@ -949,7 +979,9 @@ export function ConnectionPathChart(
       openProfileLabel,
       false,
       labels,
-      colors
+      colors,
+      styles,
+      relationshipTypes
     )
     const bbox = chartContent.node().getBBox()
     const padding = 40

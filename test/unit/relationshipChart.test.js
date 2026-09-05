@@ -1,6 +1,7 @@
 import {Graphviz} from '@hpcc-js/wasm'
 import {describe, expect, it, vi} from 'vitest'
 import {
+  ConnectionPathChart,
   Relgraph,
   RelationshipChart,
   generateDot,
@@ -354,6 +355,46 @@ describe('RelationshipChart', () => {
     expect(edge('S').getAttribute('stroke-dasharray')).toBe('14 4 2 4')
     expect(edge('U').getAttribute('data-frel')).toBe('Birth')
     expect(edge('U').getAttribute('data-mrel')).toBe('Unknown')
+  })
+
+  it('dashes uncertain and non-birth connections in the connection path chart', async () => {
+    const data = [person('P1', []), person('C1', []), person('C2', [])]
+    const steps = [
+      {
+        from_handle: 'P1',
+        to_handle: 'C1',
+        family_handle: 'F1',
+        relation: 'child',
+        relationship_type: 'Unknown',
+      },
+      {
+        from_handle: 'C1',
+        to_handle: 'C2',
+        family_handle: 'F2',
+        relation: 'child',
+        relationship_type: 'Adopted',
+      },
+    ]
+    const svg = ConnectionPathChart(data, steps, {
+      grampsId: 'P1',
+      getImageUrl: () => '',
+    })
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('.edge.connection')).toBeTruthy()
+    )
+
+    const edges = [...svg.querySelectorAll('.edge.connection')]
+    const edgeByRelationship = relationship =>
+      edges.find(
+        edge => edge.getAttribute('data-relationship-type') === relationship
+      )
+    expect(edgeByRelationship('Unknown').getAttribute('stroke-dasharray')).toBe(
+      '8 5'
+    )
+    expect(edgeByRelationship('Adopted').getAttribute('stroke-dasharray')).toBe(
+      '10 3 2 3'
+    )
   })
 
   it('renders a married family with two rings', async () => {
