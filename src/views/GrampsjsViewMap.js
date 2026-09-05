@@ -139,6 +139,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
       _dataPlaces: {type: Array},
       _dataEvents: {type: Array},
       _dataFamilies: {type: Array},
+      _dataPeople: {type: Array},
       _filteredPlaces: {type: Array},
       _handlesHighlight: {type: Array},
       _dataLayers: {type: Array},
@@ -168,6 +169,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._dataPlaces = []
     this._dataEvents = []
     this._dataFamilies = []
+    this._dataPeople = []
     this._filteredPlaces = []
     this._handlesHighlight = []
     this._dataLayers = []
@@ -440,7 +442,8 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
       : buildPersonEventGroups(
           [this._selectedPersonData],
           this._dataFamilies,
-          this._dataEvents
+          this._dataEvents,
+          this._dataPeople
         )
     return buildPersonRoutesGeoJSON(
       eventGroups,
@@ -752,7 +755,12 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
           : EMPTY_ARRAY
         : this._scopePeople ?? EMPTY_ARRAY
     this._setPersonEventGroups(
-      buildPersonEventGroups(people, this._dataFamilies, this._dataEvents)
+      buildPersonEventGroups(
+        people,
+        this._dataFamilies,
+        this._dataEvents,
+        this._dataPeople
+      )
     )
   }
 
@@ -1112,6 +1120,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
       this._fetchPlaces(),
       this._fetchEvents(),
       this._fetchFamilies(),
+      this._fetchPeople(),
     ]
     this._fetchDataLayers()
     await Promise.all(requests)
@@ -1123,6 +1132,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._fetchDataLayers()
     this._fetchEvents()
     this._fetchFamilies()
+    this._fetchPeople()
   }
 
   async _fetchDataSearch(value) {
@@ -1223,7 +1233,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
 
   async _fetchEvents() {
     const data = await this.appState.apiGet(
-      '/api/events/?keys=date,handle,place'
+      '/api/events/?keys=date,handle,place,type'
     )
     this.loading = false
     if ('data' in data) {
@@ -1240,10 +1250,22 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
 
   async _fetchFamilies() {
     const data = await this.appState.apiGet(
-      '/api/families/?keys=handle,event_ref_list'
+      '/api/families/?keys=handle,event_ref_list,father_handle,mother_handle,child_ref_list'
     )
     if ('data' in data) {
       this._dataFamilies = data.data
+      this._refreshPersonEventGroups()
+    } else if ('error' in data) {
+      fireEvent(this, 'grampsjs:error', {message: data.error})
+    }
+  }
+
+  async _fetchPeople() {
+    const data = await this.appState.apiGet(
+      '/api/people/?keys=handle,event_ref_list,birth_ref_index'
+    )
+    if ('data' in data) {
+      this._dataPeople = data.data
       this._refreshPersonEventGroups()
     } else if ('error' in data) {
       fireEvent(this, 'grampsjs:error', {message: data.error})

@@ -376,4 +376,110 @@ describe('person life-event routes on the map', () => {
     ])
     expect(features[1].properties.travelerCount).toBe(2)
   })
+
+  it("uses a child's birth as a waypoint for both birth parents", () => {
+    const events = [
+      {
+        handle: 'father-birth',
+        date: {sortval: 1, modifier: 0},
+        place: 'father-origin',
+      },
+      {
+        handle: 'father-death',
+        date: {sortval: 3, modifier: 0},
+        place: 'parents-destination',
+      },
+      {
+        handle: 'mother-birth',
+        date: {sortval: 1, modifier: 0},
+        place: 'mother-origin',
+      },
+      {
+        handle: 'mother-death',
+        date: {sortval: 3, modifier: 0},
+        place: 'parents-destination',
+      },
+      {
+        handle: 'child-birth',
+        date: {sortval: 2, modifier: 0},
+        place: 'child-birthplace',
+      },
+      {
+        handle: 'adopted-child-birth',
+        date: {sortval: 2, modifier: 0},
+        place: 'adopted-child-birthplace',
+      },
+    ]
+    const people = [
+      {
+        handle: 'father',
+        event_ref_list: [{ref: 'father-birth'}, {ref: 'father-death'}],
+        family_list: ['family'],
+      },
+      {
+        handle: 'mother',
+        event_ref_list: [{ref: 'mother-birth'}, {ref: 'mother-death'}],
+        family_list: ['family'],
+      },
+    ]
+    const families = [
+      {
+        handle: 'family',
+        father_handle: 'father',
+        mother_handle: 'mother',
+        child_ref_list: [
+          {ref: 'child', frel: 'Birth', mrel: 'Birth'},
+          {ref: 'adopted-child', frel: 'Adopted', mrel: 'Adopted'},
+        ],
+      },
+    ]
+    const relatedPeople = [
+      {
+        handle: 'child',
+        birth_ref_index: 0,
+        event_ref_list: [{ref: 'child-birth'}],
+      },
+      {
+        handle: 'adopted-child',
+        birth_ref_index: 0,
+        event_ref_list: [{ref: 'adopted-child-birth'}],
+      },
+    ]
+
+    const groups = buildPersonEventGroups(
+      people,
+      families,
+      events,
+      relatedPeople
+    )
+
+    expect(groups.map(group => group.map(event => event.handle))).toEqual([
+      ['father-birth', 'father-death', 'child-birth'],
+      ['mother-birth', 'mother-death', 'child-birth'],
+    ])
+
+    const places = [
+      {handle: 'father-origin', profile: {lat: '1', long: '2'}},
+      {handle: 'child-birthplace', profile: {lat: '3', long: '4'}},
+      {handle: 'parents-destination', profile: {lat: '5', long: '6'}},
+      {handle: 'mother-origin', profile: {lat: '7', long: '8'}},
+      {handle: 'adopted-child-birthplace', profile: {lat: '9', long: '10'}},
+    ]
+    const features = buildPersonRoutesGeoJSON(groups, places).features
+    expect(features.map(feature => feature.geometry.coordinates)).toEqual([
+      [
+        [2, 1],
+        [4, 3],
+      ],
+      [
+        [4, 3],
+        [6, 5],
+      ],
+      [
+        [8, 7],
+        [4, 3],
+      ],
+    ])
+    expect(features[1].properties.travelerCount).toBe(2)
+  })
 })

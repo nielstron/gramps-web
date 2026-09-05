@@ -213,12 +213,56 @@ export function buildPersonRoutesGeoJSON(
   }
 }
 
-export function buildPersonEventGroups(people, families, events) {
+function relationName(relation) {
+  if (typeof relation === 'string') return relation
+  if (typeof relation === 'number') return relation === 1 ? 'Birth' : relation
+  if (relation?.string) return relation.string
+  if (relation?.value === 1) return 'Birth'
+  return relation?.value
+}
+
+function isBirthParent(family, personHandle, childRef) {
+  let relation
+  if (family.father_handle === personHandle) relation = childRef.frel
+  else if (family.mother_handle === personHandle) relation = childRef.mrel
+  else return false
+  return !relation || relationName(relation) === 'Birth'
+}
+
+function isBirthEvent(event) {
+  const type = event?.type
+  return (
+    type === 'Birth' ||
+    type?.string === 'Birth' ||
+    type?.value === 'Birth' ||
+    type?.value === 12
+  )
+}
+
+function birthEventHandle(person, eventsByHandle) {
+  const refs = person?.event_ref_list || []
+  const index = person?.birth_ref_index
+  if (Number.isInteger(index) && refs[index]?.ref) return refs[index].ref
+  return refs.find(ref => isBirthEvent(eventsByHandle.get(ref.ref)))?.ref
+}
+
+export function buildPersonEventGroups(
+  people,
+  families,
+  events,
+  relatedPeople = people
+) {
   const eventsByHandle = new Map(
     (events || []).map(event => [event.handle, event])
   )
   const familiesByHandle = new Map(
     (families || []).map(family => [family.handle, family])
+  )
+  const peopleByHandle = new Map(
+    [...(relatedPeople || []), ...(people || [])].map(person => [
+      person.handle,
+      person,
+    ])
   )
 
   return (people || []).map(person => {
@@ -234,6 +278,14 @@ export function buildPersonEventGroups(people, families, events) {
       ...(person.event_ref_list || []).map(ref => ref.ref),
       ...[...familyObjects.values()].flatMap(family =>
         (family.event_ref_list || []).map(ref => ref.ref)
+      ),
+      ...[...familyObjects.values()].flatMap(family =>
+        (family.child_ref_list || [])
+          .filter(childRef => isBirthParent(family, person.handle, childRef))
+          .map(childRef =>
+            birthEventHandle(peopleByHandle.get(childRef.ref), eventsByHandle)
+          )
+          .filter(Boolean)
       ),
     ]
     const personEvents = [...(person.extended?.events || [])]
