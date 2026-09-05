@@ -2,6 +2,8 @@ import {css, html} from 'lit'
 
 import '@material/web/list/list'
 import '@material/web/list/list-item'
+import '@material/web/select/outlined-select'
+import '@material/web/textfield/outlined-text-field'
 import {
   mdiSourceCommit,
   mdiAccountPlus,
@@ -40,6 +42,21 @@ import '../components/GrampsjsIcon.js'
 import {GrampsjsView} from './GrampsjsView.js'
 import {GrampsjsStaleDataMixin} from '../mixins/GrampsjsStaleDataMixin.js'
 import {appUrl} from '../appUrl.js'
+import {transactionHistoryUrl} from '../history.js'
+import {debounce} from '../util.js'
+
+const objectClasses = {
+  Person: 'People',
+  Family: 'Families',
+  Event: 'Events',
+  Place: 'Places',
+  Source: 'Sources',
+  Citation: 'Citations',
+  Repository: 'Repositories',
+  Note: 'Notes',
+  Tag: 'Tags',
+  Media: 'Media',
+}
 
 const changeIcons = {
   Person_0: mdiAccountPlus,
@@ -112,6 +129,22 @@ export class GrampsjsViewRevisions extends GrampsjsStaleDataMixin(
           text-align: center;
           vertical-align: middle;
         }
+
+        :host([embedded]) {
+          margin: 0;
+        }
+
+        .filters {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        .filters md-outlined-text-field,
+        .filters md-outlined-select {
+          width: 100%;
+        }
       `,
     ]
   }
@@ -122,6 +155,13 @@ export class GrampsjsViewRevisions extends GrampsjsStaleDataMixin(
       _page: {type: Number},
       _pages: {type: Number},
       _pageSize: {type: Number},
+      _totalCount: {type: Number},
+      _search: {type: String},
+      _editor: {type: String},
+      _person: {type: String},
+      _objectClass: {type: String},
+      _transType: {type: String},
+      embedded: {type: Boolean, reflect: true},
     }
   }
 
@@ -131,16 +171,72 @@ export class GrampsjsViewRevisions extends GrampsjsStaleDataMixin(
     this._page = 1
     this._pages = -1
     this._pageSize = 20
+    this._totalCount = 0
+    this._search = ''
+    this._editor = ''
+    this._person = ''
+    this._objectClass = ''
+    this._transType = ''
+    this.embedded = false
+    this._debouncedApplyFilters = debounce(() => this._applyFilters(), 400)
   }
 
   render() {
     return html`
-      <h2>${this._('Revision History')}</h2>
+      ${this.embedded ? '' : html`<h2>${this._('Revision History')}</h2>`}
 
-      <md-list>
-        <md-divider></md-divider>
-        ${this._data.map(txn => this._renderTransaction(txn))}
-      </md-list>
+      <div class="filters">
+        ${this._renderTextFilter('_search', 'Search history', 'search')}
+        ${this._renderTextFilter('_editor', 'Editor', 'search')}
+        ${this._renderTextFilter('_person', 'Affected person', 'search')}
+        <md-outlined-select
+          label=${this._('Object type')}
+          .value=${this._objectClass}
+          @change=${this._handleSelectFilter}
+          data-filter="_objectClass"
+        >
+          <md-select-option value="" ?selected=${this._objectClass === ''}>
+            ${this._('All object types')}
+          </md-select-option>
+          ${Object.entries(objectClasses).map(
+            ([value, label]) => html`
+              <md-select-option
+                value=${value}
+                ?selected=${this._objectClass === value}
+                >${this._(label)}</md-select-option
+              >
+            `
+          )}
+        </md-outlined-select>
+        <md-outlined-select
+          label=${this._('Action')}
+          .value=${this._transType}
+          @change=${this._handleSelectFilter}
+          data-filter="_transType"
+        >
+          <md-select-option value="" ?selected=${this._transType === ''}>
+            ${this._('All actions')}
+          </md-select-option>
+          <md-select-option value="0" ?selected=${this._transType === '0'}
+            >${this._('Add')}</md-select-option
+          >
+          <md-select-option value="1" ?selected=${this._transType === '1'}
+            >${this._('Update')}</md-select-option
+          >
+          <md-select-option value="2" ?selected=${this._transType === '2'}
+            >${this._('Delete')}</md-select-option
+          >
+        </md-outlined-select>
+      </div>
+
+      ${this._totalCount === 0
+        ? html`<p>${this._('None')}.</p>`
+        : html`
+            <md-list>
+              <md-divider></md-divider>
+              ${this._data.map(txn => this._renderTransaction(txn))}
+            </md-list>
+          `}
 
       <grampsjs-pagination
         page="${this._page}"
@@ -148,6 +244,18 @@ export class GrampsjsViewRevisions extends GrampsjsStaleDataMixin(
         @page:changed="${this._handlePageChanged}"
         .appState="${this.appState}"
       ></grampsjs-pagination>
+    `
+  }
+
+  _renderTextFilter(property, label, type) {
+    return html`
+      <md-outlined-text-field
+        label=${this._(label)}
+        type=${type}
+        value=${this[property]}
+        data-filter=${property}
+        @input=${this._handleTextFilter}
+      ></md-outlined-text-field>
     `
   }
 
@@ -210,7 +318,15 @@ export class GrampsjsViewRevisions extends GrampsjsStaleDataMixin(
 
   async _fetchData() {
     this.loading = true
-    const url = `/api/transactions/history/?sort=-id&page=${this._page}&pagesize=${this._pageSize}`
+    const url = transactionHistoryUrl({
+      page: this._page,
+      pageSize: this._pageSize,
+      search: this._search,
+      editor: this._editor,
+      person: this._person,
+      objectClass: this._objectClass,
+      transType: this._transType,
+    })
     const data = await this.appState.apiGet(url)
     this.loading = false
     if ('data' in data) {
@@ -226,6 +342,24 @@ export class GrampsjsViewRevisions extends GrampsjsStaleDataMixin(
 
   _handlePageChanged(event) {
     this._page = event.detail.page
+  }
+
+  _handleTextFilter(event) {
+    this[event.target.dataset.filter] = event.target.value
+    this._debouncedApplyFilters()
+  }
+
+  _handleSelectFilter(event) {
+    this[event.target.dataset.filter] = event.target.value
+    this._applyFilters()
+  }
+
+  _applyFilters() {
+    if (this._page === 1) {
+      this._fetchData()
+    } else {
+      this._page = 1
+    }
   }
 
   firstUpdated() {

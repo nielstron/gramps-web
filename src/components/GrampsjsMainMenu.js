@@ -21,7 +21,6 @@ import {
   mdiFormatListChecks,
   mdiDownload,
   mdiFileExportOutline,
-  mdiSourceCommit,
   mdiBell,
   mdiBellBadge,
   mdiTimelineOutline,
@@ -255,18 +254,6 @@ class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
         ${this._icon(mdiDownload, p === 'export')} ${this._('Export')}
       </md-list-item>
       <md-divider inset></md-divider>
-      ${this.appState.permissions.canViewPrivate
-        ? html`
-            <md-list-item
-              type="link"
-              href="${appUrl('/revisions')}"
-              ?selected="${p === 'revisions'}"
-            >
-              ${this._icon(mdiSourceCommit, p === 'revisions')}
-              ${this._('Revisions')}
-            </md-list-item>
-          `
-        : ''}
       <md-list-item
         type="link"
         href="${appUrl('/notifications')}"

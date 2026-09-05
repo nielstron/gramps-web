@@ -398,7 +398,7 @@ export class GrampsjsViewRevision extends GrampsjsView {
     this._undoTaskRunning = false
     this._undoDialogOpen = false
     fireEvent(this, 'db:changed')
-    fireEvent(this, 'nav', {path: 'revisions'})
+    fireEvent(this, 'nav', {path: 'recent/edited'})
   }
 
   _handleUndoError(e) {

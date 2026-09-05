@@ -1,13 +1,35 @@
-import {html} from 'lit'
+import {css, html} from 'lit'
 import '@material/web/button/outlined-button.js'
+import '@material/web/tabs/tabs.js'
+import '@material/web/tabs/primary-tab.js'
 import {mdiDeleteSweep} from '@mdi/js'
 
 import {GrampsjsView} from './GrampsjsView.js'
 import {getRecentObjects, setRecentObjects} from '../api.js'
 import '../components/GrampsjsSearchResultList.js'
 import '../components/GrampsjsIcon.js'
+import './GrampsjsViewRevisions.js'
+import {fireEvent} from '../util.js'
 
 export class GrampsjsViewRecentObject extends GrampsjsView {
+  static get styles() {
+    return [
+      super.styles,
+      css`
+        md-tabs {
+          margin-bottom: 24px;
+          width: max-content;
+          max-width: 100%;
+        }
+
+        md-primary-tab {
+          flex: 0 0 auto;
+          width: auto;
+        }
+      `,
+    ]
+  }
+
   static get properties() {
     return {
       _data: {type: Array},
@@ -64,7 +86,36 @@ export class GrampsjsViewRecentObject extends GrampsjsView {
   }
 
   render() {
-    return html` <md-outlined-button
+    const canSeeEdits = this.appState.permissions.canViewPrivate
+    const edited = canSeeEdits && this.appState.path.pageId === 'edited'
+    return html`
+      <h2>${this._('History')}</h2>
+      <md-tabs .activeTabIndex=${edited ? 1 : 0}>
+        <md-primary-tab @click=${() => this._selectTab('recent')}>
+          ${this._('Recently browsed')}
+        </md-primary-tab>
+        ${canSeeEdits
+          ? html`
+              <md-primary-tab @click=${() => this._selectTab('recent/edited')}>
+                ${this._('Recently edited')}
+              </md-primary-tab>
+            `
+          : ''}
+      </md-tabs>
+      ${edited
+        ? html`
+            <grampsjs-view-revisions
+              embedded
+              active
+              .appState=${this.appState}
+            ></grampsjs-view-revisions>
+          `
+        : this._renderRecentlyBrowsed()}
+    `
+  }
+
+  _renderRecentlyBrowsed() {
+    return html`<md-outlined-button
         class="float-right"
         @click="${this._handleClear}"
         ?disabled=${this._data.length === 0}
@@ -78,7 +129,6 @@ export class GrampsjsViewRecentObject extends GrampsjsView {
         ></grampsjs-icon>
         ${this._('Clear _All')}
       </md-outlined-button>
-      <h2>${this._('Recently browsed objects')}</h2>
       ${this._data.length === 0
         ? html` <p>${this._('None')}.</p> `
         : html`
@@ -90,6 +140,10 @@ export class GrampsjsViewRecentObject extends GrampsjsView {
               linked
             ></grampsjs-search-result-list>
           `}`
+  }
+
+  _selectTab(path) {
+    fireEvent(this, 'nav', {path})
   }
 
   async _fetchData(lang) {

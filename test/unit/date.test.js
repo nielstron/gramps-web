@@ -7,6 +7,10 @@ describe('localized dates', () => {
     expect(formatDateString('1985-06-15', 'de-CH')).to.equal('15.6.1985')
   })
 
+  it('formats dates before the year 1000 in the requested locale', () => {
+    expect(formatDateString('929-09-05', 'de-DE')).to.equal('5.9.929')
+  })
+
   it('localizes ISO dates inside qualified and ranged date strings', () => {
     expect(formatDateString('about 1985-06-15 – 1986-07-20', 'en-US')).to.equal(
       'about 6/15/1985 – 7/20/1986'

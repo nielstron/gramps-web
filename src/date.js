@@ -70,7 +70,7 @@ export function formatDateValue(dateVal, locale = browserLocale()) {
 export function formatDateString(value, locale = browserLocale()) {
   if (!value) return ''
   return String(value).replace(
-    /\b(\d{4})-(\d{2})(?:-(\d{2}))?\b/g,
+    /\b(\d{1,4})-(\d{2})(?:-(\d{2}))?\b/g,
     (match, year, month, day) =>
       formatDateValue(
         [day ? Number(day) : 0, Number(month), Number(year)],
