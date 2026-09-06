@@ -231,7 +231,9 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
 
       <grampsjs-collapsible-section
         title="${this._('Appearance')}"
-        description="${this._('Display preferences saved on this device')}"
+        description="${this._(
+          'Display preferences synchronized with your account'
+        )}"
       >
         <h3>${this._('Select language')}</h3>
         ${this.renderLangSelect()}
@@ -277,7 +279,7 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
   _handleLangSelected(event) {
     const key = event.target.value
     if (key) {
-      this.appState.updateSettings({lang: key})
+      this.appState.updateAppearanceSettings({lang: key})
     }
   }
 
@@ -344,7 +346,7 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
 
   _handleThemeSelected(event) {
     const theme = event.target.value
-    this.appState.updateSettings({theme})
+    this.appState.updateAppearanceSettings({theme})
     try {
       applyScheme(
         this.appState.treeConfig?.[TREE_CONFIG_PRIMARY_COLOR] ||
@@ -401,7 +403,7 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
   _handleDefaultTreeViewChange(event) {
     const candidate = event.target.value || DEFAULT_TREE_VIEW
     const view = TREE_VIEWS.includes(candidate) ? candidate : DEFAULT_TREE_VIEW
-    this.appState.updateSettings({treeDefaultView: view})
+    this.appState.updateAppearanceSettings({treeDefaultView: view})
   }
 
   renderChangeUsername() {

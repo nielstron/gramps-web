@@ -14,6 +14,7 @@ import {installMediaQueryWatcher} from 'pwa-helpers/media-query.js'
 import {installRouter} from 'pwa-helpers/router.js'
 import {
   getSettings,
+  getAppearanceSettings,
   getTreeConfig,
   getTreeId,
   cleanOldDrafts,
@@ -1031,6 +1032,15 @@ export class GrampsJs extends LitElement {
   }
 
   _handleUserSettings(userSettings = {}) {
+    const appearance = userSettings.appearance ?? {}
+    if (Object.keys(appearance).length) {
+      this.appState.cacheAppearanceSettings(appearance)
+    } else {
+      const localAppearance = getAppearanceSettings()
+      if (Object.keys(localAppearance).length) {
+        this.appState.updateUserSettings({appearance: localAppearance})
+      }
+    }
     const homePerson = userSettings.homePerson ?? ''
     this._updateAppState({
       settings: {...getSettings(), homePerson},
@@ -1287,7 +1297,8 @@ export class GrampsJs extends LitElement {
   }
 
   _handleSettings() {
-    this._updateAppState({settings: getSettings()})
+    const homePerson = this.appState.settings?.homePerson ?? ''
+    this._updateAppState({settings: {...getSettings(), homePerson}})
     if (
       this.appState.settings?.homePerson &&
       this.appState.settings.homePerson !== this._homePersonLoadedId

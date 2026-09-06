@@ -7,6 +7,7 @@ import {
   apiGet,
   Auth,
   apiPutPostDelete,
+  cacheSettings,
   updateSettings,
   updateTaskStatus,
 } from './api.js'
@@ -292,6 +293,20 @@ export function getInitialAppState(initialPath = window.location.pathname) {
     pageId3: '',
   }
 
+  async function updateUserSettings(patch = {}) {
+    const res = await apiPutPostDelete(
+      auth,
+      'PUT',
+      '/api/users/-/settings',
+      patch,
+      {saving: false, dbChanged: false}
+    )
+    if (!('error' in res)) {
+      fireEvent(window, 'user-settings:changed', {settings: res.data})
+    }
+    return res
+  }
+
   return {
     auth,
     screenSize: 'small',
@@ -361,19 +376,12 @@ export function getInitialAppState(initialPath = window.location.pathname) {
     signout: () => auth.signout(),
     updateSettings: (settings = {}, tree = false) =>
       updateSettings(settings, tree),
-    updateUserSettings: async (patch = {}) => {
-      const res = await apiPutPostDelete(
-        auth,
-        'PUT',
-        '/api/users/-/settings',
-        patch,
-        {saving: false, dbChanged: false}
-      )
-      if (!('error' in res)) {
-        fireEvent(window, 'user-settings:changed', {settings: res.data})
-      }
-      return res
+    updateUserSettings,
+    updateAppearanceSettings: async (settings = {}) => {
+      updateSettings(settings)
+      return updateUserSettings({appearance: settings})
     },
+    cacheAppearanceSettings: (settings = {}) => cacheSettings(settings),
     updateTreeConfig: async (patch = {}) => {
       const merged = {...getTreeConfig(), ...patch}
       const res = await apiPutPostDelete(

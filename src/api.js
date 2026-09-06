@@ -89,9 +89,20 @@ export function getSettings() {
   }
 }
 
-// update the settings; if `tree` is true, update the tree-dependent settings
-// otherwise the tree-independent ones
-export function updateSettings(settings, tree = false) {
+const APPEARANCE_SETTING_KEYS = ['lang', 'theme', 'treeDefaultView']
+
+export function getAppearanceSettings(settings = getSettings()) {
+  return Object.fromEntries(
+    APPEARANCE_SETTING_KEYS.filter(key => key in settings).map(key => [
+      key,
+      settings[key],
+    ])
+  )
+}
+
+// Store settings in the local startup/offline cache without notifying views.
+// Use updateSettings for an interactive change that should be rendered now.
+export function cacheSettings(settings, tree = false) {
   const key = tree ? 'grampsjs_settings_tree' : 'grampsjs_settings'
   const settingString = localStorage.getItem(key)
   const parsedSettings = JSON.parse(settingString) || {}
@@ -102,6 +113,12 @@ export function updateSettings(settings, tree = false) {
     ? {...parsedSettings, [treeId]: finalSettings}
     : finalSettings
   localStorage.setItem(key, JSON.stringify(data))
+}
+
+// update the settings; if `tree` is true, update the tree-dependent settings
+// otherwise the tree-independent ones
+export function updateSettings(settings, tree = false) {
+  cacheSettings(settings, tree)
   fireEvent(window, 'settings:changed')
 }
 
