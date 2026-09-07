@@ -227,6 +227,45 @@ describe('person life-event routes on the map', () => {
     expect(JSON.parse(feature.properties.eventHandles)).toEqual(['e1', 'e2'])
   })
 
+  it('only draws movements arriving inside the selected year range', () => {
+    const places = [
+      {handle: 'p1', profile: {lat: '1', long: '2'}},
+      {handle: 'p2', profile: {lat: '3', long: '4'}},
+      {handle: 'p3', profile: {lat: '5', long: '6'}},
+    ]
+    const events = [
+      {
+        handle: 'e1800',
+        date: {sortval: 1800, modifier: 0, dateval: [0, 0, 1800, false]},
+        place: 'p1',
+      },
+      {
+        handle: 'e1860',
+        date: {sortval: 1860, modifier: 0, dateval: [0, 0, 1860, false]},
+        place: 'p2',
+      },
+      {
+        handle: 'e1920',
+        date: {sortval: 1920, modifier: 0, dateval: [0, 0, 1920, false]},
+        place: 'p3',
+      },
+    ]
+
+    const features = buildPersonRoutesGeoJSON(
+      [events],
+      places,
+      [1800, 1920],
+      [1840, 1870]
+    ).features
+
+    expect(features).toHaveLength(1)
+    expect(features[0].properties.toYear).toBe(1860)
+    expect(features[0].geometry.coordinates).toEqual([
+      [2, 1],
+      [4, 3],
+    ])
+  })
+
   it('creates chronological pie markers with their related events', () => {
     const geojson = buildPlaceMarkerGeoJSON(
       [

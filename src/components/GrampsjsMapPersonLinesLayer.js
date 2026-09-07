@@ -1,5 +1,5 @@
 import {LitElement} from 'lit'
-import {fireEvent, getGregorianYears} from '../util.js'
+import {fireEvent, getGregorianYears, isDateBetweenYears} from '../util.js'
 
 const SOURCE_ID = 'person-lines'
 const LAYER_ID = 'person-lines-layer'
@@ -97,7 +97,7 @@ function isComparableEvent(event, placesById) {
   )
 }
 
-export function buildPersonRouteGeoJSON(events, places) {
+export function buildPersonRouteGeoJSON(events, places, yearRange = null) {
   const placesById = Object.fromEntries(
     (places || [])
       .filter(p => {
@@ -122,6 +122,9 @@ export function buildPersonRouteGeoJSON(events, places) {
         sortval: event.date.sortval,
         year: yearInfo.year,
         yearLabel: yearInfo.label,
+        inYearRange:
+          !yearRange ||
+          isDateBetweenYears(event.date, yearRange[0], yearRange[1]),
       }
     })
     .filter(
@@ -136,66 +139,74 @@ export function buildPersonRouteGeoJSON(events, places) {
   const segmentCount = stops.length - 1
   return {
     type: 'FeatureCollection',
-    features: stops.slice(1).map((stop, index) => ({
-      type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: [stops[index].coords, stop.coords],
-      },
-      properties: {
-        recency: segmentCount === 1 ? 1 : index / (segmentCount - 1),
-        fromSortval: stops[index].sortval,
-        toSortval: stop.sortval,
-        fromYear: stops[index].year,
-        toYear: stop.year,
-        time: stop.yearLabel,
-        eventHandles: JSON.stringify(
-          [stops[index].handle, stop.handle].filter(Boolean)
-        ),
-      },
-    })),
+    features: stops
+      .slice(1)
+      .map((stop, index) => ({
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [stops[index].coords, stop.coords],
+        },
+        properties: {
+          recency: segmentCount === 1 ? 1 : index / (segmentCount - 1),
+          fromSortval: stops[index].sortval,
+          toSortval: stop.sortval,
+          fromYear: stops[index].year,
+          toYear: stop.year,
+          time: stop.yearLabel,
+          eventHandles: JSON.stringify(
+            [stops[index].handle, stop.handle].filter(Boolean)
+          ),
+        },
+        inYearRange: stop.inYearRange,
+      }))
+      .filter(feature => feature.inYearRange)
+      .map(({inYearRange: _inYearRange, ...feature}) => feature),
   }
 }
 
 export function buildPersonRoutesGeoJSON(
   eventGroups,
   places,
-  dateRange = null
+  dateRange = null,
+  yearRange = null
 ) {
   const segments = new Map()
   const groups = eventGroups || []
   groups.forEach((events, route) => {
-    buildPersonRouteGeoJSON(events, places).features.forEach(feature => {
-      const key = JSON.stringify(feature.geometry.coordinates)
-      const existing = segments.get(key)
-      if (existing) {
-        existing.properties.travelerCount += 1
-        existing.properties.eventHandles = JSON.stringify([
-          ...new Set([
-            ...JSON.parse(existing.properties.eventHandles),
-            ...JSON.parse(feature.properties.eventHandles),
-          ]),
-        ])
-        if (feature.properties.toSortval > existing.properties.toSortval) {
-          Object.assign(existing.properties, {
-            fromSortval: feature.properties.fromSortval,
-            toSortval: feature.properties.toSortval,
-            fromYear: feature.properties.fromYear,
-            toYear: feature.properties.toYear,
-            time: feature.properties.time,
+    buildPersonRouteGeoJSON(events, places, yearRange).features.forEach(
+      feature => {
+        const key = JSON.stringify(feature.geometry.coordinates)
+        const existing = segments.get(key)
+        if (existing) {
+          existing.properties.travelerCount += 1
+          existing.properties.eventHandles = JSON.stringify([
+            ...new Set([
+              ...JSON.parse(existing.properties.eventHandles),
+              ...JSON.parse(feature.properties.eventHandles),
+            ]),
+          ])
+          if (feature.properties.toSortval > existing.properties.toSortval) {
+            Object.assign(existing.properties, {
+              fromSortval: feature.properties.fromSortval,
+              toSortval: feature.properties.toSortval,
+              fromYear: feature.properties.fromYear,
+              toYear: feature.properties.toYear,
+              time: feature.properties.time,
+            })
+          }
+        } else {
+          segments.set(key, {
+            ...feature,
+            properties: {
+              ...feature.properties,
+              route,
+              travelerCount: 1,
+            },
           })
         }
-      } else {
-        segments.set(key, {
-          ...feature,
-          properties: {
-            ...feature.properties,
-            route,
-            travelerCount: 1,
-          },
-        })
       }
-    })
+    )
   })
   const features = [...segments.values()]
   const arrivalDates = features.map(feature => feature.properties.toSortval)
@@ -312,6 +323,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
       visible: {type: Boolean},
       handle: {type: String},
       dateRange: {type: Array},
+      yearRange: {type: Array},
     }
   }
 
@@ -323,6 +335,7 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
     this.visible = true
     this.handle = PERSON_ROUTE_HANDLE
     this.dateRange = null
+    this.yearRange = null
     this._map = null
     this._popup = null
     // Re-add the arrow image after every style swap (images don't survive setStyle).
@@ -417,7 +430,8 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
       changed.has('events') ||
       changed.has('eventGroups') ||
       changed.has('places') ||
-      changed.has('dateRange')
+      changed.has('dateRange') ||
+      changed.has('yearRange')
     ) {
       this._updateSource()
     }
@@ -516,7 +530,12 @@ class GrampsjsMapPersonLinesLayer extends LitElement {
 
   _buildGeoJSON() {
     const groups = this.eventGroups.length ? this.eventGroups : [this.events]
-    return buildPersonRoutesGeoJSON(groups, this.places, this.dateRange)
+    return buildPersonRoutesGeoJSON(
+      groups,
+      this.places,
+      this.dateRange,
+      this.yearRange
+    )
   }
 
   _linePaint() {

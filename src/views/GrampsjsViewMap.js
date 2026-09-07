@@ -393,6 +393,11 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     return years.length ? [Math.min(...years), Math.max(...years)] : null
   }
 
+  get _activeMapYearRange() {
+    if (this._year <= 0 || this._yearSpan <= 0) return null
+    return [this._yearStart, this._yearEnd]
+  }
+
   renderContent() {
     const center = this._getMapCenter()
     const saved = getMapViewport()
@@ -428,6 +433,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
             : EMPTY_ARRAY}"
           .visible="${this._showPersonRoute}"
           .dateRange="${this._mapDateRange}"
+          .yearRange="${this._activeMapYearRange}"
         ></grampsjs-map-person-lines-layer>
         <grampsjs-map-places-layer
           .places="${this._placesForMap}"
