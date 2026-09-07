@@ -33,6 +33,12 @@ export function appendOpenPersonButton(
     })
     .on('pointerdown', event => event.stopPropagation())
 
+  button
+    .append('circle')
+    .attr('class', 'open-person-hit-area')
+    .attr('r', 18)
+    .attr('fill', 'transparent')
+
   button.append('circle').attr('r', 10).attr('fill', '#1976d2')
 
   button

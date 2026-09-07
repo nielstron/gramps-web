@@ -378,6 +378,9 @@ const clipString = (s, length) => {
 }
 
 export function focusPerson(event, d) {
+  if (event.defaultPrevented || event.target?.closest?.('.open-person-btn')) {
+    return
+  }
   const grampsId = d.data?.gramps_id || d.profile?.gramps_id
   this.dispatchEvent(
     new CustomEvent('pedigree:person-selected', {

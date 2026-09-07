@@ -64,6 +64,7 @@ export class GrampsjsViewTree extends GrampsjsView {
     this.grampsId = ''
     this.targetGrampsId = ''
     this.view = DEFAULT_TREE_VIEW
+    this._boundSelectPerson = this._selectPerson.bind(this)
   }
 
   shouldUpdate(changed) {
@@ -275,10 +276,15 @@ export class GrampsjsViewTree extends GrampsjsView {
 
   connectedCallback() {
     super.connectedCallback()
-    window.addEventListener(
+    window.addEventListener('pedigree:person-selected', this._boundSelectPerson)
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener(
       'pedigree:person-selected',
-      this._selectPerson.bind(this)
+      this._boundSelectPerson
     )
+    super.disconnectedCallback()
   }
 
   update(changed) {

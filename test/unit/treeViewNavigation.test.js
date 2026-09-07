@@ -46,4 +46,28 @@ describe('tree view navigation', () => {
 
     expect(navigation).toEqual({path: 'tree/connection/I0001/I0002'})
   })
+
+  it('stops reacting to global person selections after it is disconnected', () => {
+    const view = document.createElement('grampsjs-view-tree')
+    view.active = false
+    view.view = 'relationship'
+    view.grampsId = 'I0001'
+    view.appState = {i18n: {lang: 'en', strings: {}}}
+    view.renderContent = () => ''
+    let navigation
+    view.addEventListener('nav', event => {
+      navigation = event.detail
+    })
+    document.body.append(view)
+    view.remove()
+    view.active = true
+
+    window.dispatchEvent(
+      new CustomEvent('pedigree:person-selected', {
+        detail: {grampsId: 'I0002'},
+      })
+    )
+
+    expect(navigation).toBeUndefined()
+  })
 })

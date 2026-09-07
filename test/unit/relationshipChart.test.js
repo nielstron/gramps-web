@@ -2,6 +2,7 @@ import {Graphviz} from '@hpcc-js/wasm'
 import {describe, expect, it, vi} from 'vitest'
 import {
   ConnectionPathChart,
+  focusPerson,
   Relgraph,
   RelationshipChart,
   generateDot,
@@ -207,6 +208,25 @@ describe('RelationshipChart', () => {
     expect(navigationEvent.detail).toEqual({path: 'person/I0042'})
   })
 
+  it('does not refocus a person card for a magnifier-originated click', () => {
+    const personNode = document.createElement('div')
+    const magnifier = document.createElement('button')
+    magnifier.className = 'open-person-btn'
+    personNode.append(magnifier)
+    let selectionEvent
+    personNode.addEventListener('pedigree:person-selected', event => {
+      selectionEvent = event
+    })
+
+    focusPerson.call(
+      personNode,
+      {defaultPrevented: false, target: magnifier},
+      {data: {gramps_id: 'I0042'}}
+    )
+
+    expect(selectionEvent).toBeUndefined()
+  })
+
   it('keeps unconventional Gramps IDs inside one route segment', () => {
     let navigationEvent
     const personNode = document.createElement('div')
@@ -257,6 +277,9 @@ describe('RelationshipChart', () => {
 
     await vi.waitFor(() =>
       expect(svg.querySelector('.open-person-btn')).toBeTruthy()
+    )
+    expect(svg.querySelector('.open-person-hit-area').getAttribute('r')).toBe(
+      '18'
     )
     svg
       .querySelector('.open-person-btn')
@@ -395,6 +418,45 @@ describe('RelationshipChart', () => {
     expect(edgeByRelationship('Adopted').getAttribute('stroke-dasharray')).toBe(
       '10 3 2 3'
     )
+  })
+
+  it('opens a profile from the connection-path magnifier without refocusing the tree', async () => {
+    const data = [person('P1', []), person('P2', [])]
+    const steps = [
+      {
+        from_handle: 'P1',
+        to_handle: 'P2',
+        family_handle: 'F1',
+        relation: 'partner',
+        relationship_type: 'Married',
+      },
+    ]
+    const svg = ConnectionPathChart(data, steps, {
+      grampsId: 'P1',
+      getImageUrl: () => '',
+    })
+    document.body.append(svg)
+    let navigationEvent
+    let selectionEvent
+    const onSelection = event => {
+      selectionEvent = event
+    }
+    svg.addEventListener('nav', event => {
+      navigationEvent = event
+    })
+    window.addEventListener('pedigree:person-selected', onSelection)
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('.open-person-btn')).toBeTruthy()
+    )
+    svg
+      .querySelector('.open-person-btn')
+      .dispatchEvent(new MouseEvent('click', {bubbles: true, composed: true}))
+
+    expect(navigationEvent?.detail).toEqual({path: 'person/P1'})
+    expect(selectionEvent).toBeUndefined()
+    window.removeEventListener('pedigree:person-selected', onSelection)
+    svg.remove()
   })
 
   it('renders a married family with two rings', async () => {
