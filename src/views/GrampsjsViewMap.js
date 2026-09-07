@@ -324,6 +324,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
           place => personHandles.has(place.handle) && this._hasCoords(place)
         )
         .map(toMapPlace)
+        .filter(place => place.events.length > 0)
     }
     if (this._searchPersonEventGroups.length) {
       const personHandles = new Set(this._searchPersonPlaceHandles)
@@ -332,6 +333,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
           place => personHandles.has(place.handle) && this._hasCoords(place)
         )
         .map(toMapPlace)
+        .filter(place => place.events.length > 0)
     }
 
     const filteredHandles = new Set(

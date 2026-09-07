@@ -266,6 +266,34 @@ describe('person life-event routes on the map', () => {
     ])
   })
 
+  it('only shows person place dots with events inside the selected range', () => {
+    const view = new GrampsjsViewMap()
+    view._year = 1850
+    view._yearSpan = 10
+    view._selectedPerson = {handle: 'person'}
+    view._personPlaceHandles = ['p1850', 'p1920']
+    view._dataPlaces = [
+      {handle: 'p1850', profile: {name: 'Inside', lat: '1', long: '2'}},
+      {handle: 'p1920', profile: {name: 'Outside', lat: '3', long: '4'}},
+    ]
+    view._personEventGroups = [
+      [
+        {
+          handle: 'e1850',
+          date: {sortval: 1850, modifier: 0, dateval: [0, 0, 1850, false]},
+          place: 'p1850',
+        },
+        {
+          handle: 'e1920',
+          date: {sortval: 1920, modifier: 0, dateval: [0, 0, 1920, false]},
+          place: 'p1920',
+        },
+      ],
+    ]
+
+    expect(view._placesForMap.map(place => place.handle)).toEqual(['p1850'])
+  })
+
   it('creates chronological pie markers with their related events', () => {
     const geojson = buildPlaceMarkerGeoJSON(
       [
