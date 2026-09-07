@@ -79,13 +79,6 @@ class GrampsjsMapSearchbox extends GrampsjsAppStateMixin(LitElement) {
           display: none;
         }
 
-        #chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          padding: 0 4px;
-        }
-
         #filter-pills {
           display: flex;
           flex-wrap: wrap;
@@ -95,40 +88,6 @@ class GrampsjsMapSearchbox extends GrampsjsAppStateMixin(LitElement) {
           top: 0;
           background: var(--md-sys-color-surface-container-high);
           z-index: 1;
-        }
-
-        .chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          border-radius: 9999px;
-          padding: 6px 14px;
-          font-size: 13px;
-          font-weight: 500;
-          font-family: inherit;
-          cursor: pointer;
-          border: 1px solid var(--md-sys-color-outline);
-          background: transparent;
-          color: var(--md-sys-color-on-surface-variant);
-          transition: background 0.1s;
-          line-height: 1;
-        }
-
-        .chip:hover {
-          background: var(--md-sys-color-surface-variant);
-        }
-
-        .chip.active {
-          background: var(--md-sys-color-primary);
-          color: var(--md-sys-color-on-primary);
-          border-color: transparent;
-        }
-
-        .chip-close {
-          font-size: 15px;
-          line-height: 1;
-          margin-left: 2px;
-          opacity: 0.7;
         }
 
         #panel {
@@ -228,8 +187,6 @@ class GrampsjsMapSearchbox extends GrampsjsAppStateMixin(LitElement) {
     return {
       value: {type: String},
       data: {type: Array},
-      year: {type: Number},
-      yearSpan: {type: Number},
       _activeFilter: {type: String},
       _panelState: {type: String},
       _collapsed: {type: Boolean},
@@ -240,8 +197,6 @@ class GrampsjsMapSearchbox extends GrampsjsAppStateMixin(LitElement) {
     super()
     this.value = ''
     this.data = []
-    this.year = -1
-    this.yearSpan = -1
     this._activeFilter = DEFAULT_SEARCH_FILTER
     this._panelState = PANEL_EMPTY
     this._collapsed = false
@@ -274,8 +229,6 @@ class GrampsjsMapSearchbox extends GrampsjsAppStateMixin(LitElement) {
               `
             : ''}
         </div>
-
-        ${this._renderChips()}
 
         <div
           id="panel"
@@ -324,19 +277,6 @@ class GrampsjsMapSearchbox extends GrampsjsAppStateMixin(LitElement) {
             ></grampsjs-icon>
           </button>
         </div>
-      </div>
-    `
-  }
-
-  _renderChips() {
-    const timeActive = this.year > 0 && this.yearSpan > 0
-    if (!timeActive) return ''
-    return html`
-      <div id="chips">
-        <button class="chip active" @click="${this._handleTimechipClear}">
-          ${this.year} &pm;${this.yearSpan}
-          <span class="chip-close">&times;</span>
-        </button>
       </div>
     `
   }
@@ -442,10 +382,6 @@ class GrampsjsMapSearchbox extends GrampsjsAppStateMixin(LitElement) {
           : ''}
       </md-list-item>
     `
-  }
-
-  _handleTimechipClear() {
-    fireEvent(this, 'searchbox:timechip-clear')
   }
 
   _handleSlotchange(e) {

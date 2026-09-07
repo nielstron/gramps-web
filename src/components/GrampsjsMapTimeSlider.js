@@ -33,7 +33,9 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
         md-slider {
           width: 100%;
           --md-slider-active-track-color: var(--md-sys-color-primary);
-          --md-slider-inactive-track-color: var(--md-sys-color-primary);
+          --md-slider-inactive-track-color: var(--md-sys-color-outline-variant);
+          --md-slider-inactive-track-height: 4px;
+          --md-slider-active-track-height: 4px;
         }
 
         div.date {
@@ -79,6 +81,7 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
       value: {type: Number},
       span: {type: Number},
       min: {type: Number},
+      max: {type: Number},
     }
   }
 
@@ -87,23 +90,60 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
     this.min = 1500
     this.value = new Date().getFullYear() - 50
     this.span = 50
+    this.max = new Date().getFullYear()
+    this._rangeStart = this.value - Math.abs(this.span)
+    this._rangeEnd = this.value + Math.abs(this.span)
+  }
+
+  updated(changedProperties) {
+    if (changedProperties.has('value') || changedProperties.has('span')) {
+      const absSpan = Math.abs(this.span || 0)
+      const nextStart = this.value - absSpan
+      const nextEnd = this.value + absSpan
+      this._rangeStart = this._clampValue(nextStart)
+      this._rangeEnd = this._clampValue(nextEnd)
+    }
+    if (changedProperties.has('min') || changedProperties.has('max')) {
+      this._rangeStart = this._clampValue(this._rangeStart)
+      this._rangeEnd = this._clampValue(this._rangeEnd)
+    }
+  }
+
+  _clampValue(value) {
+    if (!Number.isFinite(value)) return this.min
+    if (value < this.min) return this.min
+    if (value > this.max) return this.max
+    return Math.round(value)
+  }
+
+  get _yearStart() {
+    return this._clampValue(this._rangeStart)
+  }
+
+  get _yearEnd() {
+    return this._clampValue(this._rangeEnd)
   }
 
   render() {
+    const yearStart = this._yearStart
+    const yearEnd = this._yearEnd
     return html`
       <div id="container">
         <md-slider
+          id="time-slider"
+          ?range="${true}"
           @input="${this._handleInput}"
           labeled
           min="${this.min}"
-          max="${new Date().getFullYear()}"
-          value="${this.value}"
+          max="${this.max}"
+          step="1"
+          .valueStart="${yearStart}"
+          .valueEnd="${yearEnd}"
         ></md-slider>
         <div class="date">
-          <span class="year">${this.value}</span>
-          ${this.span > 0
-            ? html`&pm; <span class="span">${this.span}</span>`
-            : ''}
+          <span class="year">${yearStart}</span>
+          &ndash;
+          <span class="year">${yearEnd}</span>
         </div>
         <div class="control">
           <md-icon-button
@@ -146,9 +186,15 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
   }
 
   _fireEvent() {
+    const yearStart = this._yearStart
+    const yearEnd = this._yearEnd
+    const spanAbs = Math.max(0, (yearEnd - yearStart) / 2)
+    const value = yearStart + spanAbs
     const detail = {
-      value: this.value,
-      span: this.span,
+      value,
+      span: this.span >= 0 ? spanAbs : -spanAbs,
+      yearStart,
+      yearEnd,
     }
     fireEvent(this, 'timeslider:change', detail)
   }
@@ -160,14 +206,20 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
 
   _handleSwitch() {
     const el = this.renderRoot.querySelector('md-switch')
-    if (el.selected !== this.span > 0) {
-      this.span = -this.span
-    }
+    if (!el) return
+    const absSpan = Math.abs(this.span) || 50
+    this.span = el.selected ? absSpan : -absSpan
     this._fireEvent()
   }
 
   _handleSpanYearsClick(years) {
-    this.span = years
+    const value = this.value
+    this.value = value
+    this.span = this.span > 0 ? years : -years
+    this._rangeStart = value - years
+    this._rangeEnd = value + years
+    this._rangeStart = this._clampValue(this._rangeStart)
+    this._rangeEnd = this._clampValue(this._rangeEnd)
     this._fireEvent()
   }
 
@@ -178,7 +230,21 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
 
   _handleInput() {
     const slider = this.renderRoot.querySelector('md-slider')
-    this.value = slider.value
+    if (!slider) return
+    const start =
+      slider.valueStart != null
+        ? Number(slider.valueStart)
+        : Number(Array.isArray(slider.value) ? slider.value[0] : slider.value)
+    const end =
+      slider.valueEnd != null
+        ? Number(slider.valueEnd)
+        : Number(Array.isArray(slider.value) ? slider.value[1] : slider.value)
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return
+    this._rangeStart = this._clampValue(Math.min(start, end))
+    this._rangeEnd = this._clampValue(Math.max(start, end))
+    const span = (this._yearEnd - this._yearStart) / 2
+    this.value = this._yearStart + span
+    this.span = this.span >= 0 ? span : -span
     this._fireEvent()
   }
 
