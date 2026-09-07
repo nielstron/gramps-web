@@ -11,6 +11,7 @@ import {sharedStyles} from '../SharedStyles.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 import {fireEvent} from '../util.js'
 import {renderIconSvg} from '../icons.js'
+import {defaultMapTimeRange} from '../mapTimeRange.js'
 import './GrampsjsTooltip.js'
 
 class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
@@ -87,12 +88,13 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
 
   constructor() {
     super()
+    const defaultRange = defaultMapTimeRange()
     this.min = 1500
-    this.value = new Date().getFullYear() - 50
-    this.span = 50
-    this.max = new Date().getFullYear()
-    this._rangeStart = this.value - Math.abs(this.span)
-    this._rangeEnd = this.value + Math.abs(this.span)
+    this.value = defaultRange.value
+    this.span = defaultRange.span
+    this.max = defaultRange.yearEnd
+    this._rangeStart = defaultRange.yearStart
+    this._rangeEnd = defaultRange.yearEnd
   }
 
   updated(changedProperties) {

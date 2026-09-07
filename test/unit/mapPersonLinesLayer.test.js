@@ -10,6 +10,46 @@ import {GrampsjsViewMap} from '../../src/views/GrampsjsViewMap.js'
 import {buildPlaceMarkerGeoJSON} from '../../src/components/GrampsjsMapPlacesLayer.js'
 
 describe('person life-event routes on the map', () => {
+  it('applies a 200-year default map range immediately', () => {
+    const originalUrl = window.location.href
+    window.history.replaceState(null, '', '/stammbaum/map')
+    const currentYear = new Date().getFullYear()
+    const view = new GrampsjsViewMap()
+    view._dataEvents = [
+      {
+        handle: 'inside',
+        place: 'inside-place',
+        date: {
+          sortval: currentYear - 150,
+          modifier: 0,
+          dateval: [0, 0, currentYear - 150, false],
+        },
+      },
+      {
+        handle: 'outside',
+        place: 'outside-place',
+        date: {
+          sortval: currentYear - 250,
+          modifier: 0,
+          dateval: [0, 0, currentYear - 250, false],
+        },
+      },
+    ]
+    view._dataPlaces = [
+      {handle: 'inside-place', backlinks: {event: ['inside']}},
+      {handle: 'outside-place', backlinks: {event: ['outside']}},
+    ]
+
+    view._applyPlaceFilter()
+
+    expect(view._yearStart).toBe(currentYear - 200)
+    expect(view._yearEnd).toBe(currentYear)
+    expect(view._filteredPlaces.map(place => place.handle)).toEqual([
+      'inside-place',
+    ])
+    window.history.replaceState(null, '', originalUrl)
+  })
+
   it('does not treat the initial suppressed move as an explicit URL viewport', () => {
     const view = new GrampsjsViewMap()
     view._urlViewport = null

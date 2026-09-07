@@ -37,6 +37,7 @@ import {
 } from '../personScope.js'
 import {formatDateString} from '../date.js'
 import {mapUrlFromState, parseMapUrlState} from '../viewUrlState.js'
+import {defaultMapTimeRange} from '../mapTimeRange.js'
 
 const EMPTY_ARRAY = []
 
@@ -170,6 +171,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
   constructor() {
     super()
     const urlState = parseMapUrlState(window.location.search)
+    const defaultRange = defaultMapTimeRange()
     this._dataPlaces = []
     this._dataEvents = []
     this._dataFamilies = []
@@ -195,8 +197,8 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     // needs to trigger a re-render on its own.
     this._activeSearchQuery = ''
     this._bounds = {}
-    this._year = urlState.year ?? new Date().getFullYear() - 50
-    this._yearSpan = urlState.yearSpan ?? 50
+    this._year = urlState.year ?? defaultRange.value
+    this._yearSpan = urlState.yearSpan ?? defaultRange.span
     const absSpan = Math.abs(this._yearSpan)
     this._yearStart = this._year - absSpan
     this._yearEnd = this._year + absSpan
@@ -1065,10 +1067,11 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     if (!window.location.pathname.endsWith('/map')) return
     clearTimeout(this._urlTimer)
     const state = parseMapUrlState(window.location.search)
+    const defaultRange = defaultMapTimeRange()
     this._suppressUrlWrites = true
     try {
-      this._year = state.year ?? new Date().getFullYear() - 50
-      this._yearSpan = state.yearSpan ?? 50
+      this._year = state.year ?? defaultRange.value
+      this._yearSpan = state.yearSpan ?? defaultRange.span
       const absSpan = Math.abs(this._yearSpan)
       this._yearStart = this._year - absSpan
       this._yearEnd = this._year + absSpan
@@ -1148,10 +1151,8 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
             this._dataEvents?.find(event => event.handle === handle)
           ) ?? []
         if (placeEvents.length === 0) return false
-        const yearMin = this._year - this._yearSpan
-        const yearMax = this._year + this._yearSpan
         return placeEvents.some(event =>
-          isDateBetweenYears(event?.date, yearMin, yearMax)
+          isDateBetweenYears(event?.date, this._yearStart, this._yearEnd)
         )
       }
       return true
