@@ -477,5 +477,17 @@
   "Generation spacing": "Generation spacing",
   "Branch spacing": "Branch spacing",
   "Spacing": "Spacing",
-  "Partners": "Partners"
+  "Partners": "Partners",
+  "Invite user": "Invite user",
+  "Send invitation": "Send invitation",
+  "Send password reset": "Send password reset",
+  "Pending invitations": "Pending invitations",
+  "Awaiting acceptance": "Awaiting acceptance",
+  "Expired": "Expired",
+  "Resend invitation": "Resend invitation",
+  "Revoke invitation": "Revoke invitation",
+  "Invitation email queued": "Invitation email queued",
+  "Password reset email queued": "Password reset email queued",
+  "Invitation revoked": "Invitation revoked",
+  "They will receive an email to choose their username, full name, and password. The invitation is valid for 7 days.": "They will receive an email to choose their username, full name, and password. The invitation is valid for 7 days."
 }

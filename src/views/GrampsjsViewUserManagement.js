@@ -8,6 +8,7 @@ import '../components/GrampsjsUsers.js'
 import '../components/GrampsjsShareUrl.js'
 import '../components/GrampsjsChatPermissions.js'
 import {appUrl} from '../appUrl.js'
+import {fireEvent} from '../util.js'
 
 export class GrampsjsViewUserManagement extends GrampsjsView {
   static get styles() {
@@ -38,6 +39,9 @@ export class GrampsjsViewUserManagement extends GrampsjsView {
     return {
       userData: {type: Array},
       dbInfo: {type: Object},
+      invitations: {type: Array},
+      _actionBusy: {type: Boolean},
+      _invitationError: {type: String},
     }
   }
 
@@ -45,6 +49,9 @@ export class GrampsjsViewUserManagement extends GrampsjsView {
     super()
     this.userData = []
     this.dbInfo = {}
+    this.invitations = []
+    this._actionBusy = false
+    this._invitationError = ''
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -75,9 +82,15 @@ export class GrampsjsViewUserManagement extends GrampsjsView {
       <grampsjs-users
         .appState="${this.appState}"
         .data="${this.userData}"
+        .invitations="${this.invitations}"
+        .busy="${this._actionBusy}"
+        .invitationError="${this._invitationError}"
         ?ismulti="${!!this.dbInfo?.server?.multi_tree}"
         @user:updated="${this._handleUserChanged}"
-        @user:added="${this._handleUserAdded}"
+        @user:invited="${this._handleUserInvited}"
+        @user:reset-password="${this._handlePasswordReset}"
+        @user:resend-invitation="${this._handleResendInvitation}"
+        @user:revoke-invitation="${this._handleRevokeInvitation}"
         @user:deleted="${this._handleUserDeleted}"
         @user:added-multiple="${this._handleUsersAdded}"
       >
@@ -87,6 +100,7 @@ export class GrampsjsViewUserManagement extends GrampsjsView {
 
   firstUpdated() {
     this._fetchUserData()
+    this._fetchInvitations()
   }
 
   _handleUserChanged(e) {
@@ -98,14 +112,84 @@ export class GrampsjsViewUserManagement extends GrampsjsView {
     })
   }
 
-  _handleUserAdded(e) {
-    const data = e.detail
-    this._addUser(e.detail.name, {
-      role: data.role,
-      email: data.email,
-      full_name: data.full_name,
-      password: data.password,
-    })
+  async _handleUserInvited(e) {
+    this._invitationError = ''
+    const ok = await this._userAction(
+      () =>
+        this.appState.apiPost('/api/users/-/invitations/', e.detail, {
+          dbChanged: false,
+        }),
+      'Invitation email queued',
+      true
+    )
+    if (ok) {
+      this.shadowRoot.querySelector('grampsjs-users').dialogContent = ''
+    }
+    await this._fetchInvitations()
+  }
+
+  async _handlePasswordReset(e) {
+    await this._userAction(
+      () =>
+        this.appState.apiPost(
+          `/api/users/${encodeURIComponent(e.detail)}/password/reset/trigger/`,
+          {},
+          {dbChanged: false}
+        ),
+      'Password reset email queued'
+    )
+  }
+
+  async _handleResendInvitation(e) {
+    if (
+      await this._userAction(
+        () =>
+          this.appState.apiPost(
+            `/api/users/-/invitations/${e.detail}/`,
+            {},
+            {dbChanged: false}
+          ),
+        'Invitation email queued'
+      )
+    )
+      await this._fetchInvitations()
+  }
+
+  async _handleRevokeInvitation(e) {
+    if (
+      await this._userAction(
+        () =>
+          this.appState.apiDelete(`/api/users/-/invitations/${e.detail}/`, {
+            dbChanged: false,
+          }),
+        'Invitation revoked'
+      )
+    )
+      await this._fetchInvitations()
+  }
+
+  async _userAction(action, message, invitation = false) {
+    if (this._actionBusy) return false
+    this._actionBusy = true
+    try {
+      const result = await action()
+      if ('error' in result) {
+        if (invitation) this._invitationError = result.error
+        else fireEvent(this, 'grampsjs:error', {message: result.error})
+        return false
+      }
+      fireEvent(this, 'grampsjs:notification', {message: this._(message)})
+      return true
+    } finally {
+      this._actionBusy = false
+    }
+  }
+
+  async _fetchInvitations() {
+    const result = await this.appState.apiGet('/api/users/-/invitations/')
+    if ('error' in result)
+      fireEvent(this, 'grampsjs:error', {message: result.error})
+    else this.invitations = result.data
   }
 
   _handleUserDeleted(e) {
@@ -125,18 +209,6 @@ export class GrampsjsViewUserManagement extends GrampsjsView {
 
   _updateUser(username, payload) {
     this.appState.apiPut(`/api/users/${username}/`, payload).then(data => {
-      if ('error' in data) {
-        this.error = true
-        this._errorMessage = data.error
-      } else {
-        this.error = false
-        this._fetchUserData()
-      }
-    })
-  }
-
-  _addUser(username, payload) {
-    this.appState.apiPost(`/api/users/${username}/`, payload).then(data => {
       if ('error' in data) {
         this.error = true
         this._errorMessage = data.error

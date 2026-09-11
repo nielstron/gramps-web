@@ -14,6 +14,8 @@ import {
   mdiDeleteForever,
   mdiDownload,
   mdiFilterOff,
+  mdiLockReset,
+  mdiEmailArrowRight,
   mdiPencil,
 } from '@mdi/js'
 
@@ -65,6 +67,22 @@ export class GrampsjsUsers extends GrampsjsTableBase {
         .clear-filters:hover {
           text-decoration: underline;
         }
+
+        .user-actions {
+          white-space: nowrap;
+        }
+        .invite-fields {
+          display: grid;
+          gap: 20px;
+          min-width: 260px;
+        }
+        .invite-fields md-filled-text-field,
+        .invite-fields md-filled-select {
+          width: 100%;
+        }
+        .invite-error {
+          color: var(--grampsjs-alert-error-font-color);
+        }
       `,
     ]
   }
@@ -77,6 +95,9 @@ export class GrampsjsUsers extends GrampsjsTableBase {
       _userData: {type: Array},
       _filterText: {type: String},
       _filterRole: {type: String},
+      invitations: {type: Array},
+      busy: {type: Boolean},
+      invitationError: {type: String},
     }
   }
 
@@ -88,6 +109,9 @@ export class GrampsjsUsers extends GrampsjsTableBase {
     this._userData = []
     this._filterText = ''
     this._filterRole = ALL_ROLES
+    this.invitations = []
+    this.busy = false
+    this.invitationError = ''
   }
 
   get _filteredData() {
@@ -105,9 +129,6 @@ export class GrampsjsUsers extends GrampsjsTableBase {
   }
 
   render() {
-    if (this.data.length === 0) {
-      return html``
-    }
     const filtered = this._filteredData
     return html`
       ${this._renderButtons()} ${this._renderFilterBar()}
@@ -128,7 +149,24 @@ export class GrampsjsUsers extends GrampsjsTableBase {
               <td>${obj.email}</td>
               <td>${this._(userRoles[obj.role])}</td>
               <td>${obj.account_source || this._('Password')}</td>
-              <td>
+              <td class="user-actions">
+                <md-icon-button
+                  aria-label="${this._('Send password reset')}"
+                  id="button-reset-${index}"
+                  ?disabled="${!obj.email || this.busy}"
+                  @click="${() =>
+                    fireEvent(this, 'user:reset-password', obj.name)}"
+                >
+                  <grampsjs-icon
+                    path="${mdiLockReset}"
+                    height="20"
+                    width="20"
+                    color="var(--mdc-theme-secondary)"
+                  ></grampsjs-icon>
+                </md-icon-button>
+                <grampsjs-tooltip for="button-reset-${index}">
+                  ${this._('Send password reset')}
+                </grampsjs-tooltip>
                 <md-icon-button
                   class="edit"
                   aria-label="${this._('Edit user')}"
@@ -166,7 +204,10 @@ export class GrampsjsUsers extends GrampsjsTableBase {
           `
         )}
       </table>
-      ${this.dialogContent}
+      ${this._renderInvitations()}
+      ${this.dialogContent === 'invite'
+        ? this._addUserDialog()
+        : this.dialogContent}
     `
   }
 
@@ -225,6 +266,68 @@ export class GrampsjsUsers extends GrampsjsTableBase {
     `
   }
 
+  _renderInvitations() {
+    if (!this.invitations.length) return ''
+    return html` <h3>${this._('Pending invitations')}</h3>
+      <table>
+        <tr>
+          <th>${this._('E-mail')}</th>
+          <th>${this._('Role')}</th>
+          <th>${this._('Status')}</th>
+          <th></th>
+        </tr>
+        ${this.invitations.map(
+          (invitation, index) => html`
+            <tr>
+              <td>${invitation.email}</td>
+              <td>${this._(userRoles[invitation.role])}</td>
+              <td>
+                ${new Date(invitation.expires_at) <= new Date()
+                  ? this._('Expired')
+                  : this._('Awaiting acceptance')}
+              </td>
+              <td class="user-actions">
+                <md-icon-button
+                  aria-label="${this._('Resend invitation')}"
+                  id="resend-invite-${index}"
+                  ?disabled="${this.busy}"
+                  @click="${() =>
+                    fireEvent(this, 'user:resend-invitation', invitation.id)}"
+                >
+                  <grampsjs-icon
+                    path="${mdiEmailArrowRight}"
+                    height="20"
+                    width="20"
+                    color="var(--mdc-theme-secondary)"
+                  ></grampsjs-icon>
+                </md-icon-button>
+                <grampsjs-tooltip for="resend-invite-${index}"
+                  >${this._('Resend invitation')}</grampsjs-tooltip
+                >
+                <md-icon-button
+                  aria-label="${this._('Revoke invitation')}"
+                  id="revoke-invite-${index}"
+                  ?disabled="${this.busy}"
+                  @click="${() =>
+                    fireEvent(this, 'user:revoke-invitation', invitation.id)}"
+                >
+                  <grampsjs-icon
+                    path="${mdiDeleteForever}"
+                    height="20"
+                    width="20"
+                    color="var(--grampsjs-alert-error-font-color)"
+                  ></grampsjs-icon>
+                </md-icon-button>
+                <grampsjs-tooltip for="revoke-invite-${index}"
+                  >${this._('Revoke invitation')}</grampsjs-tooltip
+                >
+              </td>
+            </tr>
+          `
+        )}
+      </table>`
+  }
+
   _clearFilters() {
     this._filterText = ''
     this._filterRole = ALL_ROLES
@@ -235,7 +338,7 @@ export class GrampsjsUsers extends GrampsjsTableBase {
       <p>
         <md-icon-button
           class="edit"
-          aria-label="${this._('Add a new user')}"
+          aria-label="${this._('Invite user')}"
           @click="${this._handleAddClick}"
           id="button-add"
         >
@@ -245,7 +348,7 @@ export class GrampsjsUsers extends GrampsjsTableBase {
           ></grampsjs-icon>
         </md-icon-button>
         <grampsjs-tooltip for="button-add">
-          ${this._('Add a new user')}
+          ${this._('Invite user')}
         </grampsjs-tooltip>
 
         <md-icon-button
@@ -298,8 +401,8 @@ export class GrampsjsUsers extends GrampsjsTableBase {
   }
 
   _handleAddClick() {
-    this.dialogContent = this._addUserDialog()
-    this._openDialog()
+    this.invitationError = ''
+    this.dialogContent = 'invite'
   }
 
   _openDialog() {
@@ -451,28 +554,73 @@ export class GrampsjsUsers extends GrampsjsTableBase {
   _addUserDialog() {
     return html`
       <md-dialog open @cancel="${e => e.preventDefault()}">
-        <span slot="headline">${this._('Add a new user')}</span>
+        <span slot="headline">${this._('Invite user')}</span>
         <div slot="content">
-          <grampsjs-form-user
-            newUser
-            .appState="${this.appState}"
-            ?ismulti="${this.ismulti}"
-          ></grampsjs-form-user>
+          <p>
+            ${this._(
+              'They will receive an email to choose their username, full name, and password. The invitation is valid for 7 days.'
+            )}
+          </p>
+          <div class="invite-fields">
+            <md-filled-text-field
+              id="invite-email"
+              type="email"
+              required
+              label="${this._('E-mail')}"
+              ?disabled="${this.busy}"
+            ></md-filled-text-field>
+            <md-filled-select
+              id="invite-role"
+              label="${this._('Role')}"
+              .value="${'0'}"
+              ?disabled="${this.busy}"
+            >
+              ${Object.keys(userRoles)
+                .map(Number)
+                .filter(role => role >= 0 && (role <= 4 || this.ismulti))
+                .map(
+                  role => html`
+                    <md-select-option value="${role}"
+                      ><div slot="headline">
+                        ${this._(userRoles[role])}
+                      </div></md-select-option
+                    >
+                  `
+                )}
+            </md-filled-select>
+          </div>
+          ${this.invitationError
+            ? html`<p class="invite-error" role="alert">
+                ${this.invitationError}
+              </p>`
+            : ''}
         </div>
         <div slot="actions">
           <md-text-button
+            ?disabled="${this.busy}"
             @click="${() => {
               this.dialogContent = ''
             }}"
           >
             ${this._('Cancel')}
           </md-text-button>
-          <md-filled-button @click="${this._handleSave}">
-            ${this._('_Save')}
+          <md-filled-button
+            @click="${this._handleInvite}"
+            ?disabled="${this.busy}"
+          >
+            ${this._('Send invitation')}
           </md-filled-button>
         </div>
       </md-dialog>
     `
+  }
+
+  _handleInvite() {
+    const email = this.shadowRoot.querySelector('#invite-email')
+    email.value = email.value.trim()
+    if (!email.reportValidity()) return
+    const role = Number(this.shadowRoot.querySelector('#invite-role').value)
+    fireEvent(this, 'user:invited', {email: email.value, role})
   }
 
   _handleSave() {
