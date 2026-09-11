@@ -24,6 +24,55 @@ describe('server-synchronized user settings', () => {
     expect(app.appState.settings).toEqual({theme: 'dark', homePerson: 'I0042'})
   })
 
+  it('matches an unset home person after login and applies the saved result', async () => {
+    const app = Object.create(GrampsJs.prototype)
+    app.appState = {
+      auth: {claims: {sub: 'user1', tree: 'tree1'}},
+      apiGet: vi.fn().mockResolvedValue({data: {}}),
+      apiPost: vi.fn().mockResolvedValue({data: {homePerson: 'I42'}}),
+    }
+    app._handleUserSettings = vi.fn()
+    await app._loadUserSettings()
+    expect(app.appState.apiPost).toHaveBeenCalledWith(
+      '/api/users/-/settings/home-person/match',
+      {},
+      {dbChanged: false}
+    )
+    expect(app._handleUserSettings).toHaveBeenCalledWith({homePerson: 'I42'})
+    await app._loadUserSettings()
+    expect(app.appState.apiPost).toHaveBeenCalledOnce()
+  })
+
+  it.each(['I42', '', null])(
+    'preserves an explicit home-person setting (%s)',
+    async homePerson => {
+      const app = Object.create(GrampsJs.prototype)
+      app.appState = {
+        auth: {claims: {sub: 'user1', tree: 'tree1'}},
+        apiGet: vi.fn().mockResolvedValue({data: {homePerson}}),
+        apiPost: vi.fn(),
+      }
+      app._handleUserSettings = vi.fn()
+      await app._loadUserSettings()
+      expect(app.appState.apiPost).not.toHaveBeenCalled()
+      expect(app._handleUserSettings).toHaveBeenCalledWith({homePerson})
+    }
+  )
+
+  it('continues loading settings when matching fails', async () => {
+    const app = Object.create(GrampsJs.prototype)
+    app.appState = {
+      auth: {claims: {sub: 'user1', tree: 'tree1'}},
+      apiGet: vi.fn().mockResolvedValue({data: {appearance: {theme: 'dark'}}}),
+      apiPost: vi.fn().mockResolvedValue({error: 'Tree unavailable'}),
+    }
+    app._handleUserSettings = vi.fn()
+    await app._loadUserSettings()
+    expect(app._handleUserSettings).toHaveBeenCalledWith({
+      appearance: {theme: 'dark'},
+    })
+  })
+
   it('writes appearance changes through the synchronized settings method', () => {
     const view = new GrampsjsViewSettingsUser()
     view.appState = {updateAppearanceSettings: vi.fn()}

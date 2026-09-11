@@ -88,6 +88,7 @@ export class GrampsjsViewUserManagement extends GrampsjsView {
         ?ismulti="${!!this.dbInfo?.server?.multi_tree}"
         @user:updated="${this._handleUserChanged}"
         @user:invited="${this._handleUserInvited}"
+        @user:added="${this._handleUserAdded}"
         @user:reset-password="${this._handlePasswordReset}"
         @user:resend-invitation="${this._handleResendInvitation}"
         @user:revoke-invitation="${this._handleRevokeInvitation}"
@@ -126,6 +127,25 @@ export class GrampsjsViewUserManagement extends GrampsjsView {
       this.shadowRoot.querySelector('grampsjs-users').dialogContent = ''
     }
     await this._fetchInvitations()
+  }
+
+  async _handleUserAdded(e) {
+    this._invitationError = ''
+    const {name, email, role, full_name: fullName, password} = e.detail
+    const ok = await this._userAction(
+      () =>
+        this.appState.apiPost(
+          `/api/users/${encodeURIComponent(name)}/`,
+          {email, role, full_name: fullName, password},
+          {dbChanged: false}
+        ),
+      'User created',
+      true
+    )
+    if (ok) {
+      this.shadowRoot.querySelector('grampsjs-users').dialogContent = ''
+      this._fetchUserData()
+    }
   }
 
   async _handlePasswordReset(e) {

@@ -489,5 +489,9 @@
   "Invitation email queued": "Invitation email queued",
   "Password reset email queued": "Password reset email queued",
   "Invitation revoked": "Invitation revoked",
-  "They will receive an email to choose their username, full name, and password. The invitation is valid for 7 days.": "They will receive an email to choose their username, full name, and password. The invitation is valid for 7 days."
+  "They will receive an email to choose their username, full name, and password. The invitation is valid for 7 days.": "They will receive an email to choose their username, full name, and password. The invitation is valid for 7 days.",
+  "Set up manually": "Set up manually",
+  "Create the account directly with the details below.": "Create the account directly with the details below.",
+  "Create user": "Create user",
+  "User created": "User created"
 }

@@ -7,6 +7,7 @@ import '@material/web/select/filled-select.js'
 import '@material/web/select/select-option.js'
 import '@material/web/textfield/filled-text-field.js'
 import '@material/web/iconbutton/icon-button.js'
+import '@material/web/switch/switch.js'
 
 import {
   mdiAccountMultiplePlus,
@@ -83,6 +84,12 @@ export class GrampsjsUsers extends GrampsjsTableBase {
         .invite-error {
           color: var(--grampsjs-alert-error-font-color);
         }
+        .manual-setup {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 20px;
+        }
       `,
     ]
   }
@@ -98,6 +105,8 @@ export class GrampsjsUsers extends GrampsjsTableBase {
       invitations: {type: Array},
       busy: {type: Boolean},
       invitationError: {type: String},
+      _manualUser: {type: Boolean},
+      _newUserRole: {type: String},
     }
   }
 
@@ -112,6 +121,8 @@ export class GrampsjsUsers extends GrampsjsTableBase {
     this.invitations = []
     this.busy = false
     this.invitationError = ''
+    this._manualUser = false
+    this._newUserRole = '0'
   }
 
   get _filteredData() {
@@ -402,6 +413,8 @@ export class GrampsjsUsers extends GrampsjsTableBase {
 
   _handleAddClick() {
     this.invitationError = ''
+    this._manualUser = false
+    this._newUserRole = '0'
     this.dialogContent = 'invite'
   }
 
@@ -554,11 +567,29 @@ export class GrampsjsUsers extends GrampsjsTableBase {
   _addUserDialog() {
     return html`
       <md-dialog open @cancel="${e => e.preventDefault()}">
-        <span slot="headline">${this._('Invite user')}</span>
+        <span slot="headline"
+          >${this._(this._manualUser ? 'Add a new user' : 'Invite user')}</span
+        >
         <div slot="content">
+          <label class="manual-setup">
+            <md-switch
+              aria-label="${this._('Set up manually')}"
+              .selected="${this._manualUser}"
+              ?disabled="${this.busy}"
+              @change="${e => {
+                this._manualUser = e.target.selected
+                this.invitationError = ''
+                if (!this._manualUser && Number(this._newUserRole) < 0)
+                  this._newUserRole = '0'
+              }}"
+            ></md-switch>
+            ${this._('Set up manually')}
+          </label>
           <p>
             ${this._(
-              'They will receive an email to choose their username, full name, and password. The invitation is valid for 7 days.'
+              this._manualUser
+                ? 'Create the account directly with the details below.'
+                : 'They will receive an email to choose their username, full name, and password. The invitation is valid for 7 days.'
             )}
           </p>
           <div class="invite-fields">
@@ -572,12 +603,20 @@ export class GrampsjsUsers extends GrampsjsTableBase {
             <md-filled-select
               id="invite-role"
               label="${this._('Role')}"
-              .value="${'0'}"
+              .value="${this._newUserRole}"
+              @change="${e => {
+                this._newUserRole = e.target.value
+              }}"
               ?disabled="${this.busy}"
             >
               ${Object.keys(userRoles)
                 .map(Number)
-                .filter(role => role >= 0 && (role <= 4 || this.ismulti))
+                .sort((a, b) => a - b)
+                .filter(
+                  role =>
+                    (this._manualUser || role >= 0) &&
+                    (role <= 4 || this.ismulti)
+                )
                 .map(
                   role => html`
                     <md-select-option value="${role}"
@@ -588,6 +627,32 @@ export class GrampsjsUsers extends GrampsjsTableBase {
                   `
                 )}
             </md-filled-select>
+            ${this._manualUser
+              ? html`
+                  <md-filled-text-field
+                    id="user-name"
+                    required
+                    label="${this._('Username: ').replace(':', '')}"
+                    autocomplete="off"
+                    ?disabled="${this.busy}"
+                  ></md-filled-text-field>
+                  <md-filled-text-field
+                    id="user-full-name"
+                    required
+                    label="${this._('Full Name')}"
+                    autocomplete="off"
+                    ?disabled="${this.busy}"
+                  ></md-filled-text-field>
+                  <md-filled-text-field
+                    id="user-password"
+                    type="password"
+                    required
+                    label="${this._('Password: ').replace(':', '')}"
+                    autocomplete="new-password"
+                    ?disabled="${this.busy}"
+                  ></md-filled-text-field>
+                `
+              : ''}
           </div>
           ${this.invitationError
             ? html`<p class="invite-error" role="alert">
@@ -608,7 +673,7 @@ export class GrampsjsUsers extends GrampsjsTableBase {
             @click="${this._handleInvite}"
             ?disabled="${this.busy}"
           >
-            ${this._('Send invitation')}
+            ${this._(this._manualUser ? 'Create user' : 'Send invitation')}
           </md-filled-button>
         </div>
       </md-dialog>
@@ -620,6 +685,23 @@ export class GrampsjsUsers extends GrampsjsTableBase {
     email.value = email.value.trim()
     if (!email.reportValidity()) return
     const role = Number(this.shadowRoot.querySelector('#invite-role').value)
+    if (this._manualUser) {
+      const name = this.shadowRoot.querySelector('#user-name')
+      const fullName = this.shadowRoot.querySelector('#user-full-name')
+      const password = this.shadowRoot.querySelector('#user-password')
+      name.value = name.value.trim()
+      fullName.value = fullName.value.trim()
+      if (![name, fullName, password].every(field => field.reportValidity()))
+        return
+      fireEvent(this, 'user:added', {
+        email: email.value,
+        role,
+        name: name.value,
+        full_name: fullName.value,
+        password: password.value,
+      })
+      return
+    }
     fireEvent(this, 'user:invited', {email: email.value, role})
   }
 
