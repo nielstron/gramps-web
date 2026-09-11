@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {render} from 'lit'
 
 import {GrampsjsChildren} from '../../src/components/GrampsjsChildren.js'
 import {GrampsjsFamily} from '../../src/components/GrampsjsFamily.js'
@@ -10,6 +11,7 @@ import {GrampsjsPerson} from '../../src/components/GrampsjsPerson.js'
 import {GrampsjsTreeChartAddPerson} from '../../src/components/GrampsjsTreeChartAddPerson.js'
 import {GrampsjsFormFamilyChildRef} from '../../src/components/GrampsjsFormFamilyChildRef.js'
 import {GrampsjsFormChildRef} from '../../src/components/GrampsjsFormChildRef.js'
+import '../../src/components/GrampsjsFormNewParentFamily.js'
 import {GrampsjsObjectForm} from '../../src/components/GrampsjsObjectForm.js'
 import {
   OBJECT_PICKER_CREATED_EVENT,
@@ -111,6 +113,39 @@ describe('unified person picker flow', () => {
     expect(templateMarkup(children.render())).toContain('<md-icon-button')
   })
 
+  it.each(['familyList', 'parentFamilyList'])(
+    'preselects the listed family when adding a child from %s',
+    familyList => {
+      const relationships = new GrampsjsRelationships()
+      relationships.appState = appState
+      relationships[familyList] = [
+        {handle: 'F1', child_ref_list: []},
+        {handle: 'F2', child_ref_list: [{ref: 'C1'}]},
+      ]
+      const profile = {
+        handle: 'F2',
+        gramps_id: 'F0002',
+        father: {name_given: 'Parent', name_surname: 'Two'},
+        mother: {name_given: 'Partner', name_surname: 'Two'},
+        children: [{gramps_id: 'I0001', name_given: 'First child'}],
+      }
+      const container = document.createElement('div')
+      render(relationships._renderChildren(profile, 'Children'), container)
+      const connected = container.querySelector('grampsjs-connected-children')
+      render(connected.renderLoading(), container)
+      const children = container.querySelector('grampsjs-children')
+      children._handleShare()
+      render(children.dialogContent, container)
+
+      const form = container.querySelector('grampsjs-form-family-childref')
+      expect(form).not.toBeNull()
+      expect(form.data.familyHandle).toBe('F2')
+      expect(form.families).toEqual([
+        {handle: 'F2', label: 'Parent Two & Partner Two'},
+      ])
+    }
+  )
+
   it('shows one add-or-link action for each empty family parent', () => {
     const family = new GrampsjsFamily()
     family.appState = appState
@@ -142,7 +177,32 @@ describe('unified person picker flow', () => {
 
     expect(
       templateMarkup(relationships.render()).match(/<md-outlined-button/g)
-    ).toHaveLength(3)
+    ).toHaveLength(2)
+  })
+
+  it('offers one parent-family action with new family creation in its search', () => {
+    const relationships = new GrampsjsRelationships()
+    relationships.appState = appState
+    expect(
+      templateMarkup(relationships._renderAddParentFamilyButtons()).match(
+        /<md-outlined-button/g
+      )
+    ).toHaveLength(1)
+
+    relationships._handleAddPersonToFamily()
+    const container = document.createElement('div')
+    render(relationships.dialogContent, container)
+    const form = container.querySelector('grampsjs-form-add-person-to-family')
+    render(form.renderForm(), container)
+    const familySelect = container.querySelector(
+      'grampsjs-form-select-object-list'
+    )
+    const picker = new GrampsjsObjectPickerDialog()
+    picker.appState = appState
+    picker.objectType = familySelect.objectType
+
+    expect(picker.objectType).toBe('family')
+    expect(templateMarkup(picker._renderCreateAction())).toContain('New Family')
   })
 
   it('shows one add-or-link action for each tree relationship', () => {
@@ -358,6 +418,50 @@ describe('unified person picker flow', () => {
         {_class: 'ChildRef', ref: 'C1', frel: 'Birth', mrel: 'Birth'},
       ],
     })
+  })
+
+  it('saves a child from the person page to the family selected in the dialog', async () => {
+    const familyData = {
+      handle: 'F2',
+      father_handle: 'P1',
+      child_ref_list: [{_class: 'ChildRef', ref: 'C1'}],
+    }
+    const state = {
+      ...appState,
+      apiGet: vi.fn().mockResolvedValue({data: familyData}),
+      apiPut: vi.fn().mockResolvedValue({data: familyData}),
+    }
+    const view = new TestViewObject()
+    view.appState = state
+    view._className = 'person'
+    view._data = {handle: 'P1', family_list: ['F1', 'F2']}
+    view._updateData = vi.fn()
+    view.addObject = vi.fn()
+    const children = new GrampsjsChildren()
+    children.addEventListener('edit:action', event =>
+      view.handleEditAction(event)
+    )
+
+    children._handleChildRefSave(
+      new CustomEvent('object:save', {
+        detail: {
+          data: {familyHandle: 'F2', ref: 'C2', frel: 'Adopted', mrel: 'Birth'},
+        },
+      })
+    )
+
+    await vi.waitFor(() => expect(state.apiPut).toHaveBeenCalledOnce())
+    expect(state.apiGet).toHaveBeenCalledWith('/api/families/F2')
+    expect(state.apiPut).toHaveBeenCalledWith('/api/families/F2', {
+      _class: 'Family',
+      ...familyData,
+      child_ref_list: [
+        ...familyData.child_ref_list,
+        {_class: 'ChildRef', ref: 'C2', frel: 'Adopted', mrel: 'Birth'},
+      ],
+    })
+    expect(view.addObject).not.toHaveBeenCalled()
+    expect(view._updateData).toHaveBeenCalledWith(false)
   })
 
   it('offers the family-member flow from the person profile', () => {

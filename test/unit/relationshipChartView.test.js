@@ -1,5 +1,9 @@
 import {describe, expect, it, vi} from 'vitest'
 import {GrampsjsViewRelationshipChart} from '../../src/views/GrampsjsViewRelationshipChart.js'
+import {GrampsjsViewTreeChart} from '../../src/views/GrampsjsViewTreeChart.js'
+import {GrampsjsViewDescendantChart} from '../../src/views/GrampsjsViewDescendantChart.js'
+import {GrampsjsViewHourglassChart} from '../../src/views/GrampsjsViewHourglassChart.js'
+import {DEFAULT_RELATIONSHIP_LAYOUT} from '../../src/charts/relationshipLayout.js'
 
 describe('relationship chart view', () => {
   it('passes localization state to the rendered chart', () => {
@@ -36,6 +40,53 @@ describe('relationship chart view', () => {
     }
 
     expect(view.nAnc).toBe(5)
+  })
+
+  it('previews and saves grouping priorities while retaining the other weights', () => {
+    const view = new GrampsjsViewRelationshipChart()
+    view.appState = {
+      settings: {
+        relationshipChartLayout: {partners: 10, children: 20, siblings: 30},
+      },
+      updateSettings: vi.fn(),
+    }
+    view._handleLayoutInput({target: {value: '70'}}, 'siblings')
+    expect(view.appState.updateSettings).toHaveBeenCalledWith(
+      {
+        relationshipChartLayout: {partners: 10, children: 20, siblings: 70},
+      },
+      false
+    )
+    view._resetLevels()
+    expect(view.appState.updateSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        relationshipChartLayout: DEFAULT_RELATIONSHIP_LAYOUT,
+      }),
+      false
+    )
+  })
+
+  it.each([
+    [GrampsjsViewTreeChart, 'ancestorChartSpacing', 30],
+    [GrampsjsViewDescendantChart, 'descendantChartSpacing', 60],
+    [GrampsjsViewHourglassChart, 'hourglassChartSpacing', 60],
+  ])('keeps spacing preferences separate for %s', (View, key, defaultGap) => {
+    const view = new View()
+    view.appState = {
+      settings: {[key]: {gapX: 140, gapY: 15}},
+      updateSettings: vi.fn(),
+    }
+    expect(view.treeSpacing).toEqual({gapX: 140, gapY: 15})
+    view._handleSpacingInput({target: {value: '60'}}, 'gapY')
+    expect(view.appState.updateSettings).toHaveBeenCalledWith(
+      {[key]: {gapX: 140, gapY: 60}},
+      false
+    )
+    view._resetSettings()
+    expect(view.appState.updateSettings).toHaveBeenLastCalledWith(
+      {[key]: {gapX: defaultGap, gapY: 5}},
+      false
+    )
   })
 
   it('ignores a slower response for a previously selected person', async () => {

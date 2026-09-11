@@ -11,11 +11,10 @@ import {
 } from '@mdi/js'
 
 import {sharedStyles} from '../SharedStyles.js'
-import {fireEvent} from '../util.js'
+import {familyTitleFromProfile, fireEvent} from '../util.js'
 import './GrampsjsConnectedChildren.js'
 import './GrampsjsConnectedParents.js'
 import './GrampsjsFormAddPersonToFamily.js'
-import './GrampsjsFormNewParentFamily.js'
 import './GrampsjsFormNewPartnerFamily.js'
 import './GrampsjsIcon.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
@@ -71,6 +70,10 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
           flex-wrap: wrap;
           margin-top: 0.5em;
           margin-bottom: 3em;
+        }
+
+        p.add-partner {
+          margin-top: 2em;
         }
       `,
     ]
@@ -232,26 +235,18 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
             slot="icon"
           ></grampsjs-icon>
         </md-outlined-button>
-        <md-outlined-button class="edit" @click="${this._handleAddNewParents}">
-          ${this._('Add a new set of parents')}
-          <grampsjs-icon
-            path="${mdiAccountMultiplePlus}"
-            color="var(--mdc-theme-secondary)"
-            slot="icon"
-          ></grampsjs-icon>
-        </md-outlined-button>
       </p>
     `
   }
 
   _renderAddPartnerFamilyButton() {
     return html`
-      <p class="button-list">
+      <p class="button-list add-partner">
         <md-outlined-button
           class="edit"
           @click="${this._handleAddPartnerFamily}"
         >
-          ${this._('Add a new family with person as parent')}
+          ${this._('Add a partner')}
           <grampsjs-icon
             path="${mdiAccountMultiplePlus}"
             color="var(--mdc-theme-secondary)"
@@ -274,18 +269,6 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
     `
   }
 
-  _handleAddNewParents() {
-    this.dialogContent = html`
-      <grampsjs-form-new-parent-family
-        @object:save="${this._handleNewParentFamilySave}"
-        @object:cancel="${this._handleDialogCancel}"
-        .appState="${this.appState}"
-        personHandle="${this.personHandle}"
-        dialogTitle="${this._('Add a new set of parents')}"
-      ></grampsjs-form-new-parent-family>
-    `
-  }
-
   _handleAddPartnerFamily() {
     this.dialogContent = html`
       <grampsjs-form-new-partner-family
@@ -294,7 +277,7 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
         .appState="${this.appState}"
         personRole="${this._personRole}"
         personHandle="${this.personHandle}"
-        dialogTitle="${this._('Add a new family with person as parent')}"
+        dialogTitle="${this._('Add a partner')}"
       ></grampsjs-form-new-partner-family>
     `
   }
@@ -302,16 +285,6 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
   _handleAddToFamilySave(e) {
     fireEvent(this, 'edit:action', {
       action: 'addPersonToExistingFamily',
-      data: e.detail.data,
-    })
-    e.preventDefault()
-    e.stopPropagation()
-    this.dialogContent = ''
-  }
-
-  _handleNewParentFamilySave(e) {
-    fireEvent(this, 'edit:action', {
-      action: 'newParentFamily',
       data: e.detail.data,
     })
     e.preventDefault()
@@ -455,6 +428,9 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
             <h4>${childrenTitle}</h4>
             <grampsjs-connected-children
               familyGrampsId="${profile.gramps_id}"
+              .familyHandle=${profile.handle}
+              .familyLabel=${familyTitleFromProfile(profile) ||
+              profile.gramps_id}
               .profile=${profile?.children || []}
               .data=${family.child_ref_list}
               .appState="${this.appState}"

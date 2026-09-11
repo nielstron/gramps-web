@@ -9,6 +9,7 @@ export class GrampsjsViewTreeChart extends GrampsjsViewTreeChartBase {
     super()
     this._setAnc = true
     this.defaults.nAnc = 3
+    this._spacingSettingsKey = 'ancestorChartSpacing'
   }
 
   get nAnc() {
@@ -46,6 +47,8 @@ export class GrampsjsViewTreeChart extends GrampsjsViewTreeChartBase {
           nameDisplayFormat=${this.nameDisplayFormat}
           ?canEdit="${this._editMode}"
           .data=${this._data}
+          .gapX=${this.treeSpacing.gapX}
+          .gapY=${this.treeSpacing.gapY}
           .appState="${this.appState}"
         >
         </grampsjs-tree-chart>

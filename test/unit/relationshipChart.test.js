@@ -529,4 +529,41 @@ describe('RelationshipChart', () => {
       positions.length
     )
   })
+
+  it('can prioritize siblings over partners without changing family membership', async () => {
+    const graphviz = await Graphviz.load()
+    const graph = graphWithPartnerNetworkAndSiblings()
+    const dot = generateDot(graph, {partners: 1, children: 1, siblings: 100})
+    const svg = new DOMParser().parseFromString(
+      graphviz.layout(dot, 'svg', 'dot'),
+      'image/svg+xml'
+    )
+    const people = personXPositions(svg)
+    const sameGeneration = people.filter(
+      person => person.y === people.find(p => p.handle === 'T').y
+    )
+    const siblings = new Set(['H1', 'H2', 'T'])
+    const positions = sameGeneration.flatMap((person, index) =>
+      siblings.has(person.handle) ? [index] : []
+    )
+
+    expect(positions).toHaveLength(3)
+    expect(Math.max(...positions) - Math.min(...positions)).toBe(2)
+    expect(svg.querySelectorAll('[class*="person_"]')).toHaveLength(
+      graph.getPersons().length
+    )
+    expect(dot.match(/class="child"/g)).toHaveLength(graph.getEdges().length)
+  })
+
+  it('uses the child priority for parent-child alignment and allows zero weights', () => {
+    const dot = generateDot(graphWithThreePartners(), {
+      partners: 0,
+      children: 80,
+      siblings: 0,
+    })
+    expect(dot).not.toContain('cluster_partners')
+    expect(dot).toContain('class="couple", arrowhead=none, weight=0')
+    expect(dot).toContain('color="#555", weight=80')
+    expect(dot).not.toContain('cluster_siblings')
+  })
 })

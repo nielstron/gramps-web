@@ -24,7 +24,7 @@ export class GrampsjsFormFamilyChildRef extends GrampsjsFormChildRef {
   renderForm() {
     return html`
       <h4 class="label">${this._('Family')}</h4>
-      <p>
+      <div>
         <md-filled-select
           required
           id="family-select"
@@ -43,7 +43,7 @@ export class GrampsjsFormFamilyChildRef extends GrampsjsFormChildRef {
             `
           )}
         </md-filled-select>
-      </p>
+      </div>
       ${super.renderForm()}
     `
   }

@@ -7,6 +7,7 @@ import {formatDateString} from '../date.js'
 import {surnameWithBirthName} from '../name.js'
 import {appendAddPersonButton} from './addPersonButton.js'
 import {appendOpenPersonButton} from './openPersonButton.js'
+import {DEFAULT_RELATIONSHIP_LAYOUT} from './relationshipLayout.js'
 
 export {openPersonProfile} from './openPersonButton.js'
 export {surnameWithBirthName} from '../name.js'
@@ -111,7 +112,11 @@ function createGraph(graph) {
   }
 }
 
-export function generateDot(graph) {
+export function generateDot(graph, layout = DEFAULT_RELATIONSHIP_LAYOUT) {
+  const {partners, children, siblings} = {
+    ...DEFAULT_RELATIONSHIP_LAYOUT,
+    ...layout,
+  }
   let dot = ''
   const familiesWithVisibleChildren = new Set(
     graph.getEdges().map(edge => edge.sourceFamily)
@@ -134,18 +139,44 @@ export function generateDot(graph) {
     `
   }
 
-  // Treat every connected network of partners as a single horizontal block.
-  // The invisible cluster is only an ordering hint; it does not draw or merge
-  // nodes. Couple edges still have the stronger semantic weight below.
+  // Only the strongest grouping gets a contiguous block. Keeping partner
+  // clusters unconditionally would prevent sibling/child priorities from
+  // changing the layout. Partners still share a generation in every mode.
+  const groupPartners =
+    partners > 0 && partners >= children && partners >= siblings
   for (const [index, component] of graph.getPartnerComponents().entries()) {
     dot += `
-      subgraph "cluster_partners_${index}" {
+      subgraph "${groupPartners ? 'cluster_' : ''}partners_${index}" {
         rank=same
         style=invis
         margin=0
         ${component.map(handle => `"node_${handle}"`).join('\n')}
       }
     `
+  }
+
+  if (siblings > 0) {
+    const siblingGroups = new Map()
+    for (const edge of graph.getEdges()) {
+      if (!siblingGroups.has(edge.sourceFamily))
+        siblingGroups.set(edge.sourceFamily, [])
+      siblingGroups.get(edge.sourceFamily).push(edge.targetPerson)
+    }
+    for (const [family, handles] of siblingGroups) {
+      if (handles.length < 2) continue
+      if (siblings > partners && siblings >= children) {
+        dot += `subgraph "cluster_siblings_${family}" {
+          style=invis
+          margin=0
+          ${handles.map(handle => `"node_${handle}"`).join('\n')}
+        }\n`
+      }
+      for (let index = 1; index < handles.length; index += 1) {
+        dot += `"node_${handles[index - 1]}" -> "node_${
+          handles[index]
+        }" [style=invis, constraint=false, weight=${siblings}]\n`
+      }
+    }
   }
 
   // Families with visible children use a junction to establish the generation
@@ -158,7 +189,7 @@ export function generateDot(graph) {
     if (!familiesWithVisibleChildren.has(n.handle)) {
       if (pf && pm) {
         dot += `
-          "node_${pf}" -> "node_${pm}" [id="childless_${n.handle}", class="childless-couple", dir=none, constraint=false, weight=100]
+          "node_${pf}" -> "node_${pm}" [id="childless_${n.handle}", class="childless-couple", dir=none, constraint=false, weight=${partners}]
         `
       }
       continue
@@ -176,12 +207,12 @@ export function generateDot(graph) {
     `
     if (pf) {
       dot += `
-        "node_${pf}" -> "node_${n.handle}" [class="couple", arrowhead=none, weight=100]
+        "node_${pf}" -> "node_${n.handle}" [class="couple", arrowhead=none, weight=${partners}]
       `
     }
     if (pm) {
       dot += `
-        "node_${pm}" -> "node_${n.handle}" [class="couple", arrowhead=none, weight=100]
+        "node_${pm}" -> "node_${n.handle}" [class="couple", arrowhead=none, weight=${partners}]
       `
     }
   }
@@ -189,7 +220,7 @@ export function generateDot(graph) {
   // Family-to-child relationships determine the vertical generation layout.
   for (const [index, e] of graph.getEdges().entries()) {
     if (graph.getNode(e.sourceFamily) && graph.known(e.targetPerson)) {
-      dot += `"node_${e.sourceFamily}" -> "node_${e.targetPerson}" [id="child_${index}", class="child", label="", arrowhead=none, color="#555"]
+      dot += `"node_${e.sourceFamily}" -> "node_${e.targetPerson}" [id="child_${index}", class="child", label="", arrowhead=none, color="#555", weight=${children}]
       `
     }
   }
@@ -1018,6 +1049,7 @@ export function RelationshipChart(
     openProfileLabel = 'Open profile',
     canEdit = false,
     initialZoom = null,
+    layout = DEFAULT_RELATIONSHIP_LAYOUT,
   }
 ) {
   const resultnode = create('div').style('width', '100%')
@@ -1039,9 +1071,8 @@ export function RelationshipChart(
     chartContent.attr('transform', initialZoom.toString())
   }
   const graph = new Relgraph(data, boxWidth, boxHeight, grampsId)
-  const dot = graph.getDot()
+  const dot = generateDot(graph, layout)
   Graphviz.load().then(graphviz => {
-    graphviz.dot(dot)
     divhidden.html(graphviz.layout(dot, 'svg', 'dot'))
     remasterChart(
       divhidden,

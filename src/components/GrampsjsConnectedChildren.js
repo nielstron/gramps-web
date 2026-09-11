@@ -8,6 +8,8 @@ export class GrampsjsConnectedChildren extends GrampsjsConnectedComponent {
     return {
       ...super.properties,
       familyGrampsId: {type: String},
+      familyHandle: {type: String},
+      familyLabel: {type: String},
       profile: {type: Array},
       data: {type: Array},
       highlightId: {type: String},
@@ -18,6 +20,8 @@ export class GrampsjsConnectedChildren extends GrampsjsConnectedComponent {
   constructor() {
     super()
     this.familyGrampsId = ''
+    this.familyHandle = ''
+    this.familyLabel = ''
     this.profile = []
     this.data = []
     this.highlightId = ''
@@ -31,6 +35,8 @@ export class GrampsjsConnectedChildren extends GrampsjsConnectedComponent {
 
   _renderChildrenList(extended) {
     return html`<grampsjs-children
+      .familyHandle=${this.familyHandle}
+      .familyLabel=${this.familyLabel}
       .profile=${this.profile}
       .data=${this.data}
       .extended=${extended}

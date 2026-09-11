@@ -39,6 +39,7 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
       ancestors: {type: Boolean},
       descendants: {type: Boolean},
       gapX: {type: Number},
+      gapY: {type: Number},
       nameDisplayFormat: {type: String},
       canEdit: {type: Boolean},
     }
@@ -50,6 +51,7 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
     this.nAnc = 5
     this.nDesc = 5
     this.gapX = 30
+    this.gapY = 5
     this._savedZoom = null
   }
 
@@ -111,6 +113,7 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
         getImageUrl: d => getImageUrl(d?.data?.person || {}, 100),
         orientation: this.descendants ? 'RTL' : 'LTR',
         gapX: this.gapX,
+        gapY: this.gapY,
         bboxWidth: this.containerWidth,
         bboxHeight: this.containerHeight,
         nameDisplayFormat: this.nameDisplayFormat,

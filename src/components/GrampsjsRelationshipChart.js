@@ -35,6 +35,7 @@ class GrampsjsRelationshipChart extends GrampsjsChartBase {
       gapX: {type: Number},
       nameDisplayFormat: {type: String},
       canEdit: {type: Boolean},
+      layout: {type: Object},
     }
   }
 
@@ -78,6 +79,7 @@ class GrampsjsRelationshipChart extends GrampsjsChartBase {
         openProfileLabel: this._('Person Details'),
         canEdit: this.canEdit,
         initialZoom: this._savedZoom,
+        layout: this.layout,
       })}
     `
   }

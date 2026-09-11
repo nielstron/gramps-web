@@ -1,13 +1,19 @@
 import {css, html} from 'lit'
-import {map} from 'lit/directives/map.js'
-
-import '@material/mwc-textfield'
-import '@material/web/dialog/dialog.js'
+import '@material/web/textfield/filled-text-field.js'
+import '@material/web/select/filled-select.js'
+import '@material/web/select/select-option.js'
+import '@material/web/slider/slider.js'
 import '@material/web/button/text-button.js'
 import '@material/web/fab/fab.js'
 import '@material/web/iconbutton/icon-button.js'
 
-import {mdiAccountDetails, mdiCog, mdiHomeAccount, mdiPencil} from '@mdi/js'
+import {
+  mdiAccountDetails,
+  mdiClose,
+  mdiCog,
+  mdiHomeAccount,
+  mdiPencil,
+} from '@mdi/js'
 import '../components/GrampsjsIcon.js'
 import {GrampsjsView} from './GrampsjsView.js'
 import {GrampsjsStaleDataMixin} from '../mixins/GrampsjsStaleDataMixin.js'
@@ -40,9 +46,98 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
 
         #chart {
           height: calc(100vh - 165px);
-          margin-left: -40px;
-          margin-right: -40px;
           margin-bottom: -25px;
+        }
+
+        .chart-layout {
+          display: flex;
+          position: relative;
+          margin-inline: -40px;
+        }
+
+        .chart-main {
+          flex: 1;
+          min-width: 0;
+          position: relative;
+        }
+
+        #controls {
+          left: 40px;
+        }
+
+        #menu-controls {
+          box-sizing: border-box;
+          flex: 0 0 310px;
+          width: 310px;
+          height: calc(100vh - 165px);
+          overflow-y: auto;
+          padding: 16px 20px;
+          border-left: 1px solid var(--md-sys-color-outline-variant);
+          background: var(--md-sys-color-surface-container-low);
+          z-index: 2;
+        }
+
+        #menu-controls[hidden] {
+          display: none;
+        }
+
+        .settings-heading,
+        .slider-label {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .settings-heading h3 {
+          margin: 0;
+        }
+
+        #menu-controls h4 {
+          margin: 24px 0 8px;
+        }
+
+        .settings-help {
+          font-size: 14px;
+          color: var(--md-sys-color-on-surface-variant);
+        }
+
+        .setting {
+          margin: 20px 0;
+        }
+
+        .slider-label {
+          font-size: 15px;
+        }
+
+        .slider-label output {
+          font-variant-numeric: tabular-nums;
+          color: var(--md-sys-color-primary);
+        }
+
+        #menu-controls md-slider,
+        #menu-controls md-filled-select,
+        #menu-controls md-filled-text-field {
+          width: 100%;
+        }
+
+        @media (max-width: 700px) {
+          .chart-layout {
+            margin-inline: -20px;
+          }
+
+          #controls {
+            left: 20px;
+          }
+
+          #menu-controls {
+            position: absolute;
+            right: 0;
+            top: 48px;
+            width: min(310px, 90%);
+            height: calc(100vh - 213px);
+            box-shadow: -4px 4px 16px var(--grampsjs-body-font-color-10);
+          }
         }
 
         #controls {
@@ -55,10 +150,6 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
 
         #controls md-icon-button {
           --md-icon-button-icon-size: 26px;
-        }
-
-        #menu-controls mwc-textfield {
-          width: 6em;
         }
 
         md-fab {
@@ -83,6 +174,7 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
       _setDesc: {type: Boolean},
       _setMaxImages: {type: Boolean},
       _editMode: {type: Boolean},
+      _settingsOpen: {type: Boolean},
     }
   }
 
@@ -91,6 +183,8 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
     nDesc: 1,
     nMaxImages: 50,
     nameDisplayFormat: chartNameDisplayFormat.surnameThenGiven,
+    gapX: 30,
+    gapY: 5,
   }
 
   constructor() {
@@ -103,6 +197,9 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
     this._setSep = false
     this._setMaxImages = false
     this._editMode = false
+    this._settingsOpen = false
+    this._spacingSettingsKey = ''
+    this._personQueryKey = ''
     this._fetchRequestId = 0
     this._boundToggleEditMode = this._toggleEditMode.bind(this)
     this._boundDisableEditMode = this._disableEditMode.bind(this)
@@ -137,9 +234,12 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
   }
 
   renderContent() {
-    return html`<div style="position: relative;">
-        <div id="controls">${this.renderControls()}</div>
-        <div id="chart">${this.renderChart()}</div>
+    return html`<div class="chart-layout">
+        <div class="chart-main">
+          <div id="controls">${this.renderControls()}</div>
+          <div id="chart">${this.renderChart()}</div>
+        </div>
+        ${this._renderSettingsPanel()}
       </div>
       ${this.appState.permissions.canEdit && !this._editMode
         ? this.renderFab()
@@ -197,138 +297,217 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
 
   renderControls() {
     return html`
-        <md-icon-button
-          @click=${this._backToHomePerson}
-          style="margin-bottom:-10px;"
-          ?disabled=${this.disableHome}
-          aria-label="${this._('Home Person')}"
-          id="button-home"
-        ><grampsjs-icon path="${mdiHomeAccount}" color="currentColor"
-          ></grampsjs-icon></md-icon-button>
-        <grampsjs-tooltip
-          for="button-home"
-          .appState="${this.appState}"
-        >${this._('Home Person')}</grampsjs-tooltip>
-        <md-icon-button
-          @click=${this._goToPerson}
-          aria-label="${this._('Person Details')}"
-          id="btn-person"
-        ><grampsjs-icon path="${mdiAccountDetails}" color="currentColor"
-          ></grampsjs-icon></md-icon-button>
-        <grampsjs-tooltip
-          for="btn-person"
-          .appState="${this.appState}"
-        >${this._('Person Details')}</grampsjs-tooltip>
-        <md-icon-button
-          id="btn-controls"
-          aria-label="${this._('Preferences')}"
-          @click=${this._openMenuControls}
-        ><grampsjs-icon path="${mdiCog}" color="currentColor"
-          ></grampsjs-icon></md-icon-button>
-        <grampsjs-tooltip
-          for="btn-controls"
-          .appState="${this.appState}"
-        >${this._('Preferences')}</grampsjs-tooltip>
-    <md-dialog id="menu-controls">
-          <div slot="content">
-            <table>
-            ${
-              this._setAnc
-                ? html` <tr>
-                    <td>${this._('Max Ancestor Generations')}</td>
-                    <td>
-                      <mwc-textfield
-                        value=${this.nAnc}
-                        type="number"
-                        min="1"
-                        @change=${this._handleChangeAnc}
-                      ></mwc-textfield>
-                    </td>
-                  </tr>`
-                : ''
-            }${
-      this._setDesc
-        ? html`
-            <tr>
-              <td>${this._('Max Descendant Generations')}</td>
-              <td>
-                <mwc-textfield
-                  value=${this.nDesc}
-                  type="number"
-                  min="0"
-                  @change=${this._handleChangeDesc}
-                ></mwc-textfield>
-              </td>
-            </tr>
-          `
-        : ''
-    }${
-      this._setSep
-        ? html`
-            <tr>
-              <td>${this._('Max Degree of Separation')}</td>
-              <td>
-                <mwc-textfield
-                  value=${this.nAnc}
-                  type="number"
-                  min="0"
-                  @change=${this._handleChangeAnc}
-                ></mwc-textfield>
-              </td>
-            </tr>
-          `
-        : ''
-    }${
-      this._setMaxImages
-        ? html`
-            <tr>
-              <td>${this._('Max Number of Images displayed')}</td>
-              <td>
-                <mwc-textfield
-                  value=${this.nMaxImages}
-                  type="number"
-                  min="0"
-                  size="5"
-                  @change=${this._handleChangeMaxImages}
-                ></mwc-textfield>
-              </td>
-            </tr>
-          `
-        : ''
-    }
-              <tr>
-                <td>${this._('Name Display Format')}</td>
-                <td>
-                    <mwc-select
-                      fixedMenuPosition
-                      id="name-display-format"
-                      @change=${this._handleChangeNameDisplayFormat}
-                    >
-                      ${map(
-                        Object.values(chartNameDisplayFormat),
-                        i => html` <mwc-list-item
-                          value="${i}"
-                          ?selected="${i === this.nameDisplayFormat}"
-                          >${this._(i)}</mwc-list-item
-                        >`
-                      )}
-                    </mwc-select>
-                </td>
-              </tr>
-            </table>
-          </div>
-          <div slot="actions">
-            <md-text-button @click="${this._resetLevels}"
-              >${this._('Reset')}</md-text-button
-            >
-            <md-text-button @click="${this._closeMenuControls}"
-              >${this._('Close')}</md-text-button
-            >
-          </div>
-        </md-dialog>
-      </div>
-
+      <md-icon-button
+        @click=${this._backToHomePerson}
+        ?disabled=${this.disableHome}
+        aria-label="${this._('Home Person')}"
+        id="button-home"
+        ><grampsjs-icon
+          path="${mdiHomeAccount}"
+          color="currentColor"
+        ></grampsjs-icon
+      ></md-icon-button>
+      <grampsjs-tooltip for="button-home" .appState=${this.appState}
+        >${this._('Home Person')}</grampsjs-tooltip
+      >
+      <md-icon-button
+        @click=${this._goToPerson}
+        aria-label="${this._('Person Details')}"
+        id="btn-person"
+        ><grampsjs-icon
+          path="${mdiAccountDetails}"
+          color="currentColor"
+        ></grampsjs-icon
+      ></md-icon-button>
+      <grampsjs-tooltip for="btn-person" .appState=${this.appState}
+        >${this._('Person Details')}</grampsjs-tooltip
+      >
+      <md-icon-button
+        id="btn-controls"
+        aria-label="${this._('Preferences')}"
+        aria-expanded="${this._settingsOpen}"
+        aria-controls="menu-controls"
+        @click=${this._openMenuControls}
+        ><grampsjs-icon path="${mdiCog}" color="currentColor"></grampsjs-icon
+      ></md-icon-button>
+      <grampsjs-tooltip for="btn-controls" .appState=${this.appState}
+        >${this._('Preferences')}</grampsjs-tooltip
+      >
     `
+  }
+
+  _renderSettingsPanel() {
+    return html`
+      <aside
+        id="menu-controls"
+        aria-label="${this._('Preferences')}"
+        ?hidden=${!this._settingsOpen}
+        @keydown=${event => {
+          if (event.key === 'Escape') this._closeMenuControls()
+        }}
+      >
+        <div class="settings-heading">
+          <h3>${this._('Preferences')}</h3>
+          <md-icon-button
+            id="close-settings"
+            aria-label="${this._('Close')}"
+            @click=${this._closeMenuControls}
+          >
+            <grampsjs-icon
+              path=${mdiClose}
+              color="currentColor"
+            ></grampsjs-icon>
+          </md-icon-button>
+        </div>
+        ${this.renderLayoutControls()}
+        ${this._spacingSettingsKey
+          ? html`
+              <h4>${this._('Spacing')}</h4>
+              ${this._renderSlider(
+                'gapX',
+                this._('Generation spacing'),
+                this.treeSpacing.gapX,
+                300,
+                event => this._handleSpacingInput(event, 'gapX'),
+                'px'
+              )}
+              ${this._renderSlider(
+                'gapY',
+                this._('Branch spacing'),
+                this.treeSpacing.gapY,
+                120,
+                event => this._handleSpacingInput(event, 'gapY'),
+                'px'
+              )}
+            `
+          : ''}
+        ${this._setAnc
+          ? this._renderNumberSetting(
+              this._('Max Ancestor Generations'),
+              this.nAnc,
+              1,
+              this._handleChangeAnc
+            )
+          : ''}
+        ${this._setDesc
+          ? this._renderNumberSetting(
+              this._('Max Descendant Generations'),
+              this.nDesc,
+              0,
+              this._handleChangeDesc
+            )
+          : ''}
+        ${this._setSep
+          ? this._renderNumberSetting(
+              this._('Max Degree of Separation'),
+              this.nAnc,
+              0,
+              this._handleChangeAnc
+            )
+          : ''}
+        ${this._setMaxImages
+          ? this._renderNumberSetting(
+              this._('Max Number of Images displayed'),
+              this.nMaxImages,
+              0,
+              this._handleChangeMaxImages
+            )
+          : ''}
+        <div class="setting">
+          <md-filled-select
+            id="name-display-format"
+            label=${this._('Name Display Format')}
+            @change=${this._handleChangeNameDisplayFormat}
+          >
+            ${Object.values(chartNameDisplayFormat).map(
+              format => html`
+                <md-select-option
+                  value=${format}
+                  ?selected=${format === this.nameDisplayFormat}
+                >
+                  <div slot="headline">${this._(format)}</div>
+                </md-select-option>
+              `
+            )}
+          </md-filled-select>
+        </div>
+        <md-text-button @click=${this._resetSettings}
+          >${this._('Reset')}</md-text-button
+        >
+      </aside>
+    `
+  }
+
+  _renderNumberSetting(label, value, min, onChange) {
+    return html`<div class="setting">
+      <md-filled-text-field
+        label=${label}
+        .value=${String(value)}
+        type="number"
+        min=${min}
+        @change=${event => {
+          if (event.target.reportValidity()) onChange.call(this, event)
+        }}
+      ></md-filled-text-field>
+    </div>`
+  }
+
+  _renderSlider(id, label, value, max, onInput, unit = '') {
+    return html`<div class="setting">
+      <div class="slider-label">
+        <span id="${id}-label">${label}</span
+        ><output for=${id}>${value}${unit}</output>
+      </div>
+      <md-slider
+        id=${id}
+        aria-label=${label}
+        min="0"
+        max=${max}
+        step="1"
+        .value=${value}
+        @input=${onInput}
+      ></md-slider>
+    </div>`
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  renderLayoutControls() {
+    return ''
+  }
+
+  get treeSpacing() {
+    return {
+      gapX: this.defaults.gapX,
+      gapY: this.defaults.gapY,
+      ...this.appState?.settings?.[this._spacingSettingsKey],
+    }
+  }
+
+  _handleSpacingInput(event, key) {
+    this.appState.updateSettings(
+      {
+        [this._spacingSettingsKey]: {
+          ...this.treeSpacing,
+          [key]: Number(event.target.value),
+        },
+      },
+      false
+    )
+  }
+
+  _resetSettings() {
+    this._resetLevels()
+    if (this._spacingSettingsKey) {
+      this.appState.updateSettings(
+        {
+          [this._spacingSettingsKey]: {
+            gapX: this.defaults.gapX,
+            gapY: this.defaults.gapY,
+          },
+        },
+        false
+      )
+    }
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -342,8 +521,20 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
 
   update(changed) {
     super.update(changed)
-    if (changed.has('grampsId') || changed.has('settings')) {
-      this._fetchData(this.grampsId)
+    if (
+      changed.has('grampsId') ||
+      changed.has('settings') ||
+      changed.has('appState')
+    ) {
+      const queryKey = JSON.stringify([
+        this.grampsId,
+        this.appState?.i18n?.lang,
+        this._getPersonRules(this.grampsId),
+      ])
+      if (queryKey !== this._personQueryKey) {
+        this._personQueryKey = queryKey
+        this._fetchData(this.grampsId)
+      }
     }
   }
 
@@ -413,10 +604,11 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
   }
 
   _openMenuControls() {
-    this.shadowRoot.getElementById('menu-controls').show()
+    this._settingsOpen = !this._settingsOpen
   }
 
   _closeMenuControls() {
-    this.shadowRoot.getElementById('menu-controls').close()
+    this._settingsOpen = false
+    this.shadowRoot.getElementById('btn-controls').focus()
   }
 }

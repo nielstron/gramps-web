@@ -8,6 +8,8 @@ export class GrampsjsViewDescendantChart extends GrampsjsViewTreeChartBase {
   constructor() {
     super()
     this._setDesc = true
+    this._spacingSettingsKey = 'descendantChartSpacing'
+    this.defaults.gapX = 60
   }
 
   get nDesc() {
@@ -48,7 +50,8 @@ export class GrampsjsViewDescendantChart extends GrampsjsViewTreeChartBase {
           nameDisplayFormat=${this.nameDisplayFormat}
           ?canEdit="${this._editMode}"
           .data=${this._data}
-          gapX="60"
+          .gapX=${this.treeSpacing.gapX}
+          .gapY=${this.treeSpacing.gapY}
           .appState="${this.appState}"
         >
         </grampsjs-tree-chart>

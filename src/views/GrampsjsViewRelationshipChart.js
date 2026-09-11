@@ -3,6 +3,7 @@ import {html, css} from 'lit'
 import {GrampsjsViewTreeChartBase} from './GrampsjsViewTreeChartBase.js'
 import '../components/GrampsjsRelationshipChart.js'
 import '../components/GrampsjsTreeChartAddPerson.js'
+import {DEFAULT_RELATIONSHIP_LAYOUT} from '../charts/relationshipLayout.js'
 
 export class GrampsjsViewRelationshipChart extends GrampsjsViewTreeChartBase {
   static get styles() {
@@ -58,9 +59,54 @@ export class GrampsjsViewRelationshipChart extends GrampsjsViewTreeChartBase {
   }
 
   _resetLevels() {
-    this.nAnc = this.defaults.nAnc
-    this.nMaxImages = this.defaults.nMaxImages
-    this.nameDisplayFormat = this.defaults.nameDisplayFormat
+    this.appState.updateSettings(
+      {
+        relationshipChartAnc: this.defaults.nAnc,
+        relationshipChartMaxImages: this.defaults.nMaxImages,
+        relationshipChartNameDisplayFormat: this.defaults.nameDisplayFormat,
+        relationshipChartLayout: {...DEFAULT_RELATIONSHIP_LAYOUT},
+      },
+      false
+    )
+  }
+
+  get layout() {
+    return {
+      ...DEFAULT_RELATIONSHIP_LAYOUT,
+      ...this.appState?.settings?.relationshipChartLayout,
+    }
+  }
+
+  _handleLayoutInput(event, key) {
+    this.appState.updateSettings(
+      {
+        relationshipChartLayout: {
+          ...this.layout,
+          [key]: Number(event.target.value),
+        },
+      },
+      false
+    )
+  }
+
+  renderLayoutControls() {
+    return html`
+      <h4>${this._('Grouping priorities')}</h4>
+      <p class="settings-help">
+        ${this._(
+          'Higher priorities keep those relatives closer together. Changes appear as you move the sliders.'
+        )}
+      </p>
+      ${[
+        ['partners', this._('Partners')],
+        ['children', this._('Parents and children')],
+        ['siblings', this._('Siblings')],
+      ].map(([key, label]) =>
+        this._renderSlider(key, label, this.layout[key], 100, event =>
+          this._handleLayoutInput(event, key)
+        )
+      )}
+    `
   }
 
   _getPersonRules(grampsId) {
@@ -86,6 +132,7 @@ export class GrampsjsViewRelationshipChart extends GrampsjsViewTreeChartBase {
           nameDisplayFormat=${this.nameDisplayFormat}
           ?canEdit="${this._editMode}"
           .data=${this._data}
+          .layout=${this.layout}
         >
         </grampsjs-relationship-chart>
       </div>

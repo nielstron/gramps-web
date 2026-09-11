@@ -469,5 +469,13 @@
   "Draw a selection": "Draw a selection",
   "New Blog Post": "New Blog Post",
   "Blog Post": "Blog Post",
-  "Failed to fetch the Blog tag": "Failed to fetch the Blog tag"
+  "Failed to fetch the Blog tag": "Failed to fetch the Blog tag",
+  "Add a partner": "Add a partner",
+  "Grouping priorities": "Grouping priorities",
+  "Higher priorities keep those relatives closer together. Changes appear as you move the sliders.": "Higher priorities keep those relatives closer together. Changes appear as you move the sliders.",
+  "Parents and children": "Parents and children",
+  "Generation spacing": "Generation spacing",
+  "Branch spacing": "Branch spacing",
+  "Spacing": "Spacing",
+  "Partners": "Partners"
 }

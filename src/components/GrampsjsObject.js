@@ -35,7 +35,7 @@ import './GrampsjsUrls.js'
 import './GrampsjsObjectToc.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 
-import {fireEvent} from '../util.js'
+import {familyTitleFromProfile, fireEvent} from '../util.js'
 import {getMediaUrl} from '../api.js'
 
 /*
@@ -798,6 +798,9 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
       case 'children':
         return html`<grampsjs-children
           .appState="${this.appState}"
+          .familyHandle=${this.data.handle}
+          .familyLabel=${familyTitleFromProfile(this.data.profile || {}) ||
+          this.data.gramps_id}
           .data=${this.data?.child_ref_list}
           .profile=${this.data?.profile?.children}
           .extended=${this.data?.extended?.children || []}

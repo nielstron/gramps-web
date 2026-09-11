@@ -383,12 +383,12 @@ export class GrampsjsViewObject extends GrampsjsView {
         'placeref_list'
       )
     } else if (e.detail.action === 'addChildRef') {
-      if (this._className === 'family') {
-        const {ref, frel, mrel} = e.detail.data
+      const {ref, frel, mrel, familyHandle} = e.detail.data
+      if (familyHandle || this._className === 'family') {
         linkChildToFamily(
           this.appState,
           null,
-          this._data.handle,
+          familyHandle || this._data.handle,
           ref,
           frel,
           mrel

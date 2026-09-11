@@ -5,6 +5,7 @@ import {fireEvent} from '../util.js'
 import {renderPersonAvatar, renderPersonDates} from './personListUtils.js'
 import {GrampsjsEditableList} from './GrampsjsEditableList.js'
 import './GrampsjsFormChildRef.js'
+import './GrampsjsFormFamilyChildRef.js'
 
 import '@material/web/list/list-item.js'
 
@@ -26,6 +27,8 @@ export class GrampsjsChildren extends GrampsjsEditableList {
       profile: {type: Array},
       highlightId: {type: String},
       extended: {type: Array},
+      familyHandle: {type: String},
+      familyLabel: {type: String},
     }
   }
 
@@ -34,6 +37,8 @@ export class GrampsjsChildren extends GrampsjsEditableList {
     this.profile = []
     this.highlightId = ''
     this.extended = []
+    this.familyHandle = ''
+    this.familyLabel = ''
     this.hasShare = true
     this.hasAdd = false
     this.hasEdit = true
@@ -110,15 +115,17 @@ export class GrampsjsChildren extends GrampsjsEditableList {
 
   _handleShare() {
     this.dialogContent = html`
-      <grampsjs-form-childref
+      <grampsjs-form-family-childref
         new
         @object:save="${this._handleChildRefSave}"
         @object:cancel="${this._handleDialogCancel}"
         .appState="${this.appState}"
+        .data=${{familyHandle: this.familyHandle}}
+        .families=${[{handle: this.familyHandle, label: this.familyLabel}]}
         objType="${this.objType}"
         dialogTitle=${this._('Add or link person')}
       >
-      </grampsjs-form-childref>
+      </grampsjs-form-family-childref>
     `
   }
 
