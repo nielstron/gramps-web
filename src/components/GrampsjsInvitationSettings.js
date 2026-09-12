@@ -28,7 +28,7 @@ export class GrampsjsInvitationSettings extends GrampsjsAppStateMixin(
         margin: 16px 0;
       }
       .preview {
-        white-space: pre-wrap;
+        white-space: normal;
         border: 1px solid var(--md-sys-color-outline-variant);
         padding: 16px;
         margin: 16px 0;
@@ -48,7 +48,7 @@ export class GrampsjsInvitationSettings extends GrampsjsAppStateMixin(
     return (
       this._subject ??
       this.appState.treeConfig?.['email.invitationSubject'] ??
-      this._('You are invited to {tree_name}')
+      this._('You are invited to %s', '{tree_name}')
     )
   }
 
@@ -57,7 +57,8 @@ export class GrampsjsInvitationSettings extends GrampsjsAppStateMixin(
       this._message ??
       this.appState.treeConfig?.['email.invitationMessage'] ??
       this._(
-        'You have been invited to join {tree_name}. Choose your username, full name, and password using the link below.'
+        'You have been invited to join %s. Choose your username, full name, and password using the link below.',
+        '{tree_name}'
       )
     )
   }
@@ -78,7 +79,9 @@ export class GrampsjsInvitationSettings extends GrampsjsAppStateMixin(
     return html`<h3>${this._('Invitation email')}</h3>
       <p>
         ${this._(
-          'Customize invitations for this family tree. Use {tree_name} for the tree name and {invite_url} for the personal link. The setup button and expiry notice are always included.'
+          'Customize invitations for this family tree. Use %s for the tree name and %s for the personal link. The setup button and expiry notice are always included.',
+          '{tree_name}',
+          '{invite_url}'
         )}
       </p>
       <md-outlined-text-field
