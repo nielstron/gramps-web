@@ -76,7 +76,9 @@ export class GrampsjsMarkdown extends GrampsjsAppStateMixin(LitElement) {
     }
     for (const link of fragment.querySelectorAll('a[href]')) {
       const href = link.getAttribute('href')
-      const objectLink = href.match(/^\/?(person|event)\/([^/?#]+)$/)
+      const objectLink = href.match(
+        /^\/?(person|event|family|place|source|citation|repository|note)\/([^/?#]+)$/
+      )
       const id = internalMediaId(href)
       if (objectLink) link.href = appUrl(`/${objectLink[1]}/${objectLink[2]}`)
       else if (id) link.href = appUrl(`/media/${encodeURIComponent(id)}`)
