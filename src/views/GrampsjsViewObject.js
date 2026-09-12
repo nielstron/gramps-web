@@ -518,6 +518,8 @@ export class GrampsjsViewObject extends GrampsjsView {
       )
     } else if (e.detail.action === 'addURL') {
       this.addObject(e.detail.data, this._data, this._className, 'urls')
+    } else if (e.detail.action === 'addAddress') {
+      this.addObject(e.detail.data, this._data, this._className, 'address_list')
     } else if (e.detail.action === 'addAssociation') {
       this.addObject(
         e.detail.data,
@@ -592,6 +594,14 @@ export class GrampsjsViewObject extends GrampsjsView {
         this._className,
         'urls'
       )
+    } else if (e.detail.action === 'updateAddress') {
+      this.updateObjectByIndex(
+        e.detail.index,
+        e.detail.data,
+        this._data,
+        this._className,
+        'address_list'
+      )
     } else if (e.detail.action === 'updateAssociation') {
       this.updateObjectByIndex(
         e.detail.index,
@@ -625,6 +635,13 @@ export class GrampsjsViewObject extends GrampsjsView {
       )
     } else if (e.detail.action === 'delURL') {
       this.delObjectByIndex(e.detail.index, this._data, this._className, 'urls')
+    } else if (e.detail.action === 'delAddress') {
+      this.delObjectByIndex(
+        e.detail.index,
+        this._data,
+        this._className,
+        'address_list'
+      )
     } else if (e.detail.action === 'delAssociation') {
       this.delObjectByIndex(
         e.detail.index,

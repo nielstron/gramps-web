@@ -2,22 +2,13 @@ import {create, select} from 'd3-selection'
 import {zoom} from 'd3-zoom'
 import {linkVertical} from 'd3-shape'
 import {Graphviz} from '@hpcc-js/wasm'
-import {chartNameDisplayFormat, personGivenNameFromProfile} from '../util.js'
-import {formatDateString} from '../date.js'
+import {chartNameDisplayFormat} from '../util.js'
 import {surnameWithBirthName} from '../name.js'
-import {appendAddPersonButton} from './addPersonButton.js'
-import {appendOpenPersonButton} from './openPersonButton.js'
+import {appendPersonCard} from './personCard.js'
 import {DEFAULT_RELATIONSHIP_LAYOUT} from './relationshipLayout.js'
 
 export {openPersonProfile} from './openPersonButton.js'
 export {surnameWithBirthName} from '../name.js'
-
-const sexColor = {
-  F: 'var(--color-girl)',
-  M: 'var(--color-boy)',
-  X: 'var(--color-other)',
-  U: 'var(--color-unknown)',
-}
 
 const childRelationshipDasharray = {
   unknown: '8 5',
@@ -393,21 +384,6 @@ export class Relgraph {
   }
 }
 
-const clipString = (s, length) => {
-  if (!s) {
-    return ''
-  }
-  const fontSize = 13
-  const nChar = length / (fontSize * 0.6)
-  if (s.length <= nChar) {
-    return s
-  }
-  if (nChar < 2) {
-    return ''
-  }
-  return `${s.slice(0, nChar - 2)}…`
-}
-
 export function focusPerson(event, d) {
   if (event.defaultPrevented || event.target?.closest?.('.open-person-btn')) {
     return
@@ -443,10 +419,6 @@ function remasterChart(
 ) {
   const gvchartx = divhidden.select('svg')
   const nodedata = []
-  const imgRadius = (boxHeight - imgPadding * 2) / 2
-  const textPadding = d =>
-    d.imageUrl ? 2 * imgRadius + 2 * imgPadding : 2 * imgPadding
-  const boxWidthTotal = d => boxWidth - textPadding(d)
   gvchartx.selectAll('title').remove()
   // based on graphviz created nodes build array containing node data to be bound to d3 nodes
   let imageCount = 0
@@ -465,8 +437,8 @@ function remasterChart(
       }
       nodedata.push({
         nodetype: d.profile.fake ? 'fake' : 'person',
-        xCoord: x - boxWidth / 2 + 4,
-        yCoord: y - boxHeight / 2,
+        xCoord: Number(x) + 4,
+        yCoord: Number(y),
         profile: d.profile,
         data: d.data,
         imageUrl: imageCount > maxImages ? '' : imageUrl,
@@ -496,137 +468,24 @@ function remasterChart(
     .attr('class', d => `node ${d.nodetype}`)
     .attr('data-handle', d => d.handle)
 
-  nodes
-    .filter(d => d.nodetype === 'person')
-    .append('rect')
-    .attr('fill', d => sexColor[d.profile?.sex] ?? 'var(--color-unknown)')
-    .attr('width', 24)
-    .attr('height', boxHeight - 1)
-    .attr('x', -4)
-    .attr('y', 0)
-    .attr('rx', 12)
-    .attr('ry', 12)
-
-  nodes
-    .filter(d => d.nodetype === 'person')
-    .append('rect', ':first-child')
-    .attr('width', boxWidth)
-    .attr('height', boxHeight)
-    .attr('class', 'personBox')
-    .attr('x', 0)
-    .attr('y', 0)
-    .attr('rx', 8)
-    .attr('ry', 8)
-
-  nodes
-    .filter(
-      d =>
-        (d.profile?.name_given || d.profile?.name_surname) &&
-        d.nodetype === 'person'
-    )
-    .append('text')
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '500')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .attr('text-overflow', 'ellipsis')
-    .attr('overflow', 'hidden')
-    .attr('x', d => textPadding(d))
-    .attr('y', 25)
-    .text(d =>
-      clipString(
-        nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? `${surnameWithBirthName(d.data, bornLabel)},`
-          : personGivenNameFromProfile(d.profile) || '…',
-        boxWidthTotal(d)
-      )
-    )
-
-  nodes
-    .filter(
-      d =>
-        (d.profile?.name_given || d.profile?.name_surname) &&
-        d.nodetype === 'person'
-    )
-    .append('text')
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '500')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .attr('text-overflow', 'ellipsis')
-    .attr('overflow', 'hidden')
-    .attr('x', d => textPadding(d))
-    .attr('y', 25 + 17)
-    .text(d =>
-      clipString(
-        nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? personGivenNameFromProfile(d.profile) || '…'
-          : surnameWithBirthName(d.data, bornLabel),
-        boxWidthTotal(d)
-      )
-    )
-
-  nodes
-    .filter(d => d.profile?.birth?.date && d.nodetype === 'person')
-    .append('text')
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '350')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .attr('x', d => textPadding(d))
-    .attr('y', 25 + 17 * 2)
-    .text(d =>
-      clipString(
-        `*${formatDateString(d.profile.birth.date, locale)}`,
-        boxWidthTotal(d)
-      )
-    )
-
-  nodes
-    .filter(d => d.profile?.death?.date && d.nodetype === 'person')
-    .append('text')
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '350')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .attr('x', d => textPadding(d))
-    .attr('y', 25 + 17 * 3)
-    .text(d =>
-      clipString(
-        `†${formatDateString(d.profile.death.date, locale)}`,
-        boxWidthTotal(d)
-      )
-    )
-
-  // images
-  nodes
-    .filter(d => d.imageUrl)
-    .append('circle')
-    .attr('r', imgRadius)
-    .attr('cy', imgRadius + imgPadding)
-    .attr('cx', imgRadius + imgPadding)
-    .attr('fill', d => `url(#imgpattern-${d.handle})`)
-
-  const defs = targetsvg.append('defs')
-  const imgPattern = defs
-    .selectAll('.imgpattern')
-    .data(nodedata)
-    .enter()
-    .filter(d => d.nodetype === 'person' && d.imageUrl)
-    .append('pattern')
-    .attr('id', d => `imgpattern-${d.handle}`)
-    .attr('height', 1)
-    .attr('width', 1)
-    .attr('x', '0')
-    .attr('y', '0')
-
-  imgPattern
-    .append('image')
-    .attr('x', 0)
-    .attr('y', 0)
-    .attr('height', 70)
-    .attr('width', 70)
-    .attr('xlink:href', d => d.imageUrl)
+  appendPersonCard(
+    nodes.filter(d => d.nodetype === 'person'),
+    {
+      profile: d => d.profile,
+      grampsId: d => d.data?.gramps_id || d.profile?.gramps_id,
+      surname: d => surnameWithBirthName(d.data, bornLabel),
+      locale,
+      openProfileLabel,
+      onSelect: focusPerson,
+      handle: d => d.handle,
+      imageUrl: d => d.imageUrl,
+      boxWidth,
+      boxHeight,
+      imgPadding,
+      nameDisplayFormat,
+      canEdit,
+    }
+  )
 
   const marriedFamilies = nodes.filter(
     d => d.type === 'Married' && d.nodetype === 'family'
@@ -643,46 +502,6 @@ function remasterChart(
     .attr('stroke', 'var(--grampsjs-body-font-color-40)')
     .attr('stroke-width', 1)
 
-  nodes
-    .filter(d => d.nodetype === 'person')
-    .style('cursor', 'pointer')
-    .on('click', focusPerson)
-    .on('mouseenter', function (event, d) {
-      if (canEdit) return
-      if (window.matchMedia('(hover: none)').matches) return
-      const grampsId = d.profile?.gramps_id
-      if (!grampsId) return
-      window.dispatchEvent(
-        new CustomEvent('object:preview-show', {
-          detail: {
-            objectType: 'person',
-            grampsId,
-            anchorRect: this.getBoundingClientRect(),
-          },
-        })
-      )
-    })
-    .on('mouseleave', () => {
-      if (window.matchMedia('(hover: none)').matches) return
-      window.dispatchEvent(new CustomEvent('object:preview-hide'))
-    })
-
-  appendOpenPersonButton(
-    nodes.filter(d => d.nodetype === 'person'),
-    boxWidth - 14,
-    boxHeight - 14,
-    openProfileLabel
-  )
-
-  if (canEdit) {
-    appendAddPersonButton(
-      nodes.filter(d => d.nodetype === 'person'),
-      boxWidth - 14,
-      14,
-      d => d.handle
-    )
-  }
-
   const linkGenerator = linkVertical()
     .x(d => d.x)
     .y(d => d.y)
@@ -690,7 +509,7 @@ function remasterChart(
     const person = nodedata.find(
       node => node.nodetype === 'person' && node.handle === handle
     )
-    return [person.xCoord + boxWidth / 2, person.yCoord + boxHeight]
+    return [person.xCoord, person.yCoord + boxHeight / 2]
   }
   const childlessPartnerArc = ([sourceX, sourceY], [targetX, targetY]) => {
     const arcDepth = Math.min(
@@ -840,8 +659,8 @@ function remasterChart(
     .filter(d => d.handle === graph.rootPerson?.handle)
     .each(d => {
       const rpc = {
-        x: -1 * d.xCoord - boxWidth / 2,
-        y: -1 * d.yCoord - boxHeight / 2,
+        x: -d.xCoord,
+        y: -d.yCoord,
       }
       targetsvg.attr('transform', `translate(${rpc.x} ${rpc.y})`)
     })

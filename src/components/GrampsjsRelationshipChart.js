@@ -1,5 +1,5 @@
 import {html, css} from 'lit'
-import {zoomTransform} from 'd3-zoom'
+import {zoomIdentity, zoomTransform} from 'd3-zoom'
 
 import '@material/mwc-menu'
 import '@material/mwc-list/mwc-list-item'
@@ -46,19 +46,21 @@ class GrampsjsRelationshipChart extends GrampsjsChartBase {
     this._savedZoom = null
   }
 
-  willUpdate(changedProperties) {
-    // A newly selected person must become the viewport origin after Graphviz
-    // lays out the replacement graph. Reusing the previous pan/zoom transform
-    // would offset that origin and leave the selected person away from center.
-    if (changedProperties.has('grampsId')) {
-      this._savedZoom = null
-      return
-    }
-    // Save zoom transform before Lit replaces the SVG node
+  willUpdate(changed) {
+    super.willUpdate(changed)
+    // Save zoom transform before Lit replaces the SVG node. A new root person
+    // keeps only the zoom level, so they start at the default position.
     const svg = this.renderRoot
       ?.getElementById('container')
       ?.querySelector('svg')
-    this._savedZoom = svg ? zoomTransform(svg) : null
+    if (!svg) {
+      this._savedZoom = null
+      return
+    }
+    const transform = zoomTransform(svg)
+    this._savedZoom = changed.has('grampsId')
+      ? zoomIdentity.scale(transform.k)
+      : transform
   }
 
   renderChart() {

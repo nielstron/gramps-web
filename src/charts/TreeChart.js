@@ -3,33 +3,19 @@ import {create} from 'd3-selection'
 import {hierarchy, tree} from 'd3-hierarchy'
 import {curveBumpX, link, symbolTriangle, symbol} from 'd3-shape'
 import {zoom} from 'd3-zoom'
-import {
-  chartNameDisplayFormat,
-  fireEvent,
-  personGivenNameFromProfile,
-} from '../util.js'
-import {appendAddPersonButton} from './addPersonButton.js'
-import {appendOpenPersonButton} from './openPersonButton.js'
-import {formatDateString} from '../date.js'
+import {chartNameDisplayFormat, fireEvent} from '../util.js'
+import {appendPersonCard} from './personCard.js'
 
-const genderColor = {
-  0: 'var(--color-girl)',
-  1: 'var(--color-boy)',
-  2: 'var(--color-unknown)',
-  3: 'var(--color-other)',
-}
-
-// Returns the total depth of the tree
-function countDepthOfTree(treeData) {
-  if (treeData == null) {
-    return 0
+// Returns the viewBox start along one axis. A chart that fits the view is
+// centred as a whole. One that overflows is centred on `focus`, without
+// showing space beyond the chart's extent.
+export function viewBoxStart(focus, extentMin, extentMax, viewSize) {
+  if (extentMax - extentMin <= viewSize) {
+    return (extentMin + extentMax - viewSize) / 2
   }
-  return (
-    1 +
-    Math.max(
-      countDepthOfTree(treeData?.children?.[0]),
-      countDepthOfTree(treeData?.children?.[1])
-    )
+  return Math.min(
+    Math.max(focus - viewSize / 2, extentMin),
+    extentMax - viewSize
   )
 }
 
@@ -58,7 +44,7 @@ function TreeChartCore(
     boxHeight = 90,
     imgPadding = 10,
     childrenTriangle = true,
-    getImageUrl = null,
+    getImageUrl = () => '',
     orientation = 'LTR',
     nameDisplayFormat = chartNameDisplayFormat.surnameThenGiven,
     canEdit = false,
@@ -72,7 +58,7 @@ function TreeChartCore(
 
   // The true depth of the tree may be less than the passed in "depth" if the tree just doesn't
   // go that far back
-  const trueDepth = Math.min(countDepthOfTree(data), depth)
+  const trueDepth = Math.min(root.height + 1, depth)
 
   tree()
     .nodeSize([boxHeight + gapY, boxWidth + gapX])
@@ -150,43 +136,21 @@ function TreeChartCore(
         : null
     )
 
-  node
-    .append('rect')
-    .filter(d => d.data.person)
-    .attr(
-      'fill',
-      d => genderColor[d.data?.person?.gender] ?? 'var(--color-unknown)'
-    )
-    .attr('width', 24)
-    .attr('height', boxHeight - 1)
-    .attr('rx', 12)
-    .attr('ry', 12)
-    .attr(
-      'transform',
-      `translate(${-boxWidth / 2 - 4},${-boxHeight / 2 + 0.5})`
-    )
-    .attr('id', d => d.data.id) // Unique id for each rect
-
-  function clicked(event, d) {
-    dispatchEvent(
-      new CustomEvent('pedigree:person-selected', {
-        bubbles: true,
-        composed: true,
-        detail: {grampsId: d.data?.person?.gramps_id},
-      })
-    )
-  }
-
-  node
-    .append('rect')
-    .filter(d => d.data.person)
-    .attr('fill', 'var(--grampsjs-color-shade-230)')
-    .attr('width', boxWidth)
-    .attr('height', boxHeight)
-    .attr('rx', 8)
-    .attr('ry', 8)
-    .attr('transform', `translate(${-boxWidth / 2},${-boxHeight / 2})`)
-    .attr('id', d => d.data.id) // Unique id for each slice
+  appendPersonCard(node, {
+    profile: d => ({
+      ...d.data,
+      ...d.data.person?.profile,
+      gramps_id: d.data.person?.gramps_id,
+    }),
+    openProfileLabel,
+    handle: d => d.data.person?.handle,
+    imageUrl: getImageUrl,
+    boxWidth,
+    boxHeight,
+    imgPadding,
+    nameDisplayFormat,
+    canEdit,
+  })
 
   function triangleClicked(e) {
     fireEvent(this, 'pedigree:show-children', {pageX: e.pageX, pageY: e.pageY})
@@ -218,172 +182,6 @@ function TreeChartCore(
       .on('click', triangleClicked)
   }
 
-  const imgRadius = (boxHeight - imgPadding * 2) / 2
-  const textPadding = d =>
-    getImageUrl(d) ? 2 * imgRadius + 2 * imgPadding : 2 * imgPadding
-
-  const clipString = (s, length) => {
-    if (!s) {
-      return ''
-    }
-    const fontSize = 13
-    const nChar = length / (fontSize * 0.6)
-    if (s.length <= nChar) {
-      return s
-    }
-    if (nChar < 2) {
-      return ''
-    }
-    return `${s.slice(0, nChar - 2)}…`
-  }
-
-  const textWidth = d =>
-    getImageUrl(d)
-      ? boxWidth - 2 * imgPadding - 2 * imgRadius
-      : boxWidth - 2 * imgPadding
-
-  node
-    .append('text')
-    .filter(d => d.data.name_given || d.data.name_surname)
-    .attr('y', -boxHeight / 2 + 25)
-    .attr('x', d => -boxWidth / 2 + textPadding(d))
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '500')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .text(d =>
-      clipString(
-        nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? `${d.data.name_surname || '…'},`
-          : personGivenNameFromProfile(d.data) || '…',
-        textWidth(d)
-      )
-    )
-
-  node
-    .append('text')
-    .filter(d => d.data.name_given || d.data.name_surname)
-    .attr('y', -boxHeight / 2 + 25 + 17)
-    .attr('x', d => -boxWidth / 2 + textPadding(d))
-    .attr('width', 50)
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '500')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .attr('text-overflow', 'ellipsis')
-    .attr('overflow', 'hidden')
-    .attr('width', 25)
-    .text(d =>
-      clipString(
-        nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? personGivenNameFromProfile(d.data) || '…'
-          : d.data.name_surname || '…',
-        textWidth(d)
-      )
-    )
-
-  node
-    .append('text')
-    .filter(d => d.data.person?.profile?.birth?.date)
-    .attr('y', -boxHeight / 2 + 25 + 17 * 2)
-    .attr('x', d => -boxWidth / 2 + textPadding(d))
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '350')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .text(d =>
-      clipString(
-        `*${formatDateString(d.data.person.profile.birth.date)}`,
-        textWidth(d)
-      )
-    )
-
-  node
-    .append('text')
-    .filter(d => d.data.person?.profile?.death?.date)
-    .attr('y', -boxHeight / 2 + 25 + 17 * 3)
-    .attr('x', d => -boxWidth / 2 + textPadding(d))
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '350')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-
-    .attr('paint-order', 'stroke')
-    .text(d =>
-      clipString(
-        `†${formatDateString(d.data.person.profile.death.date)}`,
-        textWidth(d)
-      )
-    )
-
-  if (canEdit) {
-    appendAddPersonButton(
-      node.filter(d => d.data.person),
-      boxWidth / 2 - 14,
-      -boxHeight / 2 + 14,
-      d => d.data.person?.handle
-    )
-  }
-
-  appendOpenPersonButton(
-    node.filter(d => d.data.person),
-    boxWidth / 2 - 14,
-    boxHeight / 2 - 14,
-    openProfileLabel,
-    d => d.data.person.gramps_id
-  )
-
-  node
-    .filter(getImageUrl)
-    .append('circle')
-    .attr('r', imgRadius)
-    .attr('cy', -boxHeight / 2 + imgRadius + imgPadding)
-    .attr('cx', -boxWidth / 2 + imgRadius + imgPadding)
-    .attr('fill', d => `url(#imgpattern-${d.data.id})`)
-
-  const defs = svgParent.append('defs')
-
-  const imgPattern = defs
-    .selectAll('.imgpattern')
-    .data(descendants)
-    .enter()
-    .append('pattern')
-    .attr('id', d => `imgpattern-${d.data.id}`)
-    .attr('height', 1)
-    .attr('width', 1)
-    .attr('x', '0')
-    .attr('y', '0')
-
-  imgPattern
-    .append('image')
-    .attr('x', 0)
-    .attr('y', 0)
-    .attr('height', 70)
-    .attr('width', 70)
-    .attr('xlink:href', getImageUrl)
-
-  node
-    .style('cursor', canEdit ? 'default' : 'pointer')
-    .on('click', canEdit ? null : clicked)
-    .on('mouseenter', function (event, d) {
-      if (canEdit) return
-      if (window.matchMedia('(hover: none)').matches) return
-      const grampsId = d.data?.person?.gramps_id
-      if (!grampsId) return
-      window.dispatchEvent(
-        new CustomEvent('object:preview-show', {
-          detail: {
-            objectType: 'person',
-            grampsId,
-            anchorRect: this.getBoundingClientRect(),
-          },
-        })
-      )
-    })
-    .on('mouseleave', () => {
-      if (window.matchMedia('(hover: none)').matches) return
-      window.dispatchEvent(new CustomEvent('object:preview-hide'))
-    })
-
   return [xOffset, yOffset, width, height, boxWidth + 2 * padding]
 }
 
@@ -405,32 +203,45 @@ export function TreeChart(dataDescendants, dataAncestors, chartsettings) {
     chartContent.attr('transform', chartsettings.initialZoom.toString())
   }
 
-  let rootX = 0
+  // Extent of the chart. Each half is shifted so that the root person box is
+  // centred at the origin, which makes zooming scale around the root person.
+  let xMin = 0
+  let xMax = 0
+  let yMin = 0
+  let yMax = 0
 
   if (dataDescendants) {
     const chartD = chartContent.append('g')
-    const [, , widthD, , overlap] = TreeChartCore(chartD, dataDescendants, {
-      ...chartsettings,
-      orientation: 'RTL',
-      depth: chartsettings.nDesc,
-    })
-    chartD.attr('transform', `translate(${-widthD + overlap},0)`)
-    rootX = overlap / 2
+    const [, yD, widthD, heightD, overlap] = TreeChartCore(
+      chartD,
+      dataDescendants,
+      {...chartsettings, orientation: 'RTL', depth: chartsettings.nDesc}
+    )
+    const translateX = overlap / 2 - widthD
+    chartD.attr('transform', `translate(${translateX},0)`)
+    xMin = Math.min(xMin, translateX)
+    xMax = Math.max(xMax, translateX + widthD)
+    yMin = Math.min(yMin, yD)
+    yMax = Math.max(yMax, yD + heightD)
   }
   if (dataAncestors) {
     const chartA = chartContent.append('g')
-    const [, , , , overlap] = TreeChartCore(chartA, dataAncestors, {
-      ...chartsettings,
-      orientation: 'LTR',
-      depth: chartsettings.nAnc,
-    })
-    chartA.attr('transform', 'translate(0,0)')
-    rootX = overlap / 2
+    const [, yA, widthA, heightA, overlap] = TreeChartCore(
+      chartA,
+      dataAncestors,
+      {...chartsettings, orientation: 'LTR', depth: chartsettings.nAnc}
+    )
+    const translateX = -overlap / 2
+    chartA.attr('transform', `translate(${translateX},0)`)
+    xMin = Math.min(xMin, translateX)
+    xMax = Math.max(xMax, translateX + widthA)
+    yMin = Math.min(yMin, yA)
+    yMax = Math.max(yMax, yA + heightA)
   }
 
   svg.attr('viewBox', [
-    rootX - chartsettings.bboxWidth / 2,
-    -chartsettings.bboxHeight / 2,
+    viewBoxStart(0, xMin, xMax, chartsettings.bboxWidth),
+    viewBoxStart(0, yMin, yMax, chartsettings.bboxHeight),
     chartsettings.bboxWidth,
     chartsettings.bboxHeight,
   ])

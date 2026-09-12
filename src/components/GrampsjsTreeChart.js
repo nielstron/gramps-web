@@ -1,17 +1,12 @@
 import {html, css} from 'lit'
-import {zoomTransform} from 'd3-zoom'
+import {zoomIdentity, zoomTransform} from 'd3-zoom'
 
 import '@material/mwc-menu'
 import '@material/mwc-list/mwc-list-item'
 
 import {TreeChart} from '../charts/TreeChart.js'
 import {GrampsjsChartBase} from './GrampsjsChartBase.js'
-import {
-  getDescendantTree,
-  getPersonByGrampsId,
-  getTree,
-  getImageUrl,
-} from '../charts/util.js'
+import {getDescendantTree, getTree, getImageUrl} from '../charts/util.js'
 import {fireEvent, clickKeyHandler} from '../util.js'
 
 class GrampsjsTreeChart extends GrampsjsChartBase {
@@ -67,16 +62,21 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
     `
   }
 
-  willUpdate(changedProperties) {
-    if (changedProperties.has('grampsId')) {
-      this._savedZoom = null
-      return
-    }
-    // Save zoom transform before Lit replaces the SVG node
+  willUpdate(changed) {
+    super.willUpdate(changed)
+    // Save zoom transform before Lit replaces the SVG node. A new root person
+    // keeps only the zoom level, so they start at the default position.
     const svg = this.renderRoot
       ?.getElementById('container')
       ?.querySelector('svg')
-    this._savedZoom = svg ? zoomTransform(svg) : null
+    if (!svg) {
+      this._savedZoom = null
+      return
+    }
+    const transform = zoomTransform(svg)
+    this._savedZoom = changed.has('grampsId')
+      ? zoomIdentity.scale(transform.k)
+      : transform
   }
 
   updated() {
@@ -87,15 +87,15 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
     if (this.data.length === 0 || !this.grampsId) {
       return ''
     }
-    const {handle} = getPersonByGrampsId(this.data, this.grampsId)
+    const {handle} = this._graph.personByGrampsId(this.grampsId) ?? {}
     if (!handle) {
       return ''
     }
     const dataDescendants = this.descendants
-      ? getDescendantTree(this.data, handle, this.nDesc)
+      ? getDescendantTree(this._graph, handle, this.nDesc)
       : false
     const dataAncestors = this.ancestors
-      ? getTree(this.data, handle, this.nAnc, false)
+      ? getTree(this._graph, handle, this.nAnc, false)
       : false
     let childrenTriangle = false
     if (this.descendants && this.ancestors) {
@@ -125,28 +125,21 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
   }
 
   _hasChildren() {
-    const {handle} = getPersonByGrampsId(this.data, this.grampsId)
-    const data = getDescendantTree(this.data, handle, 2)
-    if (data.children && data.children.length) {
-      return true
-    }
-    return false
+    const {handle} = this._graph.personByGrampsId(this.grampsId) ?? {}
+    return this._graph.children(handle, {birthOnly: true}).length > 0
   }
 
   _hasParents() {
-    const {handle} = getPersonByGrampsId(this.data, this.grampsId)
-    const data = getTree(this.data, handle, 2, false)
-    if (data.children && data.children.length) {
-      return true
-    }
-    return false
+    const {handle} = this._graph.personByGrampsId(this.grampsId) ?? {}
+    const {father, mother} = this._graph.parents(handle)
+    return Boolean(father || mother)
   }
 
   renderChildrenMenu() {
-    const {handle} = getPersonByGrampsId(this.data, this.grampsId)
+    const {handle} = this._graph.personByGrampsId(this.grampsId) ?? {}
     const data = this.descendants
-      ? getTree(this.data, handle, 2, false)
-      : getDescendantTree(this.data, handle, 2)
+      ? getTree(this._graph, handle, 2, false)
+      : getDescendantTree(this._graph, handle, 2)
     const {children} = data
     if (!children || !children.length) {
       return ''

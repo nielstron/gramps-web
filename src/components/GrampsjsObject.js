@@ -33,9 +33,15 @@ import './GrampsjsSources.js'
 import './GrampsjsTags.js'
 import './GrampsjsUrls.js'
 import './GrampsjsObjectToc.js'
+import './GrampsjsObjectRevisions.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 
-import {familyTitleFromProfile, fireEvent} from '../util.js'
+import {
+  familyTitleFromProfile,
+  fireEvent,
+  endpointToObjectClass,
+  apiVersionAtLeast,
+} from '../util.js'
 import {getMediaUrl} from '../api.js'
 
 /*
@@ -133,7 +139,8 @@ const _allTabs = {
       data?.attribute_list?.length > 0 ||
       data?.urls?.length > 0 ||
       data?.address_list?.length > 0,
-    conditionEdit: data => 'urls' in data || 'attribute_list' in data,
+    conditionEdit: data =>
+      'urls' in data || 'attribute_list' in data || 'address_list' in data,
   },
   associations: {
     title: 'Associations',
@@ -148,6 +155,11 @@ const _allTabs = {
   references: {
     title: 'References',
     condition: data => Object.keys(data?.backlinks)?.length > 0,
+    conditionEdit: data => false,
+  },
+  revisions: {
+    title: 'Revisions',
+    condition: data => 'handle' in data,
     conditionEdit: data => false,
   },
 }
@@ -848,11 +860,15 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
                   attributeCategory="${this._objectsName.toLowerCase()}"
                 ></grampsjs-attributes>`
             : ''}
-          ${this.data.address_list?.length > 0
+          ${this.data.address_list?.length > 0 ||
+          (this.edit && 'address_list' in this.data)
             ? html`<h4>${this._('Addresses')}</h4>
                 <grampsjs-addresses
+                  hasEdit
                   .appState="${this.appState}"
                   .data=${this.data.address_list ?? []}
+                  .profile=${this.data?.profile?.addresses ?? []}
+                  ?edit="${this.edit}"
                 ></grampsjs-addresses>`
             : ''}
           ${this.data.urls?.length > 0 || (canAdd && 'urls' in this.data)
@@ -893,6 +909,13 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
           .data=${[this.data?.extended?.backlinks]}
           .profile=${this.data?.profile?.references || {}}
         ></grampsjs-references>`
+      case 'revisions':
+        return html`<grampsjs-object-revisions
+          .appState="${this.appState}"
+          objClass="${endpointToObjectClass[this._objectEndpoint] ?? ''}"
+          handle="${this.data.handle}"
+          lastChange="${this.data.change ?? 0}"
+        ></grampsjs-object-revisions>`
       default:
         break
     }
@@ -911,7 +934,17 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
           (this.appState?.permissions?.canAdd &&
             ADDABLE_TABS.has(key) &&
             _allTabs[key].conditionEdit(this.data))) &&
-        (this._showReferences || key !== 'references')
+        (this._showReferences || key !== 'references') &&
+        (key !== 'revisions' || this._showRevisions())
+    )
+  }
+
+  // The object-scoped change history endpoint requires API version 3.22
+  _showRevisions() {
+    return (
+      this.appState.permissions.canViewPrivate &&
+      !this.preview &&
+      apiVersionAtLeast(this.appState.dbInfo, 3, 22)
     )
   }
 
