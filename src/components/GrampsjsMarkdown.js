@@ -87,6 +87,12 @@ export class GrampsjsMarkdown extends GrampsjsAppStateMixin(LitElement) {
       const id = internalMediaId(img.getAttribute('src'))
       img.referrerPolicy = 'no-referrer'
       if (id) {
+        if (!img.closest('a')) {
+          const link = document.createElement('a')
+          link.href = appUrl(`/media/${encodeURIComponent(id)}`)
+          img.replaceWith(link)
+          link.append(img)
+        }
         img.removeAttribute('src')
         pending.push([img, id])
       }
