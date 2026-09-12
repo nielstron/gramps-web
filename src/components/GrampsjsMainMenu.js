@@ -29,6 +29,7 @@ import {sharedStyles} from '../SharedStyles.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 import {appUrl} from '../appUrl.js'
 import './GrampsjsIcon.js'
+import {NAVIGATION_ITEMS, navigationMode} from '../navigation.js'
 
 const selectedColor = 'var(--grampsjs-color-icon-selected)'
 const defaultColor = 'var(--grampsjs-color-icon-default)'
@@ -55,6 +56,12 @@ class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
           --md-divider-color: rgba(0, 0, 0, 0.12);
           padding: 0 20px;
           margin: 4px 0;
+        }
+
+        summary {
+          cursor: pointer;
+          padding: 12px 20px;
+          color: var(--grampsjs-color-drawer-text);
         }
 
         .unread-badge {
@@ -124,153 +131,68 @@ class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
     ></grampsjs-icon>`
   }
 
-  render() {
-    const p = this.appState.path.page
-    const listsPages = [
-      'people',
-      'families',
-      'events',
-      'places',
-      'citations',
-      'sources',
-      'repositories',
-      'notes',
-    ]
-    return html` <md-list>
-      <md-list-item
-        type="link"
-        href="${appUrl('/')}"
-        ?selected="${p === 'home'}"
-      >
-        ${this._icon(mdiHome, p === 'home')} ${this._('Home')}
-      </md-list-item>
-      <md-list-item
-        type="link"
-        href="${appUrl('/blog')}"
-        ?selected="${p === 'blog'}"
-      >
-        ${this._icon(mdiRss, p === 'blog')} ${this._('Blog')}
-      </md-list-item>
-      <md-list-item
-        type="link"
-        href="${appUrl('/tree')}"
-        ?selected="${p === 'tree'}"
-      >
-        ${this._icon(mdiFamilyTree, p === 'tree')} ${this._('Family Tree')}
-      </md-list-item>
-      <md-list-item
-        type="link"
-        href="${appUrl('/timeline')}"
-        ?selected="${p === 'timeline'}"
-      >
-        ${this._icon(mdiTimelineOutline, p === 'timeline')}
-        ${this._('Timeline')}
-      </md-list-item>
-      <md-list-item
-        type="link"
-        href="${appUrl('/map')}"
-        ?selected="${p === 'map'}"
-      >
-        ${this._icon(mdiMap, p === 'map')} ${this._('Map')}
-      </md-list-item>
-      ${this.appState.frontendConfig.hideDNALink
-        ? ''
-        : html`
-            <md-list-item
-              type="link"
-              href="${appUrl('/dna-matches')}"
-              ?selected="${['dna-matches', 'dna-chromosome', 'ydna'].includes(
-                p
-              )}"
-            >
-              ${this._icon(
-                mdiDna,
-                ['dna-matches', 'dna-chromosome', 'ydna'].includes(p)
-              )}
-              ${this._('DNA')}
-            </md-list-item>
-          `}
-      <md-list-item
-        type="link"
-        href="${appUrl('/people')}"
-        ?selected="${listsPages.includes(p)}"
-      >
-        ${this._icon(mdiFormatListBulleted, listsPages.includes(p))}
-        ${this._('Lists')}
-      </md-list-item>
-      <md-list-item
-        type="link"
-        href="${appUrl('/medialist')}"
-        ?selected="${p === 'medialist'}"
-      >
-        ${this._icon(mdiImage, p === 'medialist')} ${this._('Media')}
-      </md-list-item>
-      ${this.canUseChat
-        ? html`
-            <md-list-item
-              type="link"
-              href="${appUrl('/chat')}"
-              ?selected="${p === 'chat'}"
-            >
-              ${this._icon(mdiCreation, p === 'chat')} ${this._('Assistant')}
-            </md-list-item>
-          `
+  _renderItem(item) {
+    const selected = item.pages.includes(this.appState.path.page)
+    const icons = {
+      home: mdiHome,
+      blog: mdiRss,
+      tree: mdiFamilyTree,
+      timeline: mdiTimelineOutline,
+      map: mdiMap,
+      dna: mdiDna,
+      lists: mdiFormatListBulleted,
+      media: mdiImage,
+      chat: mdiCreation,
+      history: mdiHistory,
+      bookmarks: mdiBookmark,
+      tasks: mdiFormatListChecks,
+      reports: mdiFileExportOutline,
+      export: mdiDownload,
+      notifications: mdiBell,
+    }
+    const icon =
+      item.id === 'notifications' && this.unreadCount > 0
+        ? mdiBellBadge
+        : icons[item.id]
+    return html`<md-list-item
+      type="link"
+      href="${appUrl(item.path)}"
+      ?selected=${selected}
+    >
+      ${this._icon(icon, selected)} ${this._(item.label).replace('_', '')}
+      ${item.id === 'notifications' && this.unreadCount > 0
+        ? html`<span class="unread-badge" slot="end">${this.unreadCount}</span>`
         : ''}
-      <md-divider inset></md-divider>
-      <md-list-item
-        type="link"
-        href="${appUrl('/recent')}"
-        ?selected="${p === 'recent'}"
+    </md-list-item>`
+  }
+
+  render() {
+    const items = NAVIGATION_ITEMS.filter(
+      item => item.id !== 'chat' || this.canUseChat
+    )
+    const visible = items.filter(
+      item => navigationMode(this.appState, item.id) === 'visible'
+    )
+    const advanced = items.filter(
+      item => navigationMode(this.appState, item.id) === 'advanced'
+    )
+    const groups = [0, 1, 2]
+      .map(group => visible.filter(item => item.group === group))
+      .filter(group => group.length)
+    return html`<md-list
+        >${groups.map(
+          (group, index) => html`
+            ${index ? html`<md-divider inset></md-divider>` : ''}
+            ${group.map(item => this._renderItem(item))}
+          `
+        )}</md-list
       >
-        ${this._icon(mdiHistory, p === 'recent')} ${this._('History')}
-      </md-list-item>
-      <md-list-item
-        type="link"
-        href="${appUrl('/bookmarks')}"
-        ?selected="${p === 'bookmarks'}"
-      >
-        ${this._icon(mdiBookmark, p === 'bookmarks')} ${this._('_Bookmarks')}
-      </md-list-item>
-      <md-list-item
-        type="link"
-        href="${appUrl('/tasks')}"
-        ?selected="${p === 'tasks'}"
-      >
-        ${this._icon(mdiFormatListChecks, p === 'tasks')} ${this._('Tasks')}
-      </md-list-item>
-      <md-list-item
-        type="link"
-        href="${appUrl('/reports')}"
-        ?selected="${p === 'reports'}"
-      >
-        ${this._icon(mdiFileExportOutline, p === 'reports')}
-        ${this._('_Reports').replace('_', '')}
-      </md-list-item>
-      <md-list-item
-        type="link"
-        href="${appUrl('/export')}"
-        ?selected="${p === 'export'}"
-      >
-        ${this._icon(mdiDownload, p === 'export')} ${this._('Export')}
-      </md-list-item>
-      <md-divider inset></md-divider>
-      <md-list-item
-        type="link"
-        href="${appUrl('/notifications')}"
-        ?selected="${p === 'notifications'}"
-      >
-        ${this._icon(
-          this.unreadCount > 0 ? mdiBellBadge : mdiBell,
-          p === 'notifications'
-        )}
-        ${this._('Notifications')}
-        ${this.unreadCount > 0
-          ? html`<span class="unread-badge" slot="end"
-              >${this.unreadCount}</span
-            >`
-          : ''}
-      </md-list-item>
-    </md-list>`
+      ${advanced.length
+        ? html`<details>
+            <summary>${this._('Advanced')}</summary>
+            <md-list>${advanced.map(item => this._renderItem(item))}</md-list>
+          </details>`
+        : ''}`
   }
 }
 

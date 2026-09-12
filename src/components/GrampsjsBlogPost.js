@@ -1,3 +1,5 @@
+import './GrampsjsMarkdown.js'
+import {isMarkdownNote} from '../blogMarkdown.js'
 import {html, css, LitElement} from 'lit'
 import {sharedStyles} from '../SharedStyles.js'
 import '@material/mwc-button'
@@ -111,14 +113,18 @@ export class GrampsjsBlogPost extends GrampsjsAppStateMixin(LitElement) {
         </div>
         <div id="note">
           <div id="note-wrapper">
-            <grampsjs-note-content
-              grampsId="${this.note.grampsId}"
-              content="${this.note?.formatted?.html ||
-              this.note?.text?.string ||
-              'Error loading note'}"
-            >
-            </grampsjs-note-content>
-
+            ${isMarkdownNote(this.note)
+              ? html`<grampsjs-markdown
+                  .appState=${this.appState}
+                  .content=${this.note.text.string}
+                ></grampsjs-markdown>`
+              : html`<grampsjs-note-content
+                  grampsId="${this.note.grampsId}"
+                  content="${this.note?.formatted?.html ||
+                  this.note?.text?.string ||
+                  'Error loading note'}"
+                >
+                </grampsjs-note-content>`}
             ${this.source?.media_list?.length > 1
               ? html`
                   <grampsjs-gallery

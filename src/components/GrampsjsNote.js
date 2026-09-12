@@ -1,3 +1,5 @@
+import './GrampsjsMarkdownEditor.js'
+import {isMarkdownNote} from '../blogMarkdown.js'
 import {html, css} from 'lit'
 
 import '@material/web/iconbutton/icon-button.js'
@@ -49,7 +51,18 @@ export class GrampsjsNote extends GrampsjsObject {
           : ''}
       </h2>
 
-      ${this.edit
+      ${isMarkdownNote(this.data)
+        ? this.edit
+          ? html`<grampsjs-markdown-editor
+              id="note-text-editor"
+              .initialData=${this.data.text}
+              .appState=${this.appState}
+            ></grampsjs-markdown-editor>`
+          : html`<grampsjs-markdown
+              .appState=${this.appState}
+              .content=${this.data.text.string}
+            ></grampsjs-markdown>`
+        : this.edit
         ? html` <grampsjs-editor
             id="note-text-editor"
             .initialData=${this.data.text}

@@ -1,3 +1,4 @@
+import {isMarkdownNote, markdownPreview} from '../blogMarkdown.js'
 import {html, css, LitElement} from 'lit'
 import {sharedStyles} from '../SharedStyles.js'
 import '@material/mwc-button'
@@ -99,7 +100,10 @@ export class GrampsjsBlogPostPreview extends GrampsjsAppStateMixin(LitElement) {
   }
 
   getPreviewText() {
-    const all = this.data?.extended?.notes[0]?.text?.string
+    const note = this.data?.extended?.notes[0]
+    const all = isMarkdownNote(note)
+      ? markdownPreview(note.text.string)
+      : note?.text?.string
     if (!all) {
       return ''
     }
