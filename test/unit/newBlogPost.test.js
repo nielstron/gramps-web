@@ -1,5 +1,6 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {clearDraftsWithPrefix} from '../../src/api.js'
+import {GrampsjsViewBlog} from '../../src/views/GrampsjsViewBlog.js'
 import {GrampsjsBlogPost} from '../../src/components/GrampsjsBlogPost.js'
 import {GrampsjsViewNewBlogPost} from '../../src/views/GrampsjsViewNewBlogPost.js'
 
@@ -444,6 +445,7 @@ describe('edit blog post', () => {
   it('retains the form and reports a failed edit instead of navigating', async () => {
     const element = makeElement()
     element.grampsId = 'S1'
+    element._blogTagHandle = 'blog'
     element._originalSource = {_class: 'Source', handle: 'source'}
     element.data = {...element._originalSource, title: 'Unsaved'}
     element.appState = {
@@ -486,4 +488,77 @@ describe('blog title typing', () => {
     element.handleName({target: {value: 'Family history '}})
     expect(element.data.title).toBe('Family history ')
   })
+})
+
+describe('server blog drafts', () => {
+  it('saves an untitled draft as private source and note without publishing or validating the title', async () => {
+    const element = makeElement()
+    element._blogTagHandle = 'blog'
+    element._draftTagHandle = 'draft'
+    element.data = {
+      _class: 'Source',
+      title: '',
+      tag_list: ['blog', 'custom'],
+      note: {
+        _class: 'Note',
+        type: 'Markdown',
+        text: {string: 'Work in progress'},
+      },
+    }
+    element.appState = {
+      apiPost: vi.fn().mockResolvedValue({
+        data: [{new: {_class: 'Source', gramps_id: 'S1'}}],
+      }),
+    }
+    element._reset = vi.fn()
+    await element._saveDraft()
+    expect(element._validateTitle).not.toHaveBeenCalled()
+    const [source, note] = element.appState.apiPost.mock.calls[0][1]
+    expect(source.private).toBe(true)
+    expect(note.private).toBe(true)
+    expect(source.tag_list).toEqual(expect.arrayContaining(['draft', 'custom']))
+    expect(source.tag_list).not.toContain('blog')
+  })
+
+  it('publishes a saved draft in place and makes both records public', async () => {
+    const element = makeElement()
+    element.grampsId = 'S1'
+    element._blogTagHandle = 'blog'
+    element._draftTagHandle = 'draft'
+    element._originalSource = {
+      _class: 'Source',
+      handle: 'source',
+      gramps_id: 'S1',
+      title: 'Draft',
+      private: true,
+      tag_list: ['draft'],
+      note_list: ['note'],
+    }
+    element._originalNote = {
+      _class: 'Note',
+      handle: 'note',
+      private: true,
+      text: {string: 'Body'},
+    }
+    element.data = {...element._originalSource, note: element._originalNote}
+    element.appState = {apiPost: vi.fn().mockResolvedValue({data: []})}
+    await element._submit()
+    const changes = element.appState.apiPost.mock.calls[0][1]
+    expect(
+      changes.every(
+        change => change.type === 'update' && change.new.private === false
+      )
+    ).toBe(true)
+    expect(changes[1].new.tag_list).toEqual(['blog'])
+    expect(changes[1].handle).toBe('source')
+  })
+})
+
+it('refreshes My drafts when account permissions become available after initial rendering', () => {
+  const view = new GrampsjsViewBlog()
+  view.active = true
+  view.appState = {permissions: {canAdd: true}}
+  view._fetchDrafts = vi.fn()
+  view.updated(new Map([['appState', {permissions: {canAdd: false}}]]))
+  expect(view._fetchDrafts).toHaveBeenCalledOnce()
 })

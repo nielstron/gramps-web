@@ -553,5 +553,11 @@
   "Task list": "Task list",
   "Insert person": "Insert person",
   "Insert event": "Insert event",
-  "Edit Blog Post": "Edit Blog Post"
+  "Edit Blog Post": "Edit Blog Post",
+  "Save draft": "Save draft",
+  "Draft saved": "Draft saved",
+  "Publish": "Publish",
+  "My drafts": "My drafts",
+  "Untitled draft": "Untitled draft",
+  "More": "More"
 }

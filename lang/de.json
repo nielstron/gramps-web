@@ -522,5 +522,11 @@
     "Task list": "Aufgabenliste",
     "Insert person": "Person einfügen",
     "Insert event": "Ereignis einfügen",
-    "Edit Blog Post": "Blogbeitrag bearbeiten"
+    "Edit Blog Post": "Blogbeitrag bearbeiten",
+    "Save draft": "Entwurf speichern",
+    "Draft saved": "Entwurf gespeichert",
+    "Publish": "Veröffentlichen",
+    "My drafts": "Meine Entwürfe",
+    "Untitled draft": "Unbenannter Entwurf",
+    "More": "Mehr"
 }

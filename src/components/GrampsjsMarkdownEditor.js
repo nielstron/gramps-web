@@ -1,4 +1,4 @@
-import {html, css, LitElement} from 'lit'
+import {html, css, LitElement, render} from 'lit'
 import '@github/markdown-toolbar-element'
 import '@material/web/tabs/tabs.js'
 import '@material/web/tabs/primary-tab.js'
@@ -24,7 +24,7 @@ import {
 import './GrampsjsIcon.js'
 import './GrampsjsFormSelectObject.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
-import {fireEvent, personDisplayName, eventTitleFromProfile} from '../util.js'
+import {fireEvent, objectDescription, objectTypeToEndpoint} from '../util.js'
 import {saveDraft, getDraft, clearDraftsWithPrefix} from '../api.js'
 import './GrampsjsMarkdown.js'
 
@@ -171,7 +171,7 @@ export class GrampsjsMarkdownEditor extends GrampsjsAppStateMixin(LitElement) {
     event.stopPropagation()
     const selected = event.detail.objects[0]
     const handle = selected.handle ?? selected.object?.handle
-    const endpoint = {media: 'media', person: 'people', event: 'events'}[type]
+    const endpoint = objectTypeToEndpoint[type]
     const result = await this.appState.apiGet(
       `/api/${endpoint}/${handle}?profile=all`
     )
@@ -182,14 +182,9 @@ export class GrampsjsMarkdownEditor extends GrampsjsAppStateMixin(LitElement) {
     const media = result.data
     const field = this.shadowRoot.getElementById('markdown-input')
     field.setSelectionRange(...this._selection)
-    const title =
-      type === 'person'
-        ? personDisplayName(media)
-        : type === 'event'
-        ? media.description ||
-          eventTitleFromProfile(media.profile || {}) ||
-          this._('Event')
-        : media.desc || this._('Media')
+    const label = document.createElement('span')
+    render(objectDescription(type, media, this.appState.i18n.strings), label)
+    const title = label.textContent.trim() || media.gramps_id
     this._wrapSelection(
       type === 'media' && media.mime.startsWith('image/') ? '![' : '[',
       `](${type}/${encodeURIComponent(media.gramps_id)})`,
@@ -297,6 +292,24 @@ export class GrampsjsMarkdownEditor extends GrampsjsAppStateMixin(LitElement) {
               )}</md-text-button
             >`
           )}
+          <details class="more">
+            <summary>${this._('More')}</summary>
+            ${[
+              ['family', 'Family'],
+              ['place', 'Place'],
+              ['source', 'Source'],
+              ['citation', 'Citation'],
+              ['repository', 'Repository'],
+              ['note', 'Note'],
+            ].map(
+              ([type, label]) => html`<md-text-button
+                data-insert-type=${type}
+                ?disabled=${this._tab === 1}
+                @click=${() => this._openPicker(type)}
+                >${this._(label)}</md-text-button
+              >`
+            )}
+          </details>
         </markdown-toolbar>
         <div
           id="write-panel"
@@ -332,7 +345,17 @@ export class GrampsjsMarkdownEditor extends GrampsjsAppStateMixin(LitElement) {
           'Use the formatting buttons or write GitHub Flavored Markdown directly.'
         )}
       </p>
-      ${['media', 'person', 'event'].map(
+      ${[
+        'media',
+        'person',
+        'event',
+        'family',
+        'place',
+        'source',
+        'citation',
+        'repository',
+        'note',
+      ].map(
         type => html`<grampsjs-form-select-object
           id=${`picker-${type}`}
           hideButton

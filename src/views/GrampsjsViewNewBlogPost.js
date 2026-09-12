@@ -12,7 +12,6 @@ import '@material/web/textfield/outlined-text-field'
 
 import '../components/GrampsjsMarkdownEditor.js'
 import '../components/GrampsjsFormString.js'
-import '../components/GrampsjsFormPrivate.js'
 import '../components/GrampsjsFormSelectObjectList.js'
 import {GrampsjsViewNewSource} from './GrampsjsViewNewSource.js'
 
@@ -27,6 +26,8 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
   static get properties() {
     return {
       _blogTagHandle: {type: String},
+      _draftTagHandle: {type: String},
+      _savedNotice: {state: true},
       grampsId: {type: String},
       _loadedId: {state: true},
       _editorData: {state: true},
@@ -41,6 +42,9 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     this.itemPath = 'blog'
     this.objClass = 'Source'
     this._blogTagHandle = ''
+    this._draftTagHandle = ''
+    this._savingDraft = false
+    this._savedNotice = ''
     this._isSaving = false
     this.grampsId = ''
     this._loadedId = ''
@@ -105,12 +109,9 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
       ${this._renderTagsForm()}
 
       <div class="spacer"></div>
-      <grampsjs-form-private
-        id="private"
-        .checked=${!!this.data.private}
-        .appState="${this.appState}"
-      ></grampsjs-form-private>
-
+      ${this._savedNotice
+        ? html`<p role="status">${this._savedNotice}</p>`
+        : ''}
       ${this._isSaving
         ? html`<p>${this._('Saving...')}</p>`
         : this.renderButtons()}
@@ -208,7 +209,10 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     const {note, ...source} = this.data
     const tagList = [
       ...new Set(
-        [this._blogTagHandle, ...(this.data.tag_list || [])].filter(Boolean)
+        [
+          this._savingDraft ? this._draftTagHandle : this._blogTagHandle,
+          ...(this.data.tag_list || []),
+        ].filter(Boolean)
       ),
     ]
     if (!note?.text?.string) {
@@ -232,6 +236,7 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
       },
       {
         ...note,
+        private: !!this.data.private,
         handle: handleNote,
         tag_list: tagList,
       },
@@ -245,6 +250,8 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     )
     if ('data' in data) {
       this._allTags = data.data
+      this._draftTagHandle =
+        data.data.find(tag => tag.name === 'Blog Draft')?.handle || ''
       const tags = data.data.filter(tag => tag.name === 'Blog')
       if (tags.length > 0) {
         this._blogTagHandle = tags[0].handle
@@ -332,6 +339,8 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     if (note) {
       const savedNote = {
         ...note,
+        private: !!source.private,
+        tag_list: source.tag_list,
         handle: this._originalNote?.handle || makeHandle(),
       }
       if (!this._originalNote)
@@ -357,7 +366,10 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     )
     if ('error' in result) throw new Error(result.error)
     this._clearDrafts()
-    fireEvent(this, 'nav', {path: `blog/${source.gramps_id}`})
+    if (this._savingDraft) {
+      this._savedNotice = this._('Draft saved')
+      await this._loadPost()
+    } else fireEvent(this, 'nav', {path: `blog/${source.gramps_id}`})
   }
 
   renderButtons() {
@@ -365,8 +377,12 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
       <p class="right">
         <md-outlined-button @click=${this._reset}
           >${this._('Reset')}</md-outlined-button
+        ><md-outlined-button
+          ?disabled=${this._isSaving}
+          @click=${this._saveDraft}
+          >${this._('Save draft')}</md-outlined-button
         ><md-filled-button ?disabled=${this._isSaving} @click=${this._submit}
-          >${this._(this.grampsId ? 'Save' : 'Add')}</md-filled-button
+          >${this._('Publish')}</md-filled-button
         >
       </p>`
   }
@@ -379,17 +395,23 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     return field.reportValidity()
   }
 
-  async _submit() {
-    if (this._isSaving || !this._validateTitle()) {
+  _submit() {
+    return this._save(false)
+  }
+
+  _saveDraft() {
+    return this._save(true)
+  }
+
+  async _save(draft) {
+    if (this._isSaving || (!draft && !this._validateTitle())) {
       return
     }
-    this.data = {...this.data, title: this.data.title?.trim()}
+    this._savingDraft = draft
+    this._savedNotice = ''
+    this.data = {...this.data, title: this.data.title?.trim(), private: draft}
     this._isSaving = true
     try {
-      if (this.grampsId) {
-        await this._savePost()
-        return
-      }
       if (!this._blogTagHandle) {
         await this._fetchBlogTagHandle()
       }
@@ -400,6 +422,31 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
           this._errorMessage = errorMessage
           return
         }
+      }
+      if (draft && !this._draftTagHandle) {
+        const result = await this.appState.apiPost('/api/tags/', {
+          name: 'Blog Draft',
+        })
+        if ('error' in result) throw new Error(result.error)
+        await this._fetchBlogTagHandle()
+        if (!this._draftTagHandle)
+          throw new Error(this._('Failed to fetch the Blog tag'))
+      }
+      this.data = {
+        ...this.data,
+        tag_list: [
+          ...new Set([
+            ...(this.data.tag_list || []).filter(
+              handle =>
+                ![this._blogTagHandle, this._draftTagHandle].includes(handle)
+            ),
+            draft ? this._draftTagHandle : this._blogTagHandle,
+          ]),
+        ],
+      }
+      if (this.grampsId) {
+        await this._savePost()
+        return
       }
       const userId = this.appState.auth?.claims?.sub
       if (userId) {
@@ -428,7 +475,11 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
         )[0].new.gramps_id
         const {page, pageId} = this.appState?.path || {page: '', pageId: ''}
         clearDraftsWithPrefix(`${page}:${pageId}:`)
-        fireEvent(this, 'nav', {path: this._getItemPath(grampsId)})
+        fireEvent(this, 'nav', {
+          path: draft
+            ? `new_blog_post/${grampsId}`
+            : this._getItemPath(grampsId),
+        })
         this._reset()
       } else if ('error' in data) {
         this.error = true

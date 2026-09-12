@@ -2,6 +2,7 @@ import {css, html} from 'lit'
 import {mdiPlus} from '@mdi/js'
 
 import '@material/web/fab/fab.js'
+import '@material/web/button/text-button.js'
 import {GrampsjsView} from './GrampsjsView.js'
 import '../components/GrampsjsBlogPostPreview.js'
 import '../components/GrampsjsIcon.js'
@@ -57,6 +58,7 @@ export class GrampsjsViewBlog extends GrampsjsStaleDataMixin(GrampsjsView) {
   static get properties() {
     return {
       _dataSources: {type: Array},
+      _drafts: {state: true},
       _dataNotes: {type: Array},
       _totalCount: {type: Number},
       _page: {type: Number},
@@ -67,6 +69,7 @@ export class GrampsjsViewBlog extends GrampsjsStaleDataMixin(GrampsjsView) {
   constructor() {
     super()
     this._dataSources = []
+    this._drafts = []
     this._dataNotes = []
     this._page = 1
     this._pageSize = 6
@@ -77,6 +80,23 @@ export class GrampsjsViewBlog extends GrampsjsStaleDataMixin(GrampsjsView) {
 
   renderContent() {
     return html`
+      ${this._drafts.length
+        ? html`<section>
+            <h3>${this._('My drafts')}</h3>
+            ${this._drafts.map(
+              source =>
+                html`<p>
+                  <md-text-button
+                    @click=${() =>
+                      fireEvent(this, 'nav', {
+                        path: `new_blog_post/${source.gramps_id}`,
+                      })}
+                    >${source.title || this._('Untitled draft')}</md-text-button
+                  >
+                </p>`
+            )}
+          </section>`
+        : ''}
       ${this.renderPosts()}
       ${this._totalCount > 0 ? this.renderPagination() : ''}
       ${this.appState.permissions.canAdd ? this.renderFab() : ''}
@@ -169,7 +189,38 @@ export class GrampsjsViewBlog extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._fetchData()
   }
 
+  updated(changed) {
+    super.updated(changed)
+    if (
+      this.active &&
+      (changed.has('active') ||
+        (changed.has('appState') &&
+          this.appState.permissions.canAdd &&
+          !changed.get('appState')?.permissions?.canAdd))
+    )
+      this._fetchDrafts()
+  }
+
+  async _fetchDrafts() {
+    if (!this.appState.permissions.canAdd) return
+    const rules = {rules: [{name: 'HasTag', values: ['Blog Draft']}]}
+    const result = await this.appState.apiGet(
+      `/api/sources/?rules=${encodeURIComponent(
+        JSON.stringify(rules)
+      )}&sort=-change`
+    )
+    if (result.data)
+      this._drafts = result.data.filter(source =>
+        source.attribute_list?.some(
+          attribute =>
+            (attribute.type?.string || attribute.type) === 'Blog author' &&
+            attribute.value === this.appState.auth?.claims?.sub
+        )
+      )
+  }
+
   async _fetchData() {
+    this._fetchDrafts()
     this.loading = true
     const rules = {
       rules: [

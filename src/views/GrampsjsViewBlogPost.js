@@ -2,6 +2,7 @@ import {css, html} from 'lit'
 
 import {GrampsjsView} from './GrampsjsView.js'
 import '../components/GrampsjsBlogPost.js'
+import {fireEvent} from '../util.js'
 import {appUrl} from '../appUrl.js'
 
 export class GrampsjsViewBlogPost extends GrampsjsView {
@@ -110,6 +111,17 @@ export class GrampsjsViewBlogPost extends GrampsjsView {
       if ('data' in data) {
         this.error = false
         this._dataSources = data.data
+        const source = data.data[0]
+        if (
+          source?.private &&
+          source.attribute_list?.some(
+            a =>
+              (a.type?.string || a.type) === 'Blog author' &&
+              a.value === this.appState.auth?.claims?.sub
+          )
+        ) {
+          fireEvent(this, 'nav', {path: `new_blog_post/${source.gramps_id}`})
+        }
       } else if ('error' in data) {
         this.error = true
         this._errorMessage = data.error
