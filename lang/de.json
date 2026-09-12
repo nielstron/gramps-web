@@ -528,5 +528,8 @@
     "Publish": "Veröffentlichen",
     "My drafts": "Meine Entwürfe",
     "Untitled draft": "Unbenannter Entwurf",
-    "More": "Mehr"
+    "More": "Mehr",
+    "Unpublish": "Veröffentlichung zurücknehmen",
+    "Post unpublished": "Veröffentlichung zurückgenommen",
+    "Changes saved": "Änderungen gespeichert"
 }

@@ -334,6 +334,7 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
   }
 
   async _savePost() {
+    const wasPublished = !this._originalSource.private
     const {note, ...source} = this.data
     const changes = []
     if (note) {
@@ -366,8 +367,14 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     )
     if ('error' in result) throw new Error(result.error)
     this._clearDrafts()
-    if (this._savingDraft) {
-      this._savedNotice = this._('Draft saved')
+    if (this._savingDraft || wasPublished) {
+      this._savedNotice = this._(
+        this._savingDraft
+          ? wasPublished
+            ? 'Post unpublished'
+            : 'Draft saved'
+          : 'Changes saved'
+      )
       await this._loadPost()
     } else fireEvent(this, 'nav', {path: `blog/${source.gramps_id}`})
   }
@@ -380,9 +387,17 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
         ><md-outlined-button
           ?disabled=${this._isSaving}
           @click=${this._saveDraft}
-          >${this._('Save draft')}</md-outlined-button
+          >${this._(
+            this._originalSource && !this._originalSource.private
+              ? 'Unpublish'
+              : 'Save draft'
+          )}</md-outlined-button
         ><md-filled-button ?disabled=${this._isSaving} @click=${this._submit}
-          >${this._('Publish')}</md-filled-button
+          >${this._(
+            this._originalSource && !this._originalSource.private
+              ? 'Save'
+              : 'Publish'
+          )}</md-filled-button
         >
       </p>`
   }
