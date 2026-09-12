@@ -508,12 +508,12 @@
   "Media unavailable": "Media unavailable",
   "GitHub Flavored Markdown with basic HTML. Embed an internal image with": "GitHub Flavored Markdown with basic HTML. Embed an internal image with",
   "Invitation email": "Invitation email",
-  "Customize invitations for this family tree. Use {tree_name} for the tree name and {invite_url} for the personal link. The setup button and expiry notice are always included.": "Customize invitations for this family tree. Use {tree_name} for the tree name and {invite_url} for the personal link. The setup button and expiry notice are always included.",
   "Email subject": "Email subject",
   "Email message": "Email message",
   "Your personal invitation link": "Your personal invitation link",
-  "You are invited to {tree_name}": "You are invited to {tree_name}",
-  "You have been invited to join {tree_name}. Choose your username, full name, and password using the link below.": "You have been invited to join {tree_name}. Choose your username, full name, and password using the link below.",
   "This invitation expires in 7 days.": "This invitation expires in 7 days.",
-  "Set up your account": "Set up your account"
+  "Set up your account": "Set up your account",
+  "Customize invitations for this family tree. Use %s for the tree name and %s for the personal link. The setup button and expiry notice are always included.": "Customize invitations for this family tree. Use %s for the tree name and %s for the personal link. The setup button and expiry notice are always included.",
+  "You are invited to %s": "You are invited to %s",
+  "You have been invited to join %s. Choose your username, full name, and password using the link below.": "You have been invited to join %s. Choose your username, full name, and password using the link below."
 }
