@@ -138,7 +138,7 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
 
   handleName(e) {
     this.checkFormValidity()
-    this.data = {...this.data, title: e.target.value.trim()}
+    this.data = {...this.data, title: e.target.value}
   }
 
   _handleFormData(e) {
@@ -372,13 +372,18 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
   }
 
   _validateTitle() {
-    return this.shadowRoot.getElementById('source-name').reportValidity()
+    const field = this.shadowRoot.getElementById('source-name')
+    field.setCustomValidity(
+      field.value.trim() ? '' : this._('This field is mandatory')
+    )
+    return field.reportValidity()
   }
 
   async _submit() {
     if (this._isSaving || !this._validateTitle()) {
       return
     }
+    this.data = {...this.data, title: this.data.title?.trim()}
     this._isSaving = true
     try {
       if (this.grampsId) {

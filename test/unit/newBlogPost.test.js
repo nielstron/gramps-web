@@ -477,3 +477,13 @@ describe('blog edit visibility', () => {
     expect(post._isAuthor()).toBe(false)
   })
 })
+
+describe('blog title typing', () => {
+  it('preserves spaces while typing a multiword title', () => {
+    const element = makeElement()
+    element.handleName({target: {value: 'Family '}})
+    expect(element.data.title).toBe('Family ')
+    element.handleName({target: {value: 'Family history '}})
+    expect(element.data.title).toBe('Family history ')
+  })
+})
