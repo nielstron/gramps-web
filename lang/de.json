@@ -468,5 +468,21 @@
     "Failed to fetch the Blog tag": "Das Abrufen des Blog-Tags ist fehlgeschlagen",
     "Only the most recent revisions are shown.": "Es werden nur die neuesten Überarbeitungen angezeigt.",
     "The server uses configuration options that are no longer supported.": "Der Server verwendet Konfigurationsoptionen, die nicht mehr unterstützt werden.",
-    "Support will be removed in Gramps Web API %s.": "Die Unterstützung wird in der Gramps-Web-API %s eingestellt."
+    "Support will be removed in Gramps Web API %s.": "Die Unterstützung wird in der Gramps-Web-API %s eingestellt.",
+    "Navigation sections": "Navigationsbereiche",
+    "Choose which sections appear in the left navigation for everyone using this family tree. Advanced sections appear in an expandable menu. Changes are saved automatically.": "Wähle, welche Bereiche für alle Benutzer dieses Stammbaums links angezeigt werden. Erweiterte Bereiche erscheinen in einem aufklappbaren Menü. Änderungen werden automatisch gespeichert.",
+    "Visible": "Sichtbar",
+    "Advanced": "Erweitert",
+    "Hidden": "Ausgeblendet",
+    "Media unavailable": "Medium nicht verfügbar",
+    "GitHub Flavored Markdown with basic HTML. Embed an internal image with": "GitHub Flavored Markdown mit einfachem HTML. Ein internes Bild einbetten mit",
+    "Invitation email": "Einladungs-E-Mail",
+    "Customize invitations for this family tree. Use {tree_name} for the tree name and {invite_url} for the personal link. The setup button and expiry notice are always included.": "Passe Einladungen für diesen Stammbaum an. Verwende {tree_name} für den Namen und {invite_url} für den persönlichen Link. Der Einrichtungsbutton und der Ablaufhinweis werden immer hinzugefügt.",
+    "Email subject": "E-Mail-Betreff",
+    "Email message": "E-Mail-Nachricht",
+    "Your personal invitation link": "Dein persönlicher Einladungslink",
+    "You are invited to {tree_name}": "Du bist zu {tree_name} eingeladen",
+    "You have been invited to join {tree_name}. Choose your username, full name, and password using the link below.": "Du bist zu {tree_name} eingeladen. Wähle über den folgenden Link deinen Benutzernamen, vollständigen Namen und dein Passwort.",
+    "This invitation expires in 7 days.": "Diese Einladung läuft in 7 Tagen ab.",
+    "Set up your account": "Konto einrichten"
 }

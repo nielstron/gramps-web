@@ -1,3 +1,5 @@
+import '../components/GrampsjsInvitationSettings.js'
+import '../components/GrampsjsNavigationSettings.js'
 import {css, html} from 'lit'
 
 import {GrampsjsView} from './GrampsjsView.js'
@@ -702,6 +704,15 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
             >${this._('_Save')}</md-outlined-button
           >
         </p>
+
+        <grampsjs-navigation-settings
+          .appState=${this.appState}
+        ></grampsjs-navigation-settings>
+
+        <grampsjs-invitation-settings
+          .appState=${this.appState}
+          .treeName=${this._treeName}
+        ></grampsjs-invitation-settings>
 
         <h3>${this._('Home page note')}</h3>
         ${this.appState.treeConfig?.[TREE_CONFIG_HOME_PAGE_NOTE]

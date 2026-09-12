@@ -2,7 +2,7 @@ import {html} from 'lit'
 
 import '@material/web/textfield/outlined-text-field'
 
-import '../components/GrampsjsEditor.js'
+import '../components/GrampsjsMarkdownEditor.js'
 import '../components/GrampsjsFormString.js'
 import '../components/GrampsjsFormPrivate.js'
 import '../components/GrampsjsFormSelectObjectList.js'
@@ -54,11 +54,11 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
 
       <h4 class="label">${this._('Content')}</h4>
       <p>
-        <grampsjs-editor
+        <grampsjs-markdown-editor
           @formdata:changed="${this.handleEditor}"
           id="blog-post-content-editor"
           .appState="${this.appState}"
-        ></grampsjs-editor>
+        ></grampsjs-markdown-editor>
       </p>
 
       <h4 class="label">${this._('Media')}</h4>
@@ -105,7 +105,7 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     if (e.detail?.data?.string && e.detail.data.string.trim()) {
       this.data = {
         ...this.data,
-        note: {_class: 'Note', text: e.detail.data},
+        note: {_class: 'Note', type: 'Markdown', text: e.detail.data},
       }
     } else {
       const {note, ...data} = this.data
@@ -129,7 +129,7 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     if (name) {
       name.value = ''
     }
-    const text = this.shadowRoot.querySelector('grampsjs-editor')
+    const text = this.shadowRoot.querySelector('grampsjs-markdown-editor')
     text.reset()
     this.isFormValid = false
     this.data = {...dataDefault}
