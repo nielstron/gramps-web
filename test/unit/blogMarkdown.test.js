@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import {describe, it, expect} from 'vitest'
+import {describe, it, expect, vi} from 'vitest'
+import {GrampsjsMarkdown} from '../../src/components/GrampsjsMarkdown.js'
 import {
   markdownFragment,
   internalMediaId,
@@ -62,4 +63,20 @@ describe('blog Markdown', () => {
     expect(isMarkdownNote({type: 'Markdown'})).toBe(true)
     expect(isMarkdownNote({type: 'Source Note'})).toBe(false)
   })
+})
+
+it('links embedded internal images to their media detail page', async () => {
+  const element = new GrampsjsMarkdown()
+  element.appState = {
+    apiGet: vi.fn().mockResolvedValue({data: []}),
+    i18n: {strings: {}},
+  }
+  element.content =
+    '![Photo](media/O0011) ![External](https://example.org/photo.png)'
+  document.body.append(element)
+  await element.updateComplete
+  const images = element.shadowRoot.querySelectorAll('img')
+  expect(images[0].closest('a')?.getAttribute('href')).toBe('/media/O0011')
+  expect(images[1].closest('a')).toBeNull()
+  element.remove()
 })
