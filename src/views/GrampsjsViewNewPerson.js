@@ -29,6 +29,7 @@ export class GrampsjsViewNewPerson extends GrampsjsNewPersonMixin(
 
   async _submit() {
     const processedData = this._processedData()
+    const treeWasEmpty = this.appState.dbInfo?.object_counts?.people === 0
     const data = await this.appState.apiPost(this.postUrl, processedData)
     if ('error' in data) {
       this.error = true
@@ -38,6 +39,9 @@ export class GrampsjsViewNewPerson extends GrampsjsNewPersonMixin(
 
     this.error = false
     const created = data.data.find(obj => obj.new._class === 'Person').new
+    if (treeWasEmpty && !('homePerson' in (this.appState.settings ?? {}))) {
+      this.appState.updateSettings({homePerson: created.gramps_id}, true)
+    }
     await this._handleCreatedObjects([created])
   }
 }

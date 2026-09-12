@@ -349,6 +349,8 @@
   "Base Map": "Base Map",
   "Historical Map": "Historical Map",
   "To start building your family tree, add yourself as a person or import a family tree file.": "To start building your family tree, add yourself as a person or import a family tree file.",
+  "Get started": "Get started",
+  "Connect the people in your tree by adding a family.": "Connect the people in your tree by adding a family.",
   "Metadata": "Metadata",
   "Please select a different person.": "Please select a different person.",
   "No Y-DNA data found.": "No Y-DNA data found.",
@@ -419,6 +421,8 @@
   "Irreversible operations on tree data": "Irreversible operations on tree data",
   "Changes here only affect your account.": "Changes here only affect your account.",
   "Changes here affect all users of this tree.": "Changes here affect all users of this tree.",
+  "The server uses configuration options that are no longer supported.": "The server uses configuration options that are no longer supported.",
+  "Support will be removed in Gramps Web API %s.": "Support will be removed in Gramps Web API %s.",
   "Display preferences saved on this device": "Display preferences saved on this device",
   "Display preferences synchronized with your account": "Display preferences synchronized with your account",
   "Recently changed": "Recently changed",
@@ -493,5 +497,7 @@
   "Set up manually": "Set up manually",
   "Create the account directly with the details below.": "Create the account directly with the details below.",
   "Create user": "Create user",
-  "User created": "User created"
+  "User created": "User created",
+  "Only the most recent revisions are shown.": "Only the most recent revisions are shown.",
+  "This Gramps Web instance has already been set up. Log in with an existing account.": "This Gramps Web instance has already been set up. Log in with an existing account."
 }

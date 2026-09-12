@@ -350,10 +350,14 @@ describe('RelationshipChart', () => {
       /^M[-\d.]+,([-\d.]+)C.* [-\d.]+,([-\d.]+)$/
     )
     const nodeBottom = handle => {
-      const transform = svg
-        .querySelector(`[data-handle="${handle}"]`)
-        .getAttribute('transform')
-      return Number(transform.match(/translate\([^ ]+ ([-\d.]+)/)[1]) + 90
+      const node = svg.querySelector(`[data-handle="${handle}"]`)
+      const transform = node.getAttribute('transform')
+      const box = node.querySelector('.personBox')
+      return (
+        Number(transform.match(/translate\([^ ]+ ([-\d.]+)/)[1]) +
+        Number(box.getAttribute('y')) +
+        Number(box.getAttribute('height'))
+      )
     }
     expect(Number(sourceY)).toBeCloseTo(nodeBottom('P'))
     expect(Number(targetY)).toBeCloseTo(nodeBottom('S3'))

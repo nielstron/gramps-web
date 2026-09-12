@@ -1,28 +1,34 @@
 import {html, css} from 'lit'
-import {zoomTransform} from 'd3-zoom'
 
 import '@material/mwc-menu'
 import '@material/mwc-list/mwc-list-item'
 
 import {TreeChart} from '../charts/TreeChart.js'
-import {GrampsjsChartBase} from './GrampsjsChartBase.js'
 import {
-  getDescendantTree,
-  getPersonByGrampsId,
-  getTree,
-  getImageUrl,
-} from '../charts/util.js'
+  layoutAncestors,
+  layoutDescendants,
+  layoutHourglass,
+} from '../charts/layout/treeLayout.js'
+import {GrampsjsChartBase} from './GrampsjsChartBase.js'
+import {getDescendantTree, getTree, getImageUrl} from '../charts/util.js'
 import {fireEvent, clickKeyHandler} from '../util.js'
+
+// Properties that change the layout of the chart
+const layoutProperties = [
+  'data',
+  'grampsId',
+  'ancestors',
+  'descendants',
+  'nAnc',
+  'nDesc',
+  'gapX',
+]
 
 class GrampsjsTreeChart extends GrampsjsChartBase {
   static get styles() {
     return [
       super.styles,
       css`
-        svg a {
-          text-decoration: none !important;
-        }
-
         mwc-menu {
           --mdc-typography-subtitle1-font-size: 13px;
           --mdc-menu-item-height: 36px;
@@ -52,7 +58,8 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
     this.nDesc = 5
     this.gapX = 30
     this.gapY = 5
-    this._savedZoom = null
+    this._chart = new TreeChart()
+    this._layout = null
   }
 
   render() {
@@ -61,42 +68,58 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
         @pedigree:show-children="${this._handleShowChildren}"
         style="position:relative;"
       >
-        <div id="container">${this.renderChart()}</div>
+        <div id="container"></div>
         ${this.renderChildrenMenu()}
       </div>
     `
   }
 
-  willUpdate(changedProperties) {
-    if (changedProperties.has('grampsId')) {
-      this._savedZoom = null
-      return
+  firstUpdated() {
+    super.firstUpdated()
+    this.renderRoot.getElementById('container').append(this._chart.node)
+  }
+
+  willUpdate(changed) {
+    super.willUpdate(changed)
+    if (layoutProperties.some(name => changed.has(name))) {
+      this._layout = this._computeLayout()
     }
-    // Save zoom transform before Lit replaces the SVG node
-    const svg = this.renderRoot
-      ?.getElementById('container')
-      ?.querySelector('svg')
-    this._savedZoom = svg ? zoomTransform(svg) : null
   }
 
   updated() {
+    this._drawChart()
     this._updateMenuAnchor()
   }
 
-  renderChart() {
-    if (this.data.length === 0 || !this.grampsId) {
-      return ''
-    }
-    const {handle} = getPersonByGrampsId(this.data, this.grampsId)
+  _computeLayout() {
+    const {handle} = this._graph.personByGrampsId(this.grampsId) ?? {}
     if (!handle) {
-      return ''
+      return null
     }
-    const dataDescendants = this.descendants
-      ? getDescendantTree(this.data, handle, this.nDesc)
-      : false
-    const dataAncestors = this.ancestors
-      ? getTree(this.data, handle, this.nAnc, false)
-      : false
+    if (this.ancestors && this.descendants) {
+      return layoutHourglass(this._graph, handle, {
+        ancestorDepth: this.nAnc,
+        descendantDepth: this.nDesc,
+        gapX: this.gapX,
+      })
+    }
+    if (this.descendants) {
+      return layoutDescendants(this._graph, handle, {
+        depth: this.nDesc,
+        gapX: this.gapX,
+      })
+    }
+    return layoutAncestors(this._graph, handle, {
+      depth: this.nAnc,
+      gapX: this.gapX,
+    })
+  }
+
+  _drawChart() {
+    if (!this._layout) {
+      this._chart.clear()
+      return
+    }
     let childrenTriangle = false
     if (this.descendants && this.ancestors) {
       childrenTriangle = false
@@ -105,48 +128,35 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
     } else {
       childrenTriangle = this._hasChildren()
     }
-    return html`
-      ${TreeChart(dataDescendants, dataAncestors, {
-        nAnc: this.nAnc,
-        nDesc: this.nDesc,
-        childrenTriangle,
-        getImageUrl: d => getImageUrl(d?.data?.person || {}, 100),
+    this._chart.update(this._layout, {
+      childrenTriangle,
+        getImageUrl: d => getImageUrl(d.person, 100),
         orientation: this.descendants ? 'RTL' : 'LTR',
-        gapX: this.gapX,
         gapY: this.gapY,
         bboxWidth: this.containerWidth,
         bboxHeight: this.containerHeight,
         nameDisplayFormat: this.nameDisplayFormat,
         canEdit: this.canEdit,
         openProfileLabel: this._('Person Details'),
-        initialZoom: this._savedZoom,
-      })}
-    `
+    })
   }
 
   _hasChildren() {
-    const {handle} = getPersonByGrampsId(this.data, this.grampsId)
-    const data = getDescendantTree(this.data, handle, 2)
-    if (data.children && data.children.length) {
-      return true
-    }
-    return false
+    const {handle} = this._graph.personByGrampsId(this.grampsId) ?? {}
+    return this._graph.children(handle, {birthOnly: true}).length > 0
   }
 
   _hasParents() {
-    const {handle} = getPersonByGrampsId(this.data, this.grampsId)
-    const data = getTree(this.data, handle, 2, false)
-    if (data.children && data.children.length) {
-      return true
-    }
-    return false
+    const {handle} = this._graph.personByGrampsId(this.grampsId) ?? {}
+    const {father, mother} = this._graph.parents(handle)
+    return Boolean(father || mother)
   }
 
   renderChildrenMenu() {
-    const {handle} = getPersonByGrampsId(this.data, this.grampsId)
+    const {handle} = this._graph.personByGrampsId(this.grampsId) ?? {}
     const data = this.descendants
-      ? getTree(this.data, handle, 2, false)
-      : getDescendantTree(this.data, handle, 2)
+      ? getTree(this._graph, handle, 2, false)
+      : getDescendantTree(this._graph, handle, 2)
     const {children} = data
     if (!children || !children.length) {
       return ''

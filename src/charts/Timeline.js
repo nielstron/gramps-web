@@ -51,6 +51,7 @@ function attachPreviewHandlers(selection, getAnchorEl = el => el) {
             objectType: 'event',
             grampsId: d.gramps_id,
             anchorRect: getAnchorEl(this).getBoundingClientRect(),
+            chart: true,
           },
         })
       )

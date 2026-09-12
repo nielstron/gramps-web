@@ -53,9 +53,7 @@ import {renderIconSvg, ringsIconPath} from './icons.js'
 import './components/GrampsjsIcon.js'
 import {frontendLanguages} from './strings.js'
 
-import {dateToSdn, CALENDARS} from './gcalendar.js'
 import {formatDateString} from './date.js'
-
 dayjs.extend(relativeTime)
 
 export const emptyDate = {
@@ -194,6 +192,19 @@ export const objectIconPath = {
   tag: mdiLabel,
 }
 
+export const objectTypeSingular = {
+  person: 'Person',
+  family: 'Family',
+  event: 'Event',
+  place: 'Place',
+  source: 'Source',
+  citation: 'Citation',
+  repository: 'Repository',
+  note: 'Note',
+  media: 'Media Object',
+  tag: 'Tag',
+}
+
 export const objectTypePlural = {
   person: 'People',
   family: 'Families',
@@ -294,6 +305,20 @@ export const objectTypeToEndpoint = {
   media: 'media',
   tag: 'tags',
   object: 'objects',
+}
+
+// Gramps object class names, as used e.g. by the change history API
+export const endpointToObjectClass = {
+  people: 'Person',
+  families: 'Family',
+  events: 'Event',
+  places: 'Place',
+  sources: 'Source',
+  citations: 'Citation',
+  repositories: 'Repository',
+  notes: 'Note',
+  media: 'Media',
+  tags: 'Tag',
 }
 
 export const eventTypeStrings = {
@@ -544,11 +569,6 @@ function uuidv4() {
 
 export function makeHandle() {
   return uuidv4()
-}
-
-// Thin wrapper around dateToSdn for Gregorian dates.
-export function getSortval(year, month, day) {
-  return dateToSdn(CALENDARS.GREGORIAN, year, month, day)
 }
 
 export function getBrowserLanguage() {
@@ -871,6 +891,14 @@ export function stripHtml(input) {
 export const chartNameDisplayFormat = {
   surnameThenGiven: 'Surname First',
   givenThenSurname: 'Given Name First',
+}
+
+// Colour for each value of a person profile's `sex`
+export const sexColor = {
+  F: 'var(--color-girl)',
+  M: 'var(--color-boy)',
+  X: 'var(--color-other)',
+  U: 'var(--color-unknown)',
 }
 
 export function apiVersionAtLeast(dbInfo, major, minor, patch = 0) {

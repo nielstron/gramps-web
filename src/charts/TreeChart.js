@@ -1,438 +1,208 @@
-import {min, max} from 'd3-array'
-import {create} from 'd3-selection'
-import {hierarchy, tree} from 'd3-hierarchy'
+import {create, local} from 'd3-selection'
 import {curveBumpX, link, symbolTriangle, symbol} from 'd3-shape'
-import {zoom} from 'd3-zoom'
+import {zoom, zoomIdentity, zoomTransform} from 'd3-zoom'
+import {fireEvent} from '../util.js'
+import {treeLayoutDefaults} from './layout/treeLayout.js'
+import {chartPalette} from './palette.js'
 import {
-  chartNameDisplayFormat,
-  fireEvent,
-  personGivenNameFromProfile,
-} from '../util.js'
-import {appendAddPersonButton} from './addPersonButton.js'
-import {appendOpenPersonButton} from './openPersonButton.js'
-import {formatDateString} from '../date.js'
+  appendPersonCard,
+  clearPersonCardInteraction,
+  setPersonCardInteraction,
+} from './personCard.js'
 
-const genderColor = {
-  0: 'var(--color-girl)',
-  1: 'var(--color-boy)',
-  2: 'var(--color-unknown)',
-  3: 'var(--color-other)',
-}
-
-// Returns the total depth of the tree
-function countDepthOfTree(treeData) {
-  if (treeData == null) {
-    return 0
+// Returns the viewBox start along one axis. A chart that fits the view is
+// centred as a whole. One that overflows is centred on `focus`, without
+// showing space beyond the chart's extent.
+export function viewBoxStart(focus, extentMin, extentMax, viewSize) {
+  if (extentMax - extentMin <= viewSize) {
+    return (extentMin + extentMax - viewSize) / 2
   }
-  return (
-    1 +
-    Math.max(
-      countDepthOfTree(treeData?.children?.[0]),
-      countDepthOfTree(treeData?.children?.[1])
-    )
+  return Math.min(
+    Math.max(focus - viewSize / 2, extentMin),
+    extentMax - viewSize
   )
 }
 
-function getMinMaxX(descendants) {
-  const xValues = descendants.map(d => d.x)
-  const maxX = max(xValues)
-  const minX = min(xValues)
-  return [minX, maxX]
-}
+// The inputs each card was last drawn with
+const cardInputs = local()
 
-function TreeChartCore(
-  svgParent,
-  data,
-  {
-    depth = 3,
-    padding = 20, // horizontal padding for first and last column
-    gapX = 30, // horizontal gap between boxes
-    gapY = 5, // vertical gap between boxes
-    stroke = 'var(--grampsjs-body-font-color-70)', // stroke for links
-    strokeWidth = 1, // stroke width for links
-    strokeOpacity = 0.4, // stroke opacity for links
-    strokeLinejoin, // stroke line join for links
-    strokeLinecap, // stroke line cap for links
-    curve = curveBumpX, // curve for the link
-    boxWidth = 190,
-    boxHeight = 90,
-    imgPadding = 10,
-    childrenTriangle = true,
-    getImageUrl = null,
-    orientation = 'LTR',
-    nameDisplayFormat = chartNameDisplayFormat.surnameThenGiven,
-    canEdit = false,
-    openProfileLabel = 'Person Details',
-  } = {}
-) {
-  // Create a hierarchical data structure based on the input data
-  const root = hierarchy(data)
-
-  const descendants = root.descendants()
-
-  // The true depth of the tree may be less than the passed in "depth" if the tree just doesn't
-  // go that far back
-  const trueDepth = Math.min(countDepthOfTree(data), depth)
-
-  tree()
-    .nodeSize([boxHeight + gapY, boxWidth + gapX])
-    .separation((a, b) => (a.parent === b.parent ? 1 : 1))(root)
-
-  // Center the tree.
-  let x0 = Infinity
-  let x1 = -x0
-  root.each(d => {
-    if (d.x > x1) x1 = d.x
-    if (d.x < x0) x0 = d.x
-  })
-
-  if (orientation === 'RTL') {
-    descendants.forEach(d => {
-      // eslint-disable-next-line no-param-reassign
-      d.y = -d.y
-    })
+// Draws layouts from `layoutAncestors`, `layoutDescendants` or
+// `layoutHourglass` into an SVG that is created once. Each update changes only
+// what differs: positions, the viewBox and edit mode are updated in place, and
+// a card is redrawn only when its person, image, name format or palette
+// changes.
+export class TreeChart {
+  constructor() {
+    this._zoom = zoom().on('zoom', event =>
+      this._content.attr('transform', event.transform)
+    )
+    this._svg = create('svg')
+      .attr('font-family', 'Inter var')
+      .attr('font-size', 13)
+      .call(this._zoom)
+    this._content = this._svg.append('g').attr('id', 'chart-content')
+    this._links = this._content
+      .append('g')
+      .attr('fill', 'none')
+      .attr('stroke-opacity', 0.4)
+      .attr('stroke-width', 1)
+    this._nodes = this._content.append('g')
+    this._rootHandle = undefined
   }
-  // Use the required curve
-  if (typeof curve !== 'function') throw new Error('Unsupported curve')
-  const width = trueDepth * boxWidth + (trueDepth - 1) * gapX + 2 * padding
-  const [minX, maxX] = getMinMaxX(descendants)
-  const height = maxX - minX + boxHeight
-  const yOffset = minX - boxHeight / 2
-  const xOffset =
-    orientation === 'RTL'
-      ? boxWidth / 2 + padding - width
-      : -boxWidth / 2 - padding
 
-  const chart = svgParent
-    .append('g')
-    .attr('transform', `translate(${-xOffset},${0})`)
+  get node() {
+    return this._svg.node()
+  }
 
-  chart
-    .append('g')
-    .attr('fill', 'none')
-    .attr('stroke', stroke)
-    .attr('stroke-opacity', strokeOpacity)
-    .attr('stroke-linecap', strokeLinecap)
-    .attr('stroke-linejoin', strokeLinejoin)
-    .attr('stroke-width', strokeWidth)
-    .selectAll('path')
-    .data(root.links())
-    .join('path')
-    .attr('d', d => {
-      const sourceX = d.source.x
-      const sourceY =
-        orientation === 'LTR'
-          ? d.source.y + boxWidth / 2 - 10
-          : d.source.y - boxWidth / 2 + 10
-      const targetX = d.target.x
-      const targetY =
-        orientation === 'LTR'
-          ? d.target.y - boxWidth / 2 + 10
-          : d.target.y + boxWidth / 2 - 10
+  // Removes all people and links, keeping the zoom transform
+  clear() {
+    this._links.selectChildren().remove()
+    this._nodes.selectChildren().remove()
+  }
 
-      return link(curve)
-        .x(dd => dd.y)
-        .y(dd => dd.x)({
-        source: {x: sourceX, y: sourceY},
-        target: {x: targetX, y: targetY},
+  // With `childrenTriangle`, the root person gets a triangle that opens the
+  // menu of relatives, on the left for orientation 'LTR' and on the right for
+  // 'RTL'. Without `interactive`, the chart has no add person buttons,
+  // triangle, click or hover handling, cursors or shadows. Colours come from
+  // `palette`.
+  update(
+    layout,
+    {
+      childrenTriangle = false,
+      orientation = 'LTR',
+      getImageUrl = () => '',
+      nameDisplayFormat,
+      openProfileLabel = '',
+      locale,
+      canEdit = false,
+      interactive = true,
+      palette = chartPalette,
+      bboxWidth,
+      bboxHeight,
+    }
+  ) {
+    const {boxWidth, boxHeight} = treeLayoutDefaults
+    const {xMin, xMax, yMin, yMax} = layout.bounds
+    this._svg.attr('viewBox', [
+      viewBoxStart(0, xMin, xMax, bboxWidth),
+      viewBoxStart(0, yMin, yMax, bboxHeight),
+      bboxWidth,
+      bboxHeight,
+    ])
+    this._resetPanForNewRoot(layout)
+
+    // Links join the facing sides of two boxes, slightly inside their edges
+    const linkInset = boxWidth / 2 - 10
+    this._links
+      .attr('stroke', palette.link)
+      .selectChildren('path')
+      .data(layout.links, l => l.target.key)
+      .join('path')
+      .attr('d', ({source, target}) => {
+        const direction = Math.sign(target.x - source.x)
+        return link(curveBumpX)({
+          source: [source.x + direction * linkInset, source.y],
+          target: [target.x - direction * linkInset, target.y],
+        })
       })
+
+    const nodes = this._nodes
+      .selectChildren('.person-node')
+      .data(layout.nodes, d => d.key)
+      .join(enter => {
+        const node = enter.append('g').attr('class', 'person-node')
+        node.append('g').attr('class', 'person-card')
+        return node
+      })
+      .attr('transform', d => `translate(${d.x},${d.y})`)
+      .style('filter', d =>
+        interactive && d.generation === 0
+          ? `drop-shadow(0 3px 8px ${palette.shadow})`
+          : null
+      )
+
+    const changedCards = nodes
+      .filter(function (d) {
+        const inputs = {
+          person: d.person,
+          imageUrl: getImageUrl(d),
+          nameDisplayFormat,
+          locale,
+          palette,
+        }
+        const previous = cardInputs.get(this)
+        cardInputs.set(this, inputs)
+        return (
+          !previous ||
+          Object.keys(inputs).some(key => inputs[key] !== previous[key])
+        )
+      })
+      .select('.person-card')
+    changedCards.selectChildren().remove()
+    appendPersonCard(changedCards, {
+      profile: d => d.person?.profile,
+      imageUrl: getImageUrl,
+      boxWidth,
+      boxHeight,
+      nameDisplayFormat,
+      locale,
+      palette,
     })
 
-  const node = chart
-    .append('g')
-    .selectAll('a')
-    .data(descendants)
-    .join('a')
-    .attr('transform', d => `translate(${d.y},${d.x})`)
-    .style('filter', d =>
-      d.depth === 0
-        ? 'drop-shadow(0 3px 8px var(--grampsjs-body-font-color-30))'
-        : null
-    )
-
-  node
-    .append('rect')
-    .filter(d => d.data.person)
-    .attr(
-      'fill',
-      d => genderColor[d.data?.person?.gender] ?? 'var(--color-unknown)'
-    )
-    .attr('width', 24)
-    .attr('height', boxHeight - 1)
-    .attr('rx', 12)
-    .attr('ry', 12)
-    .attr(
-      'transform',
-      `translate(${-boxWidth / 2 - 4},${-boxHeight / 2 + 0.5})`
-    )
-    .attr('id', d => d.data.id) // Unique id for each rect
-
-  function clicked(event, d) {
-    dispatchEvent(
-      new CustomEvent('pedigree:person-selected', {
-        bubbles: true,
-        composed: true,
-        detail: {grampsId: d.data?.person?.gramps_id},
+    if (interactive) {
+      setPersonCardInteraction(nodes, {
+        profile: d => d.person?.profile,
+        handle: d => d.handle,
+        grampsId: d => d.person?.gramps_id || d.person?.profile?.gramps_id,
+        openProfileLabel,
+        boxWidth,
+        boxHeight,
+        canEdit,
+        palette,
       })
-    )
-  }
+    } else {
+      clearPersonCardInteraction(nodes)
+    }
 
-  node
-    .append('rect')
-    .filter(d => d.data.person)
-    .attr('fill', 'var(--grampsjs-color-shade-230)')
-    .attr('width', boxWidth)
-    .attr('height', boxHeight)
-    .attr('rx', 8)
-    .attr('ry', 8)
-    .attr('transform', `translate(${-boxWidth / 2},${-boxHeight / 2})`)
-    .attr('id', d => d.data.id) // Unique id for each slice
-
-  function triangleClicked(e) {
-    fireEvent(this, 'pedigree:show-children', {pageX: e.pageX, pageY: e.pageY})
-    e.stopPropagation()
-    e.preventDefault()
-  }
-
-  function yPos(d) {
-    return orientation === 'LTR'
-      ? d.y - boxWidth / 2 - 12
-      : d.y + boxWidth / 2 + 12
-  }
-
-  if (childrenTriangle) {
-    const triangle = symbol().type(symbolTriangle).size(200)
-
-    const angle = orientation === 'LTR' ? -90 : 90
-
-    node
-      .append('path')
-      .filter(d => d.depth === 0)
-      .attr('d', triangle)
+    const side = orientation === 'LTR' ? -1 : 1
+    nodes
+      .selectChildren('.children-triangle')
+      .data(d =>
+        interactive && childrenTriangle && d.generation === 0 ? [d] : []
+      )
+      .join(enter =>
+        enter
+          .append('path')
+          .attr('class', 'children-triangle')
+          .attr('id', 'triangle-children')
+          .attr('d', symbol().type(symbolTriangle).size(200))
+          .on('click', function (e) {
+            fireEvent(this, 'pedigree:show-children', {
+              pageX: e.pageX,
+              pageY: e.pageY,
+            })
+            e.stopPropagation()
+            e.preventDefault()
+          })
+      )
+      .attr('fill', palette.triangle)
       .attr(
         'transform',
-        d => `translate(${yPos(d)},${d.x}) rotate(${angle}) scale(-1, 0.5)`
+        `translate(${side * (boxWidth / 2 + 12)},0) rotate(${
+          side * 90
+        }) scale(-1, 0.5)`
       )
-      .attr('fill', 'var(--grampsjs-body-font-color-30)')
-      .attr('id', 'triangle-children')
-      .on('click', triangleClicked)
   }
 
-  const imgRadius = (boxHeight - imgPadding * 2) / 2
-  const textPadding = d =>
-    getImageUrl(d) ? 2 * imgRadius + 2 * imgPadding : 2 * imgPadding
-
-  const clipString = (s, length) => {
-    if (!s) {
-      return ''
+  // A new root person keeps the zoom level but not the pan, so they start at
+  // the default position
+  _resetPanForNewRoot(layout) {
+    const rootHandle = layout.nodes.find(node => node.generation === 0)?.handle
+    if (rootHandle === this._rootHandle) {
+      return
     }
-    const fontSize = 13
-    const nChar = length / (fontSize * 0.6)
-    if (s.length <= nChar) {
-      return s
-    }
-    if (nChar < 2) {
-      return ''
-    }
-    return `${s.slice(0, nChar - 2)}…`
+    this._rootHandle = rootHandle
+    const {k} = zoomTransform(this.node)
+    this._svg.call(this._zoom.transform, zoomIdentity.scale(k))
   }
-
-  const textWidth = d =>
-    getImageUrl(d)
-      ? boxWidth - 2 * imgPadding - 2 * imgRadius
-      : boxWidth - 2 * imgPadding
-
-  node
-    .append('text')
-    .filter(d => d.data.name_given || d.data.name_surname)
-    .attr('y', -boxHeight / 2 + 25)
-    .attr('x', d => -boxWidth / 2 + textPadding(d))
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '500')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .text(d =>
-      clipString(
-        nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? `${d.data.name_surname || '…'},`
-          : personGivenNameFromProfile(d.data) || '…',
-        textWidth(d)
-      )
-    )
-
-  node
-    .append('text')
-    .filter(d => d.data.name_given || d.data.name_surname)
-    .attr('y', -boxHeight / 2 + 25 + 17)
-    .attr('x', d => -boxWidth / 2 + textPadding(d))
-    .attr('width', 50)
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '500')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .attr('text-overflow', 'ellipsis')
-    .attr('overflow', 'hidden')
-    .attr('width', 25)
-    .text(d =>
-      clipString(
-        nameDisplayFormat === chartNameDisplayFormat.surnameThenGiven
-          ? personGivenNameFromProfile(d.data) || '…'
-          : d.data.name_surname || '…',
-        textWidth(d)
-      )
-    )
-
-  node
-    .append('text')
-    .filter(d => d.data.person?.profile?.birth?.date)
-    .attr('y', -boxHeight / 2 + 25 + 17 * 2)
-    .attr('x', d => -boxWidth / 2 + textPadding(d))
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '350')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-    .attr('paint-order', 'stroke')
-    .text(d =>
-      clipString(
-        `*${formatDateString(d.data.person.profile.birth.date)}`,
-        textWidth(d)
-      )
-    )
-
-  node
-    .append('text')
-    .filter(d => d.data.person?.profile?.death?.date)
-    .attr('y', -boxHeight / 2 + 25 + 17 * 3)
-    .attr('x', d => -boxWidth / 2 + textPadding(d))
-    .attr('text-anchor', 'start')
-    .attr('font-weight', '350')
-    .attr('fill', 'var(--grampsjs-body-font-color-90)')
-
-    .attr('paint-order', 'stroke')
-    .text(d =>
-      clipString(
-        `†${formatDateString(d.data.person.profile.death.date)}`,
-        textWidth(d)
-      )
-    )
-
-  if (canEdit) {
-    appendAddPersonButton(
-      node.filter(d => d.data.person),
-      boxWidth / 2 - 14,
-      -boxHeight / 2 + 14,
-      d => d.data.person?.handle
-    )
-  }
-
-  appendOpenPersonButton(
-    node.filter(d => d.data.person),
-    boxWidth / 2 - 14,
-    boxHeight / 2 - 14,
-    openProfileLabel,
-    d => d.data.person.gramps_id
-  )
-
-  node
-    .filter(getImageUrl)
-    .append('circle')
-    .attr('r', imgRadius)
-    .attr('cy', -boxHeight / 2 + imgRadius + imgPadding)
-    .attr('cx', -boxWidth / 2 + imgRadius + imgPadding)
-    .attr('fill', d => `url(#imgpattern-${d.data.id})`)
-
-  const defs = svgParent.append('defs')
-
-  const imgPattern = defs
-    .selectAll('.imgpattern')
-    .data(descendants)
-    .enter()
-    .append('pattern')
-    .attr('id', d => `imgpattern-${d.data.id}`)
-    .attr('height', 1)
-    .attr('width', 1)
-    .attr('x', '0')
-    .attr('y', '0')
-
-  imgPattern
-    .append('image')
-    .attr('x', 0)
-    .attr('y', 0)
-    .attr('height', 70)
-    .attr('width', 70)
-    .attr('xlink:href', getImageUrl)
-
-  node
-    .style('cursor', canEdit ? 'default' : 'pointer')
-    .on('click', canEdit ? null : clicked)
-    .on('mouseenter', function (event, d) {
-      if (canEdit) return
-      if (window.matchMedia('(hover: none)').matches) return
-      const grampsId = d.data?.person?.gramps_id
-      if (!grampsId) return
-      window.dispatchEvent(
-        new CustomEvent('object:preview-show', {
-          detail: {
-            objectType: 'person',
-            grampsId,
-            anchorRect: this.getBoundingClientRect(),
-          },
-        })
-      )
-    })
-    .on('mouseleave', () => {
-      if (window.matchMedia('(hover: none)').matches) return
-      window.dispatchEvent(new CustomEvent('object:preview-hide'))
-    })
-
-  return [xOffset, yOffset, width, height, boxWidth + 2 * padding]
-}
-
-export function TreeChart(dataDescendants, dataAncestors, chartsettings) {
-  const svg = create('svg')
-    .call(
-      zoom().on('zoom', e =>
-        svg.select('#chart-content').attr('transform', e.transform)
-      )
-    )
-    .attr('font-family', 'Inter var')
-    .attr('font-size', 13)
-
-  const chartContent = svg.append('g').attr('id', 'chart-content')
-
-  // Restore zoom state from previous render if available
-  if (chartsettings.initialZoom) {
-    svg.node().__zoom = chartsettings.initialZoom
-    chartContent.attr('transform', chartsettings.initialZoom.toString())
-  }
-
-  let rootX = 0
-
-  if (dataDescendants) {
-    const chartD = chartContent.append('g')
-    const [, , widthD, , overlap] = TreeChartCore(chartD, dataDescendants, {
-      ...chartsettings,
-      orientation: 'RTL',
-      depth: chartsettings.nDesc,
-    })
-    chartD.attr('transform', `translate(${-widthD + overlap},0)`)
-    rootX = overlap / 2
-  }
-  if (dataAncestors) {
-    const chartA = chartContent.append('g')
-    const [, , , , overlap] = TreeChartCore(chartA, dataAncestors, {
-      ...chartsettings,
-      orientation: 'LTR',
-      depth: chartsettings.nAnc,
-    })
-    chartA.attr('transform', 'translate(0,0)')
-    rootX = overlap / 2
-  }
-
-  svg.attr('viewBox', [
-    rootX - chartsettings.bboxWidth / 2,
-    -chartsettings.bboxHeight / 2,
-    chartsettings.bboxWidth,
-    chartsettings.bboxHeight,
-  ])
-  return svg.node()
 }

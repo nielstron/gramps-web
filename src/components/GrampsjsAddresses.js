@@ -1,115 +1,156 @@
-import {html, LitElement, css} from 'lit'
-import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
-import {sharedStyles} from '../SharedStyles.js'
-import {formatDateValue} from '../date.js'
+import {html} from 'lit'
+import {classMap} from 'lit/directives/class-map.js'
+import {mdiMapMarker} from '@mdi/js'
 
-export class GrampsjsAddresses extends GrampsjsAppStateMixin(LitElement) {
-  static get styles() {
-    return [
-      sharedStyles,
-      css`
-        dl {
-          clear: left;
-        }
+import {GrampsjsEditableList} from './GrampsjsEditableList.js'
+import './GrampsjsFormEditAddress.js'
+import './GrampsjsIcon.js'
 
-        dl > div {
-          float: none;
-        }
+import {dateIsEmpty, fireEvent} from '../util.js'
+import {toDate} from '../date.js'
 
-        dl > div > dt {
-          display: inline-block;
-          width: 10em;
-          margin-right: 1em;
-          text-align: right;
-        }
+import '@material/web/list/list-item.js'
 
-        dl > div > dd {
-          display: inline-block;
-        }
-      `,
-    ]
-  }
+// The address properties making up the one-line summary, in display order.
+const summaryFields = [
+  'street',
+  'locality',
+  'city',
+  'county',
+  'state',
+  'postal',
+  'country',
+]
 
+export class GrampsjsAddresses extends GrampsjsEditableList {
   static get properties() {
     return {
-      data: {type: Object},
+      profile: {type: Array},
     }
   }
 
   constructor() {
     super()
-    this.data = {}
+    this.profile = []
+    this.hasEdit = true
+    this.objType = 'Address'
   }
 
-  render() {
-    if (Object.keys(this.data).length === 0) {
+  row(obj, i) {
+    return html`
+      <md-list-item
+        type="${this.edit ? 'button' : 'text'}"
+        class="${classMap({selected: i === this._selectedIndex})}"
+        @click="${() => {
+          if (this.edit) {
+            this._handleSelected(i)
+          }
+        }}"
+      >
+        ${summaryFields
+          .map(key => obj[key])
+          .filter(value => value)
+          .join(', ')}
+        ${this._supportingText(obj, i)}
+        <grampsjs-icon
+          slot="start"
+          path="${mdiMapMarker}"
+          color="var(--grampsjs-color-icon)"
+        ></grampsjs-icon>
+      </md-list-item>
+    `
+  }
+
+  // The phone number and the date the address was current, each on its own
+  // line below the address. Omitted entirely when the address has neither.
+  _supportingText(obj, i) {
+    const date = this._dateString(obj, i)
+    if (!obj.phone && !date) {
       return ''
     }
     return html`
-    ${this.data.map(
-      obj => html`
-        <dl>
-          ${obj?.date?.dateval
-            ? html`
-                <div>
-                  <dt>${this._('Date')}</dt>
-                  <dd>${formatDateValue(obj.date.dateval)}</dd>
-                </div>
-              `
-            : ''}
-          ${obj.street
-            ? html`
-                <div>
-                  <dt>${this._('Street')}</dt>
-                  <dd>${obj.street}</dd>
-                </div>
-              `
-            : ''}
-          ${obj.locality
-            ? html`
-                <div>
-                  <dt>${this._('Locality')}</dt>
-                  <dd>${obj.locality}</dd>
-                </div>
-              `
-            : ''}
-          ${obj.city
-            ? html`
-                <div>
-                  <dt>${this._('City')}</dt>
-                  <dd>${obj.city}</dd>
-                </div>
-              `
-            : ''}
-          ${obj.county
-            ? html`
-                <div>
-                  <dt>${this._('County')}</dt>
-                  <dd>${obj.county}</dd>
-                </div>
-              `
-            : ''}
-          ${obj.state
-            ? html`
-                <div>
-                  <dt>${this._('State')}</dt>
-                  <dd>${obj.state}</dd>
-                </div>
-              `
-            : ''}
-          ${obj.country
-            ? html`
-                <div>
-                  <dt>${this._('Country')}</dt>
-                  <dd>${obj.country}</dd>
-                </div>
-              `
-            : ''}
-        </dl>
-      `
-    )}
-      </table>
+      <span slot="supporting-text"
+        >${obj.phone}${obj.phone && date ? html`<br />` : ''}${date}</span
+      >
     `
+  }
+
+  // Date to show for the address at the given index. Prefers the string
+  // formatted by the API, which honours modifiers, calendars and locale.
+  //
+  // The fallback formats the raw date, for backends predating
+  // https://github.com/gramps-project/gramps-web-api/pull/949, which added
+  // addresses to the profile of every object type that has them. It can be
+  // removed once the minimum supported backend includes that change.
+  _dateString(obj, i) {
+    const dateStr = this.profile[i]?.date_str
+    if (dateStr !== undefined) {
+      return dateStr
+    }
+    return obj?.date?.dateval && !dateIsEmpty(obj.date)
+      ? toDate(obj.date.dateval)
+      : ''
+  }
+
+  _handleAdd() {
+    const data = {_class: 'Address'}
+    this.dialogContent = html`
+      <grampsjs-form-edit-address
+        new
+        dialogTitle="${this._('Address')}"
+        @object:save="${this._handleAddressSave}"
+        @object:cancel="${this._handleDialogCancel}"
+        .appState="${this.appState}"
+        .data="${data}"
+      >
+      </grampsjs-form-edit-address>
+    `
+  }
+
+  _handleEdit() {
+    const data = {...this.data[this._selectedIndex]}
+    this.dialogContent = html`
+      <grampsjs-form-edit-address
+        dialogTitle="${this._('Address')}"
+        @object:save="${this._handleAddressSaveEdit}"
+        @object:cancel="${this._handleDialogCancel}"
+        .appState="${this.appState}"
+        .data="${data}"
+      >
+      </grampsjs-form-edit-address>
+    `
+  }
+
+  _handleDelete() {
+    fireEvent(this, 'edit:action', {
+      action: 'delAddress',
+      index: this._selectedIndex,
+    })
+  }
+
+  _handleAddressSave(e) {
+    fireEvent(this, 'edit:action', {
+      action: 'addAddress',
+      data: e.detail.data,
+    })
+    e.preventDefault()
+    e.stopPropagation()
+    this.dialogContent = ''
+  }
+
+  _handleAddressSaveEdit(e) {
+    fireEvent(this, 'edit:action', {
+      action: 'updateAddress',
+      data: e.detail.data,
+      index: this._selectedIndex,
+    })
+    e.preventDefault()
+    e.stopPropagation()
+    this.dialogContent = ''
+  }
+
+  _handleDialogCancel() {
+    this.dialogContent = ''
   }
 }
 

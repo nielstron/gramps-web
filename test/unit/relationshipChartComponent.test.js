@@ -4,7 +4,7 @@ import {describe, expect, it} from 'vitest'
 import '../../src/components/GrampsjsRelationshipChart.js'
 
 describe('relationship chart component', () => {
-  it('discards the previous viewport when the centered person changes', async () => {
+  it('keeps the zoom scale and resets the pan when the centered person changes', async () => {
     const chart = document.createElement('grampsjs-relationship-chart')
     document.body.append(chart)
     await chart.updateComplete
@@ -15,7 +15,7 @@ describe('relationship chart component', () => {
 
     chart.willUpdate(new Map([['grampsId', 'I0001']]))
 
-    expect(chart._savedZoom).toBeNull()
+    expect(chart._savedZoom).toEqual(zoomIdentity.scale(1.4))
     chart.remove()
   })
 })
