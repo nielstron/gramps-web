@@ -412,6 +412,7 @@ describe('edit blog post', () => {
       text: {string: 'Old'},
     }
     element._originalSource = source
+    element._loadPost = vi.fn()
     element._originalNote = note
     element.data = {
       ...source,
@@ -561,4 +562,27 @@ it('refreshes My drafts when account permissions become available after initial 
   view._fetchDrafts = vi.fn()
   view.updated(new Map([['appState', {permissions: {canAdd: false}}]]))
   expect(view._fetchDrafts).toHaveBeenCalledOnce()
+})
+
+it('keeps published-post saves and unpublishing in the edit view and refreshes the saved snapshot', async () => {
+  for (const draft of [false, true]) {
+    const element = makeElement()
+    element.grampsId = 'S1'
+    element._originalSource = {
+      _class: 'Source',
+      handle: 'source',
+      gramps_id: 'S1',
+      title: 'Published',
+      private: false,
+    }
+    element.data = {...element._originalSource, private: draft}
+    element._savingDraft = draft
+    element._loadPost = vi.fn()
+    element.appState = {apiPost: vi.fn().mockResolvedValue({data: []})}
+    const nav = vi.fn()
+    element.addEventListener('nav', nav)
+    await element._savePost()
+    expect(nav).not.toHaveBeenCalled()
+    expect(element._loadPost).toHaveBeenCalledOnce()
+  }
 })
