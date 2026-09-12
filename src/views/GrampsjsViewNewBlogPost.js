@@ -1,3 +1,11 @@
+import {live} from 'lit/directives/live.js'
+import {keyed} from 'lit/directives/keyed.js'
+import {withBlogCover, blogCoverHandle} from '../blogCover.js'
+import '../components/GrampsjsFormSelectObject.js'
+import '../components/GrampsjsImg.js'
+import '@material/web/button/text-button.js'
+import '@material/web/button/filled-button.js'
+import '@material/web/button/outlined-button.js'
 import {html} from 'lit'
 
 import '@material/web/textfield/outlined-text-field'
@@ -19,6 +27,9 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
   static get properties() {
     return {
       _blogTagHandle: {type: String},
+      grampsId: {type: String},
+      _loadedId: {state: true},
+      _editorData: {state: true},
       _isSaving: {type: Boolean},
     }
   }
@@ -31,11 +42,16 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     this.objClass = 'Source'
     this._blogTagHandle = ''
     this._isSaving = false
+    this.grampsId = ''
+    this._loadedId = ''
+    this._editorData = {_class: 'StyledText', string: '', tags: []}
+    this._originalSource = null
+    this._originalNote = null
   }
 
   renderContent() {
     return html`
-      <h2>${this._('New Blog Post')}</h2>
+      <h2>${this._(this.grampsId ? 'Edit Blog Post' : 'New Blog Post')}</h2>
 
       <h4 class="label">${this._('Title')}</h4>
       <p>
@@ -44,36 +60,54 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
           style="width:100%;"
           @input="${this.handleName}"
           id="source-name"
+          .value=${live(this.data.title || '')}
         ></md-outlined-text-field>
       </p>
 
-      <h4 class="label">${this._('Author')}</h4>
-      <p>
-        <grampsjs-form-string fullwidth id="author"></grampsjs-form-string>
-      </p>
+      ${this.grampsId
+        ? html`<h4 class="label">${this._('Author')}</h4>
+            <p>${this.data.author}</p>`
+        : ''}
 
+      <h4 class="label">${this._('Cover image')}</h4>
+      <grampsjs-form-select-object
+        objectType="media"
+        label=${this._('Choose cover image')}
+        .appState=${this.appState}
+        @select-object:changed=${this._selectCover}
+      ></grampsjs-form-select-object>
+      ${blogCoverHandle(this.data)
+        ? html`<grampsjs-img
+              style="max-width:240px"
+              handle=${blogCoverHandle(this.data)}
+              size="300"
+            ></grampsjs-img
+            ><md-text-button
+              @click=${() => {
+                this.data = withBlogCover(this.data, '')
+              }}
+              >${this._('Remove cover image')}</md-text-button
+            >`
+        : ''}
       <h4 class="label">${this._('Content')}</h4>
       <p>
-        <grampsjs-markdown-editor
-          @formdata:changed="${this.handleEditor}"
-          id="blog-post-content-editor"
-          .appState="${this.appState}"
-        ></grampsjs-markdown-editor>
+        ${keyed(
+          this._loadedId,
+          html`<grampsjs-markdown-editor
+            @formdata:changed="${this.handleEditor}"
+            id="blog-post-content-editor"
+            .initialData=${this._editorData}
+            .appState="${this.appState}"
+          ></grampsjs-markdown-editor>`
+        )}
       </p>
-
-      <h4 class="label">${this._('Media')}</h4>
-      <grampsjs-form-select-object-list
-        multiple
-        objectType="media"
-        .appState="${this.appState}"
-        id="media"
-      ></grampsjs-form-select-object-list>
 
       ${this._renderTagsForm()}
 
       <div class="spacer"></div>
       <grampsjs-form-private
         id="private"
+        .checked=${!!this.data.private}
         .appState="${this.appState}"
       ></grampsjs-form-private>
 
@@ -82,6 +116,24 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
         : this.renderButtons()}
     `
     // <pre>${JSON.stringify(this.data, null, 2)}</pre>
+  }
+
+  async _selectCover(event) {
+    event.stopPropagation()
+    const selected = event.detail.objects[0]
+    const handle = selected.handle ?? selected.object?.handle
+    const result = await this.appState.apiGet(`/api/media/${handle}`)
+    if ('error' in result) {
+      fireEvent(this, 'grampsjs:error', {message: result.error})
+      return
+    }
+    if (!result.data.mime.startsWith('image/')) {
+      fireEvent(this, 'grampsjs:error', {
+        message: this._('Please choose an image for the cover.'),
+      })
+      return
+    }
+    this.data = withBlogCover(this.data, handle)
   }
 
   handleName(e) {
@@ -105,17 +157,28 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     if (e.detail?.data?.string && e.detail.data.string.trim()) {
       this.data = {
         ...this.data,
-        note: {_class: 'Note', type: 'Markdown', text: e.detail.data},
+        note: {
+          ...this._originalNote,
+          _class: 'Note',
+          type: 'Markdown',
+          text: e.detail.data,
+        },
       }
     } else {
-      const {note, ...data} = this.data
-      this.data = data
+      if (this._originalNote)
+        this.data = {
+          ...this.data,
+          note: {...this._originalNote, type: 'Markdown', text: e.detail.data},
+        }
+      else {
+        const {note, ...data} = this.data
+        this.data = data
+      }
     }
   }
 
   checkFormValidity() {
     const name = this.shadowRoot.getElementById('source-name')
-    name.reportValidity()
     try {
       this.isFormValid = name?.validity?.valid
     } catch {
@@ -124,6 +187,11 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
   }
 
   _reset() {
+    if (this.grampsId) {
+      this._clearDrafts()
+      this._loadPost()
+      return
+    }
     super._reset()
     const name = this.shadowRoot.getElementById('source-name')
     if (name) {
@@ -199,12 +267,124 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
     this._fetchBlogTagHandle()
   }
 
+  updated(changed) {
+    super.updated?.(changed)
+    if (this.active && (changed.has('active') || changed.has('grampsId'))) {
+      if (this.grampsId) this._loadPost()
+      else if (this._loadedId) {
+        this._originalSource = null
+        this._originalNote = null
+        this.data = {...dataDefault}
+        this._editorData = {_class: 'StyledText', string: '', tags: []}
+        this._loadedId = ''
+      }
+    }
+  }
+
+  async _loadPost() {
+    this.loading = true
+    const id = this.grampsId
+    try {
+      const result = await this.appState.apiGet(
+        `/api/sources/?gramps_id=${encodeURIComponent(id)}`
+      )
+      if ('error' in result) throw new Error(result.error)
+      const source = result.data[0]
+      if (!source) throw new Error(this._('Not found'))
+      if (
+        !source.attribute_list?.some(
+          attribute =>
+            (attribute.type?.string || attribute.type) === 'Blog author' &&
+            attribute.value === this.appState.auth?.claims?.sub
+        )
+      )
+        throw new Error(this._('Not authorized'))
+      let note = null
+      if (source.note_list.length) {
+        const response = await this.appState.apiGet(
+          `/api/notes/${source.note_list[0]}`
+        )
+        if ('error' in response) throw new Error(response.error)
+        note = response.data
+      }
+      if (this.grampsId !== id) return
+      this._originalSource = source
+      this._originalNote = note
+      this._editorData = note?.text || {
+        _class: 'StyledText',
+        string: '',
+        tags: [],
+      }
+      this.data = {...source, ...(note ? {note} : {})}
+      this._loadedId = `${id}:${Date.now()}`
+      this.error = false
+    } catch (error) {
+      this.error = true
+      this._errorMessage = error.message
+    } finally {
+      this.loading = false
+    }
+  }
+
+  async _savePost() {
+    const {note, ...source} = this.data
+    const changes = []
+    if (note) {
+      const savedNote = {
+        ...note,
+        handle: this._originalNote?.handle || makeHandle(),
+      }
+      if (!this._originalNote)
+        source.note_list = [...(source.note_list || []), savedNote.handle]
+      changes.push({
+        type: this._originalNote ? 'update' : 'add',
+        _class: 'Note',
+        handle: savedNote.handle,
+        old: this._originalNote,
+        new: savedNote,
+      })
+    }
+    changes.push({
+      type: 'update',
+      _class: 'Source',
+      handle: source.handle,
+      old: this._originalSource,
+      new: source,
+    })
+    const result = await this.appState.apiPost(
+      '/api/transactions/?simplified=1&message=Edit%20blog%20post',
+      changes
+    )
+    if ('error' in result) throw new Error(result.error)
+    this._clearDrafts()
+    fireEvent(this, 'nav', {path: `blog/${source.gramps_id}`})
+  }
+
+  renderButtons() {
+    return html`<div class="spacer"></div>
+      <p class="right">
+        <md-outlined-button @click=${this._reset}
+          >${this._('Reset')}</md-outlined-button
+        ><md-filled-button ?disabled=${this._isSaving} @click=${this._submit}
+          >${this._(this.grampsId ? 'Save' : 'Add')}</md-filled-button
+        >
+      </p>`
+  }
+
+  _validateTitle() {
+    return this.shadowRoot.getElementById('source-name').reportValidity()
+  }
+
   async _submit() {
-    if (this._isSaving) {
+    if (this._isSaving || !this._validateTitle()) {
       return
     }
     this._isSaving = true
     try {
+      if (this.grampsId) {
+        await this._savePost()
+        return
+      }
       if (!this._blogTagHandle) {
         await this._fetchBlogTagHandle()
       }
@@ -214,6 +394,24 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
           this.error = true
           this._errorMessage = errorMessage
           return
+        }
+      }
+      const userId = this.appState.auth?.claims?.sub
+      if (userId) {
+        const result = await this.appState.apiGet('/api/users/-/')
+        if ('error' in result) throw new Error(result.error)
+        this.data = {
+          ...this.data,
+          author: result.data.full_name || result.data.name,
+          attribute_list: [
+            ...(this.data.attribute_list || []),
+            {
+              _class: 'SrcAttribute',
+              type: 'Blog author',
+              value: userId,
+              private: false,
+            },
+          ],
         }
       }
       const processedData = this._processedData(this.data.media_list || [])
@@ -231,6 +429,9 @@ export class GrampsjsViewNewBlogPost extends GrampsjsViewNewSource {
         this.error = true
         this._errorMessage = data.error
       }
+    } catch (error) {
+      this.error = true
+      this._errorMessage = error.message
     } finally {
       this._isSaving = false
     }

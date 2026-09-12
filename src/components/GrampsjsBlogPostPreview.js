@@ -1,10 +1,10 @@
+import './GrampsjsImg.js'
+import {blogCoverHandle} from '../blogCover.js'
 import {isMarkdownNote, markdownPreview} from '../blogMarkdown.js'
 import {html, css, LitElement} from 'lit'
 import {sharedStyles} from '../SharedStyles.js'
 import '@material/mwc-button'
 
-import './GrampsjsImg.js'
-import './GrampsjsGallery.js'
 import './GrampsjsNoteContent.js'
 import './GrampsjsTimedelta.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
@@ -84,7 +84,16 @@ export class GrampsjsBlogPostPreview extends GrampsjsAppStateMixin(LitElement) {
         <h3>${this.data.title}</h3>
         <div id="content">
           <div id="note">${this.getPreviewText()}</div>
-          ${this.data?.media_list?.length ? this._renderImage() : ''}
+          ${blogCoverHandle(this.data)
+            ? html`<div id="image">
+                <grampsjs-img
+                  handle=${blogCoverHandle(this.data)}
+                  size="200"
+                  displayHeight="150"
+                  square
+                ></grampsjs-img>
+              </div>`
+            : ''}
         </div>
         <div class="clear"></div>
         <div id="date">
@@ -113,24 +122,6 @@ export class GrampsjsBlogPostPreview extends GrampsjsAppStateMixin(LitElement) {
       return all
     }
     return `${match[0]} ...`
-  }
-
-  _renderImage() {
-    const ref = this.data.media_list[0]
-    const obj = this.data.extended.media[0]
-    return html`
-      <div id="image">
-        <grampsjs-img
-          handle="${obj.handle}"
-          size="200"
-          displayHeight="150"
-          square
-          .rect="${ref.rect || []}"
-          mime="${obj.mime}"
-          checksum="${obj.checksum}"
-        ></grampsjs-img>
-      </div>
-    `
   }
 }
 

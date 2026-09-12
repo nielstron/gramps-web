@@ -415,6 +415,9 @@ class GrampsjsPages extends GrampsjsAppStateMixin(LitElement) {
       <grampsjs-view-new-blog-post
         class="page"
         ?active=${this.appState.path.page === 'new_blog_post'}
+        .grampsId=${this.appState.path.page === 'new_blog_post'
+          ? this.appState.path.pageId
+          : ''}
         .appState="${this.appState}"
       ></grampsjs-view-new-blog-post>
       <grampsjs-view-task

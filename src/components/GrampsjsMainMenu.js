@@ -29,7 +29,8 @@ import {sharedStyles} from '../SharedStyles.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 import {appUrl} from '../appUrl.js'
 import './GrampsjsIcon.js'
-import {NAVIGATION_ITEMS, navigationMode} from '../navigation.js'
+import {availableNavigationItems, navigationMode} from '../navigation.js'
+import {getTreeBookmarks} from '../api.js'
 
 const selectedColor = 'var(--grampsjs-color-icon-selected)'
 const defaultColor = 'var(--grampsjs-color-icon-default)'
@@ -98,11 +99,17 @@ class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
     this.editDialogContent = ''
     this.saveButton = false
     this.unreadCount = 0
+    this._bookmarksChanged = () => this.requestUpdate()
+    this._storageChanged = event => {
+      if (event.key === 'bookmarks' || event.key === null) this.requestUpdate()
+    }
     this._boundHandleNotifications = this._handleNotificationsChanged.bind(this)
   }
 
   connectedCallback() {
     super.connectedCallback()
+    window.addEventListener('bookmark:changed', this._bookmarksChanged)
+    window.addEventListener('storage', this._storageChanged)
     const existing = this.appState?.getNotifications?.() ?? []
     this.unreadCount = existing.filter(n => n?.read === false).length
     window.addEventListener(
@@ -113,6 +120,8 @@ class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
 
   disconnectedCallback() {
     super.disconnectedCallback()
+    window.removeEventListener('bookmark:changed', this._bookmarksChanged)
+    window.removeEventListener('storage', this._storageChanged)
     window.removeEventListener(
       'notifications:changed',
       this._boundHandleNotifications
@@ -167,9 +176,7 @@ class GrampsjsAppBar extends GrampsjsAppStateMixin(LitElement) {
   }
 
   render() {
-    const items = NAVIGATION_ITEMS.filter(
-      item => item.id !== 'chat' || this.canUseChat
-    )
+    const items = availableNavigationItems(this.appState, getTreeBookmarks())
     const visible = items.filter(
       item => navigationMode(this.appState, item.id) === 'visible'
     )

@@ -1,5 +1,6 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {clearDraftsWithPrefix} from '../../src/api.js'
+import {GrampsjsBlogPost} from '../../src/components/GrampsjsBlogPost.js'
 import {GrampsjsViewNewBlogPost} from '../../src/views/GrampsjsViewNewBlogPost.js'
 
 vi.mock('../../src/api.js', async importActual => {
@@ -10,6 +11,7 @@ vi.mock('../../src/api.js', async importActual => {
 const makeElement = () => {
   const element = new GrampsjsViewNewBlogPost()
   element.createRenderRoot()
+  element._validateTitle = vi.fn().mockReturnValue(true)
   return element
 }
 
@@ -364,5 +366,114 @@ describe('new blog post: submit', () => {
     await element._submit()
 
     expect(clearDraftsWithPrefix).not.toHaveBeenCalled()
+  })
+})
+
+describe('blog editor focus', () => {
+  it('checks an empty title silently while typing content', () => {
+    const element = makeElement()
+    const field = document.createElement('div')
+    field.id = 'source-name'
+    field.validity = {valid: false}
+    field.reportValidity = vi.fn()
+    element.shadowRoot.append(field)
+    element.checkFormValidity()
+    expect(element.isFormValid).toBe(false)
+    expect(field.reportValidity).not.toHaveBeenCalled()
+  })
+})
+
+it('validates on Add and does not submit when the title is missing', async () => {
+  const element = makeElement()
+  element._validateTitle.mockReturnValue(false)
+  element.appState = {apiPost: vi.fn()}
+  await element._submit()
+  expect(element._validateTitle).toHaveBeenCalledOnce()
+  expect(element.appState.apiPost).not.toHaveBeenCalled()
+})
+
+describe('edit blog post', () => {
+  it('saves source and body in one transaction preserving their identities and references', async () => {
+    const element = makeElement()
+    const source = {
+      _class: 'Source',
+      handle: 'source',
+      gramps_id: 'S1',
+      title: 'Old',
+      author: 'Original author',
+      note_list: ['body', 'other-note'],
+      media_list: [{ref: 'cover'}],
+    }
+    const note = {
+      _class: 'Note',
+      handle: 'body',
+      gramps_id: 'N1',
+      text: {string: 'Old'},
+    }
+    element._originalSource = source
+    element._originalNote = note
+    element.data = {
+      ...source,
+      title: 'Updated',
+      note: {...note, text: {string: 'Updated body'}},
+    }
+    element.appState = {apiPost: vi.fn().mockResolvedValue({data: []})}
+    await element._savePost()
+    const [url, changes] = element.appState.apiPost.mock.calls[0]
+    expect(url).toContain('/api/transactions/')
+    expect(changes).toHaveLength(2)
+    expect(changes[0]).toMatchObject({
+      type: 'update',
+      handle: 'body',
+      old: note,
+      new: {gramps_id: 'N1', text: {string: 'Updated body'}},
+    })
+    expect(changes[1]).toMatchObject({
+      type: 'update',
+      handle: 'source',
+      old: source,
+      new: {
+        author: 'Original author',
+        title: 'Updated',
+        note_list: ['body', 'other-note'],
+        media_list: [{ref: 'cover'}],
+      },
+    })
+  })
+
+  it('retains the form and reports a failed edit instead of navigating', async () => {
+    const element = makeElement()
+    element.grampsId = 'S1'
+    element._originalSource = {_class: 'Source', handle: 'source'}
+    element.data = {...element._originalSource, title: 'Unsaved'}
+    element.appState = {
+      apiPost: vi.fn().mockResolvedValue({error: 'Changed by another editor'}),
+    }
+    const navigate = vi.fn()
+    element.addEventListener('nav', navigate)
+    await element._submit()
+    expect(navigate).not.toHaveBeenCalled()
+    expect(element.data.title).toBe('Unsaved')
+    expect(element._errorMessage).toBe('Changed by another editor')
+    expect(element._isSaving).toBe(false)
+  })
+})
+
+describe('blog edit visibility', () => {
+  it('only offers Edit to the associated author with edit permission', () => {
+    const post = new GrampsjsBlogPost()
+    post.source = {attribute_list: [{type: 'Blog author', value: 'author-id'}]}
+    post.appState = {
+      auth: {claims: {sub: 'author-id'}},
+      permissions: {canEdit: true},
+    }
+    expect(post._isAuthor()).toBe(true)
+    post.appState = {...post.appState, auth: {claims: {sub: 'another-editor'}}}
+    expect(post._isAuthor()).toBe(false)
+    post.appState = {
+      auth: {claims: {sub: 'author-id'}},
+      permissions: {canEdit: false},
+    }
+    expect(post._isAuthor()).toBe(false)
   })
 })

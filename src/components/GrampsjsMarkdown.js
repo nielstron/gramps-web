@@ -75,8 +75,11 @@ export class GrampsjsMarkdown extends GrampsjsAppStateMixin(LitElement) {
       input.disabled = true
     }
     for (const link of fragment.querySelectorAll('a[href]')) {
-      const id = internalMediaId(link.getAttribute('href'))
-      if (id) link.href = appUrl(`/media/${encodeURIComponent(id)}`)
+      const href = link.getAttribute('href')
+      const objectLink = href.match(/^\/?(person|event)\/([^/?#]+)$/)
+      const id = internalMediaId(href)
+      if (objectLink) link.href = appUrl(`/${objectLink[1]}/${objectLink[2]}`)
+      else if (id) link.href = appUrl(`/media/${encodeURIComponent(id)}`)
     }
     for (const img of fragment.querySelectorAll('img[src]')) {
       const id = internalMediaId(img.getAttribute('src'))
