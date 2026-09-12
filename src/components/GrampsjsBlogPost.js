@@ -1,11 +1,11 @@
+import './GrampsjsBlogCover.js'
+import './GrampsjsBlogAuthor.js'
 import './GrampsjsMarkdown.js'
 import {isMarkdownNote} from '../blogMarkdown.js'
 import {html, css, LitElement} from 'lit'
 import {sharedStyles} from '../SharedStyles.js'
-import '@material/mwc-button'
+import '@material/web/button/outlined-button.js'
 
-import './GrampsjsImg.js'
-import './GrampsjsGallery.js'
 import './GrampsjsNoteContent.js'
 import './GrampsjsTimedelta.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
@@ -99,8 +99,25 @@ export class GrampsjsBlogPost extends GrampsjsAppStateMixin(LitElement) {
     return html`
       <div class="blog-preview">
         <h2>${this.source.title}</h2>
+        ${this._isAuthor()
+          ? html`<md-outlined-button
+              @click=${() =>
+                this.dispatchEvent(
+                  new CustomEvent('nav', {
+                    bubbles: true,
+                    composed: true,
+                    detail: {path: `new_blog_post/${this.source.gramps_id}`},
+                  })
+                )}
+              >${this._('Edit')}</md-outlined-button
+            >`
+          : ''}
         <h3 class="author">
-          ${this.source.author} ~
+          <grampsjs-blog-author
+            .source=${this.source}
+            .appState=${this.appState}
+          ></grampsjs-blog-author>
+          ~
           ${this.appState.i18n.lang
             ? html`<grampsjs-timedelta
                 timestamp="${this.source.change}"
@@ -108,9 +125,10 @@ export class GrampsjsBlogPost extends GrampsjsAppStateMixin(LitElement) {
               ></grampsjs-timedelta>`
             : ''}
         </h3>
-        <div id="image">
-          ${this.source?.media_list?.length ? this._renderImage() : ''}
-        </div>
+        <grampsjs-blog-cover
+          .source=${this.source}
+          .appState=${this.appState}
+        ></grampsjs-blog-cover>
         <div id="note">
           <div id="note-wrapper">
             ${isMarkdownNote(this.note)
@@ -125,51 +143,23 @@ export class GrampsjsBlogPost extends GrampsjsAppStateMixin(LitElement) {
                   'Error loading note'}"
                 >
                 </grampsjs-note-content>`}
-            ${this.source?.media_list?.length > 1
-              ? html`
-                  <grampsjs-gallery
-                    .appState="${this.appState}"
-                    .media=${this.source?.extended?.media}
-                    .mediaRef=${this.source?.media_list}
-                  ></grampsjs-gallery>
-                `
-              : ''}
-
-            <mwc-button
-              id="btn-details"
-              @click="${() => this._clickDetails(this.source.gramps_id)}"
-              >Details</mwc-button
-            >
           </div>
         </div>
       </div>
     `
   }
 
-  _clickDetails(grampsId) {
-    this.dispatchEvent(
-      new CustomEvent('nav', {
-        bubbles: true,
-        composed: true,
-        detail: {path: `source/${grampsId}`},
-      })
+  _isAuthor() {
+    const userId = this.appState.auth?.claims?.sub
+    return (
+      !!userId &&
+      this.appState.permissions.canEdit &&
+      this.source.attribute_list?.some(
+        attribute =>
+          (attribute.type?.string || attribute.type) === 'Blog author' &&
+          attribute.value === userId
+      )
     )
-  }
-
-  _renderImage() {
-    const ref = this.source.media_list[0]
-    const obj = this.source.extended.media[0]
-    return html`
-      <div id="img-container">
-        <grampsjs-img
-          handle="${obj.handle}"
-          size="1000"
-          .rect="${ref.rect || []}"
-          mime="${obj.mime}"
-          checksum="${obj.checksum}"
-        ></grampsjs-img>
-      </div>
-    `
   }
 }
 

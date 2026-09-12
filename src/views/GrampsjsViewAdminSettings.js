@@ -1,3 +1,4 @@
+import '../components/GrampsjsAiSettings.js'
 import '../components/GrampsjsInvitationSettings.js'
 import '../components/GrampsjsNavigationSettings.js'
 import {css, html} from 'lit'
@@ -547,6 +548,22 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
         </p>
       </grampsjs-collapsible-section>
 
+      <grampsjs-collapsible-section
+        title=${this._('AI assistant')}
+        description=${this._(
+          'Chat and embedding models, providers, and API keys'
+        )}
+      >
+        ${this.appState.permissions.canManageSettings
+          ? html`<grampsjs-ai-settings
+              .appState=${this.appState}
+            ></grampsjs-ai-settings>`
+          : html`<p>
+              ${this._(
+                'A server administrator can configure the AI provider here.'
+              )}
+            </p>`}
+      </grampsjs-collapsible-section>
       <grampsjs-collapsible-section
         title="${this._('Search index')}"
         description="${this._('Manage and rebuild the search index')}"

@@ -1,5 +1,9 @@
 import {describe, it, expect} from 'vitest'
-import {NAVIGATION_ITEMS, navigationMode} from '../../src/navigation.js'
+import {
+  NAVIGATION_ITEMS,
+  navigationMode,
+  availableNavigationItems,
+} from '../../src/navigation.js'
 
 describe('tree navigation preferences', () => {
   it('preserves existing defaults and the legacy DNA setting', () => {
@@ -32,4 +36,20 @@ describe('tree navigation preferences', () => {
       )
     ).toBe('visible')
   })
+})
+
+it('hides empty bookmarks and respects visible/advanced/hidden once populated', () => {
+  const state = {treeConfig: {}}
+  const visibleIds = bookmarks =>
+    availableNavigationItems(state, bookmarks)
+      .filter(item => navigationMode(state, item.id) !== 'hidden')
+      .map(item => item.id)
+  expect(visibleIds(undefined)).not.toContain('bookmarks')
+  expect(visibleIds({people: [], families: []})).not.toContain('bookmarks')
+  expect(visibleIds({people: ['handle']})).toContain('bookmarks')
+  state.treeConfig['frontend.navigation.bookmarks'] = 'advanced'
+  expect(visibleIds({people: ['handle']})).toContain('bookmarks')
+  expect(navigationMode(state, 'bookmarks')).toBe('advanced')
+  state.treeConfig['frontend.navigation.bookmarks'] = 'hidden'
+  expect(visibleIds({people: ['handle']})).not.toContain('bookmarks')
 })

@@ -127,3 +127,15 @@ export function navigationMode(appState, id) {
     ? 'hidden'
     : 'visible'
 }
+
+export function availableNavigationItems(appState, bookmarks = {}) {
+  const hasBookmarks = Object.values(bookmarks || {}).some(
+    handles => handles.length > 0
+  )
+  return NAVIGATION_ITEMS.filter(item => {
+    if (item.id === 'bookmarks') return hasBookmarks
+    if (item.id === 'chat')
+      return appState.permissions?.canUseChat && appState.dbInfo?.server?.chat
+    return true
+  })
+}

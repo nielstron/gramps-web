@@ -445,6 +445,7 @@ export function appStateUpdatePermissions(appState) {
     canEdit: rawPermissions.includes('EditObject'),
     canViewPrivate: rawPermissions.includes('ViewPrivate'),
     canManageUsers: rawPermissions.includes('EditOtherUser'),
+    canManageSettings: rawPermissions.includes('EditSettings'),
     canUseChat: rawPermissions.includes('UseChat'),
     canUpgradeTree: rawPermissions.includes('UpgradeSchema'),
     canEditTree: rawPermissions.includes('EditTree'),
