@@ -55,18 +55,24 @@ const _allTabs = {
     condition: data =>
       data.family_list?.length > 0 || data.parent_family_list?.length > 0,
     conditionEdit: data => 'family_list' in data,
+    count: data =>
+      (data?.family_list?.length || 0) +
+      (data?.parent_family_list?.length || 0),
   },
   enclosed: {
     title: 'Place Hierarchy',
     condition: data =>
-      data.placeref_list?.length > 0 ||
-      ('placeref_list' in data && data?.backlinks?.place?.length >= 0),
+      data.placeref_list?.length > 0 || data?.backlinks?.place?.length > 0,
     conditionEdit: data => 'placeref_list' in data,
+    count: data =>
+      (data?.placeref_list?.length || 0) +
+      (data?.backlinks?.place?.length || 0),
   },
   placeNames: {
     title: 'Alternate Names',
     condition: data => data?.alt_names?.length > 0,
     conditionEdit: data => 'alt_names' in data,
+    count: data => data?.alt_names?.length || 0,
   },
   map: {
     title: 'Map',
@@ -83,22 +89,26 @@ const _allTabs = {
     title: 'Children',
     condition: data => data.child_ref_list?.length > 0,
     conditionEdit: data => 'child_ref_list' in data,
+    count: data => data?.child_ref_list?.length || 0,
   },
   sources: {
     title: 'Sources',
     condition: data => data?.backlinks?.source?.length > 0 && 'name' in data,
     conditionEdit: data => false,
+    count: data => data?.backlinks?.source?.length || 0,
   },
   events: {
     title: 'Events',
     condition: data => data?.event_ref_list?.length > 0,
     conditionEdit: data => 'event_ref_list' in data,
+    count: data => data?.event_ref_list?.length || 0,
   },
   placeEvents: {
     title: 'Events',
     condition: data =>
       'placeref_list' in data && data?.backlinks?.event?.length > 0,
     conditionEdit: data => false,
+    count: data => data?.backlinks?.event?.length || 0,
   },
   participants: {
     title: 'Participants',
@@ -106,32 +116,41 @@ const _allTabs = {
       data?.profile?.participants?.people?.length ||
       data?.profile?.participants?.families?.length,
     conditionEdit: data => false,
+    count: data =>
+      (data?.profile?.participants?.people?.length || 0) +
+      (data?.profile?.participants?.families?.length || 0),
   },
   gallery: {
     title: 'Gallery',
     condition: data => data?.media_list?.length > 0,
     conditionEdit: data => 'media_list' in data,
+    count: data => data?.media_list?.length || 0,
   },
   names: {
     title: '_Names',
     condition: data => 'primary_name' in data,
     conditionEdit: data => 'primary_name' in data,
+    count: data =>
+      ('primary_name' in data ? 1 : 0) + (data?.alternate_names?.length || 0),
   },
   notes: {
     title: 'Notes',
     condition: data => data?.note_list?.length > 0,
     conditionEdit: data => 'note_list' in data,
+    count: data => data?.note_list?.length || 0,
   },
   sourceCitations: {
     title: '_Source Citations',
     condition: data => data?.citation_list?.length > 0,
     conditionEdit: data => 'citation_list' in data,
+    count: data => data?.citation_list?.length || 0,
   },
   citations: {
     title: 'Citations',
     condition: data =>
       data?.backlinks?.citation?.length > 0 && 'abbrev' in data,
     conditionEdit: data => false,
+    count: data => data?.backlinks?.citation?.length || 0,
   },
   metadata: {
     title: 'Metadata',
@@ -141,21 +160,33 @@ const _allTabs = {
       data?.address_list?.length > 0,
     conditionEdit: data =>
       'urls' in data || 'attribute_list' in data || 'address_list' in data,
+    count: data =>
+      (data?.attribute_list?.length || 0) +
+      (data?.address_list?.length || 0) +
+      (data?.urls?.length || 0),
   },
   associations: {
     title: 'Associations',
     condition: data => data?.person_ref_list?.length > 0,
     conditionEdit: data => 'person_ref_list' in data,
+    count: data => data?.person_ref_list?.length || 0,
   },
   repositories: {
     title: 'Repositories',
     condition: data => data?.reporef_list?.length > 0,
     conditionEdit: data => 'reporef_list' in data,
+    count: data => data?.reporef_list?.length || 0,
   },
   references: {
     title: 'References',
-    condition: data => Object.keys(data?.backlinks)?.length > 0,
+    condition: data =>
+      Object.values(data?.backlinks || {}).some(value => value?.length > 0),
     conditionEdit: data => false,
+    count: data =>
+      Object.values(data?.backlinks || {}).reduce(
+        (total, value) => total + (value?.length || 0),
+        0
+      ),
   },
   revisions: {
     title: 'Revisions',
@@ -163,21 +194,6 @@ const _allTabs = {
     conditionEdit: data => false,
   },
 }
-
-const ADDABLE_TABS = new Set([
-  'relationships',
-  'enclosed',
-  'placeNames',
-  'children',
-  'events',
-  'gallery',
-  'names',
-  'notes',
-  'sourceCitations',
-  'metadata',
-  'associations',
-  'repositories',
-])
 
 const zoomByPlaceType = {
   Country: 4,
@@ -274,6 +290,13 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
           font-size: 24px;
           padding-bottom: 12px;
           border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        .section-count {
+          margin-left: 0.4em;
+          color: var(--grampsjs-body-font-color-50);
+          font-size: 0.7em;
+          font-weight: 400;
         }
 
         .section * {
@@ -401,6 +424,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
       _objectIcon: {type: String},
       _showReferences: {type: Boolean},
       _wide: {type: Boolean},
+      _revisionCount: {type: Number},
     }
   }
 
@@ -416,6 +440,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
     this._sectionObserver = null
     this._currentVisibleSection = ''
     this._wide = false
+    this._revisionCount = undefined
     this._resizeObserver = new ResizeObserver(entries => {
       this._wide = entries[0].contentRect.width >= 1200
     })
@@ -431,6 +456,15 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
     super.disconnectedCallback()
     this._resizeObserver.disconnect()
     this._teardownIntersectionObserver()
+  }
+
+  willUpdate(changedProperties) {
+    if (
+      changedProperties.has('data') &&
+      changedProperties.get('data')?.handle !== this.data?.handle
+    ) {
+      this._revisionCount = undefined
+    }
   }
 
   updated(changedProperties) {
@@ -601,6 +635,11 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
           <div class="section" id="section-${key}">
             <h3>
               ${this._(_allTabs[key].title)}
+              ${this._getSectionCount(key) === undefined
+                ? ''
+                : html`<span class="section-count"
+                    >${this._getSectionCount(key)}</span
+                  >`}
               ${this.tocSidebar || tabKeysArray.length <= 1 || this.preview
                 ? ''
                 : html`
@@ -649,7 +688,6 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
     const mapBounds = (this.data.attribute_list || []).filter(
       attr => attr.type === 'map:bounds'
     )
-    const canAdd = this.appState?.permissions?.canAdd
     switch (sectionKey) {
       case 'relationships':
         return html`<grampsjs-relationships
@@ -675,7 +713,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
           ></grampsjs-names>
         `
       case 'placeNames':
-        return html` ${this.data.alt_names?.length > 0 || canAdd
+        return html` ${this.data.alt_names?.length > 0 || this.edit
           ? html` <grampsjs-place-names
               .appState="${this.appState}"
               .strings="${this.strings}"
@@ -685,7 +723,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
             ></grampsjs-place-names>`
           : ''}`
       case 'enclosed':
-        return html` ${this.data.placeref_list?.length || canAdd
+        return html` ${this.data.placeref_list?.length || this.edit
           ? html`
               <h4>${this._('Enclosed By')}</h4>
               <grampsjs-place-refs
@@ -850,7 +888,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
       case 'metadata':
         return html`
           ${this.data.attribute_list?.length > 0 ||
-          (canAdd && 'attribute_list' in this.data)
+          (this.edit && 'attribute_list' in this.data)
             ? html` <h4>${this._('Attributes')}</h4>
                 <grampsjs-attributes
                   hasEdit
@@ -871,7 +909,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
                   ?edit="${this.edit}"
                 ></grampsjs-addresses>`
             : ''}
-          ${this.data.urls?.length > 0 || (canAdd && 'urls' in this.data)
+          ${this.data.urls?.length > 0 || (this.edit && 'urls' in this.data)
             ? html`<h4>${this._('Internet')}</h4>
                 <grampsjs-urls
                   hasEdit
@@ -915,6 +953,7 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
           objClass="${endpointToObjectClass[this._objectEndpoint] ?? ''}"
           handle="${this.data.handle}"
           lastChange="${this.data.change ?? 0}"
+          @revisions:count="${this._handleRevisionCount}"
         ></grampsjs-object-revisions>`
       default:
         break
@@ -930,13 +969,19 @@ export class GrampsjsObject extends GrampsjsAppStateMixin(LitElement) {
     }
     return Object.keys(_allTabs).filter(
       key =>
-        (_allTabs[key].condition(this.data) ||
-          (this.appState?.permissions?.canAdd &&
-            ADDABLE_TABS.has(key) &&
-            _allTabs[key].conditionEdit(this.data))) &&
+        _allTabs[key].condition(this.data) &&
         (this._showReferences || key !== 'references') &&
         (key !== 'revisions' || this._showRevisions())
     )
+  }
+
+  _getSectionCount(key) {
+    if (key === 'revisions') return this._revisionCount
+    return _allTabs[key].count?.(this.data)
+  }
+
+  _handleRevisionCount(event) {
+    this._revisionCount = event.detail.count
   }
 
   // The object-scoped change history endpoint requires API version 3.22

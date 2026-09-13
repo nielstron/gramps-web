@@ -2,7 +2,12 @@ export const MANUAL_EVENT_ORDER_ATTRIBUTE = '_gramps_web_manual_event_order'
 
 const START_OF_LIFE_EVENT_TYPES = new Set(['Birth', 'Stillbirth'])
 const END_OF_LIFE_EVENT_TYPES = new Set(['Death', 'Cause Of Death'])
-const POST_DEATH_EVENT_TYPES = new Set(['Burial', 'Cremation', 'Probate'])
+const POST_DEATH_EVENT_TYPES = new Set([
+  'Burial',
+  'Funeral',
+  'Cremation',
+  'Probate',
+])
 const UNDATED_LIFE_EVENT_PHASE = new Map([
   ['Adopted', 1],
   ['Baptism', 1],
@@ -43,6 +48,28 @@ export function moveToIndex(array, oldIndex, newIndex) {
 
 function eventTypeName(event) {
   return typeof event?.type === 'string' ? event.type : event?.type?.value
+}
+
+// Compare possible dates, not the January-1 placeholder used by sortval.
+// Calendar-specific conversion stays with Gramps; these bounds are only
+// compared within the same calendar and never change the recorded dates.
+function dateBounds(date) {
+  const value = date?.dateval
+  if (!value?.[2] || date.modifier === 6) return null
+  const lower = ([day, month, year]) =>
+    year * 10000 + (month || 1) * 100 + (day || 1)
+  const upper = ([day, month, year]) =>
+    year * 10000 + (month || 12) * 100 + (day || 31)
+  if (date.modifier === 1) return [-Infinity, upper(value)]
+  if (date.modifier === 2) return [lower(value), Infinity]
+  return [lower(value), upper(value.length >= 8 ? value.slice(4) : value)]
+}
+
+function datesOverlap(a, b) {
+  if ((a?.calendar || 0) !== (b?.calendar || 0)) return false
+  const left = dateBounds(a)
+  const right = dateBounds(b)
+  return left && right && left[0] <= right[1] && right[0] <= left[1]
 }
 
 export function sortEventsByKnownOrder(
@@ -95,8 +122,28 @@ export function sortEventsByKnownOrder(
       : 1 + phase
   }
 
+  const orders = new Map(records.map(record => [record, inferredOrder(record)]))
+  for (const record of records) {
+    const predecessors = POST_DEATH_EVENT_TYPES.has(record.type)
+      ? END_OF_LIFE_EVENT_TYPES
+      : new Set(['Baptism', 'Christening', 'Blessing']).has(record.type)
+      ? START_OF_LIFE_EVENT_TYPES
+      : null
+    if (!predecessors) continue
+    for (const prior of records) {
+      if (
+        predecessors.has(prior.type) &&
+        datesOverlap(prior.event?.date, record.event?.date)
+      ) {
+        orders.set(
+          record,
+          Math.max(orders.get(record), orders.get(prior) + 0.01)
+        )
+      }
+    }
+  }
   return records
-    .sort((a, b) => inferredOrder(a) - inferredOrder(b) || a.index - b.index)
+    .sort((a, b) => orders.get(a) - orders.get(b) || a.index - b.index)
     .map(record => record.item)
 }
 

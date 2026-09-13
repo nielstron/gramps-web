@@ -6,6 +6,16 @@ import {GrampsjsViewHourglassChart} from '../../src/views/GrampsjsViewHourglassC
 import {DEFAULT_RELATIONSHIP_LAYOUT} from '../../src/charts/relationshipLayout.js'
 
 describe('relationship chart view', () => {
+  it('uses the tuned grouping priorities by default', () => {
+    const view = new GrampsjsViewRelationshipChart()
+    view.appState = {
+      settings: {},
+      updateSettings: vi.fn(),
+    }
+
+    expect(view.layout).toEqual({partners: 100, children: 28, siblings: 52})
+  })
+
   it('passes localization state to the rendered chart', () => {
     const view = new GrampsjsViewRelationshipChart()
     view.appState = {

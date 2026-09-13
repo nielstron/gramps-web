@@ -581,7 +581,7 @@ export class GrampsJs extends LitElement {
       if (decision.navigateTo === 'login') {
         window.location.href = getLoginUrl()
       } else {
-        window.history.pushState({}, '', decision.navigateTo)
+        window.history.pushState({}, '', appUrl(`/${decision.navigateTo}`))
       }
     }
     switch (decision.view) {
@@ -631,7 +631,7 @@ export class GrampsJs extends LitElement {
     }
     if (this.appState.path.page === 'settings' && !this.appState.path.pageId) {
       // needed for backwards compatibility
-      window.history.pushState({}, '', 'settings/user')
+      window.history.pushState({}, '', appUrl('/settings/user'))
       this._updateAppState({
         path: {page: 'settings', pageId: 'user', pageId2: '', pageId3: ''},
       })
