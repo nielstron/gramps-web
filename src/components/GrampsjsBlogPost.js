@@ -2,6 +2,7 @@ import './GrampsjsBlogCover.js'
 import './GrampsjsBlogAuthor.js'
 import './GrampsjsMarkdown.js'
 import {isMarkdownNote} from '../blogMarkdown.js'
+import {blogPublicationTimestamp} from '../blogPublication.js'
 import {html, css, LitElement} from 'lit'
 import {sharedStyles} from '../SharedStyles.js'
 import '@material/web/button/outlined-button.js'
@@ -118,9 +119,9 @@ export class GrampsjsBlogPost extends GrampsjsAppStateMixin(LitElement) {
             .appState=${this.appState}
           ></grampsjs-blog-author>
           ~
-          ${this.appState.i18n.lang
+          ${this.appState.i18n.lang && blogPublicationTimestamp(this.source)
             ? html`<grampsjs-timedelta
-                timestamp="${this.source.change}"
+                timestamp="${blogPublicationTimestamp(this.source)}"
                 locale="${this.appState.i18n.lang}"
               ></grampsjs-timedelta>`
             : ''}

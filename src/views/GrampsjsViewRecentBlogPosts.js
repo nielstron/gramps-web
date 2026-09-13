@@ -3,6 +3,7 @@ import {html, css} from 'lit'
 import {GrampsjsConnectedComponent} from '../components/GrampsjsConnectedComponent.js'
 import '../components/GrampsjsSearchResultList.js'
 import {fireEvent} from '../util.js'
+import {blogPublicationTimestamp} from '../blogPublication.js'
 
 export class GrampsjsViewRecentBlogPosts extends GrampsjsConnectedComponent {
   static get styles() {
@@ -36,7 +37,7 @@ export class GrampsjsViewRecentBlogPosts extends GrampsjsConnectedComponent {
         selectable
         @search-result:clicked="${this._handleClick}"
         .data="${this._data.data.slice(0, 1).map(obj => ({
-          object: obj,
+          object: {...obj, change: blogPublicationTimestamp(obj)},
           object_type: 'source',
         }))}"
         .appState="${this.appState}"
@@ -78,7 +79,7 @@ export class GrampsjsViewRecentBlogPosts extends GrampsjsConnectedComponent {
     }
     return `/api/sources/?rules=${encodeURIComponent(
       JSON.stringify(rules)
-    )}&pagesize=1&sort=-change&locale=${
+    )}&pagesize=1&sort=-publication&locale=${
       this.appState.i18n.lang || 'en'
     }&profile=all&extend=all`
   }

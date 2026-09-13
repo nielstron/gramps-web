@@ -1,5 +1,6 @@
 import './GrampsjsImg.js'
 import {blogCoverHandle} from '../blogCover.js'
+import {blogPublicationTimestamp} from '../blogPublication.js'
 import {isMarkdownNote, markdownPreview} from '../blogMarkdown.js'
 import {html, css, LitElement} from 'lit'
 import {sharedStyles} from '../SharedStyles.js'
@@ -97,9 +98,9 @@ export class GrampsjsBlogPostPreview extends GrampsjsAppStateMixin(LitElement) {
         </div>
         <div class="clear"></div>
         <div id="date">
-          ${this.appState.i18n.lang
+          ${this.appState.i18n.lang && blogPublicationTimestamp(this.data)
             ? html`<grampsjs-timedelta
-                timestamp="${this.data.change}"
+                timestamp="${blogPublicationTimestamp(this.data)}"
                 locale="${this.appState.i18n.lang}"
               ></grampsjs-timedelta>`
             : ''}

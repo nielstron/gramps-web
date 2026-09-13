@@ -232,7 +232,7 @@ export class GrampsjsViewBlog extends GrampsjsStaleDataMixin(GrampsjsView) {
     }
     const uri = `/api/sources/?rules=${encodeURIComponent(
       JSON.stringify(rules)
-    )}&page=${this._page}&pagesize=${this._pageSize}&sort=-change&locale=${
+    )}&page=${this._page}&pagesize=${this._pageSize}&sort=-publication&locale=${
       this.appState.i18n.lang || 'en'
     }&profile=all&extend=all`
     await this.appState.apiGet(uri).then(data => {
