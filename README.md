@@ -16,7 +16,8 @@ Changes maintained in this fork (some require the [companion API fork](https://g
 - **Connection graphs:** Explore how two people are connected through family relationships, including connections beyond shared ancestry.
 - **Titles:** Derive a person's titles from graduation and coronation events.
 - **Edit history:** Search past changes to find when and how records were edited.
-- **Administration:** Manage email delivery, invitations, API keys, navigation, and AI-assistant settings from the interface.
+- **Administration:** Manage email delivery, API keys, navigation, and AI-assistant settings from the interface.
+- **Invite links:** Invite people to Gramps Web via (customizable) E-Mail invitations, even when registration is disabled, and allow them to configure the rest.
 
 ### Changed behaviour
 
@@ -27,4 +28,9 @@ Changes maintained in this fork (some require the [companion API fork](https://g
 - **Names and dates:** Profiles and graphs show birth names and preferred names more clearly and format dates for the reader's locale.
 - **Personalisation:** Keep your home person and appearance preferences across browsers and devices.
 - **Blog publication:** Posts retain their original publication date and position when edited, with drafts kept separate from published posts.
-- **Everyday conveniences:** Upload profile pictures directly from a person's profile, search from an always-visible desktop search bar with people prioritised, hide empty profile sections, and close editing with Escape.
+- **Everyday conveniences:**
+  - Upload profile pictures directly from a person's profile
+  - Search from an always-visible desktop search bar
+  - Search results prioritize people
+  - Hide empty profile section
+  - Close editing with Escape.
