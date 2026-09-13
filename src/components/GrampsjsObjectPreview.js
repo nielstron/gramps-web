@@ -4,6 +4,7 @@ import {mdiOpenInNew} from '@mdi/js'
 import '@material/web/iconbutton/icon-button.js'
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 import {fireEvent} from '../util.js'
+import {appUrl} from '../appUrl.js'
 import './GrampsjsIcon.js'
 import './GrampsjsPerson.js'
 import './GrampsjsFamily.js'
@@ -45,7 +46,7 @@ function getPopupWidth(objectType) {
 }
 
 const NOTE_LINK_FORMAT = encodeURIComponent(
-  JSON.stringify({link_format: '/{obj_class}/{gramps_id}'})
+  JSON.stringify({link_format: appUrl('/{obj_class}/{gramps_id}')})
 )
 
 const URLS = {

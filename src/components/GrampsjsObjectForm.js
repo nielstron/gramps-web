@@ -240,6 +240,15 @@ export class GrampsjsObjectForm extends GrampsjsAppStateMixin(LitElement) {
   }
 
   _handleFormData(e) {
+    // The create view inside a picker has its own form state. Its field
+    // changes/resets must not overwrite the enclosing relationship draft.
+    const path = e.composedPath()
+    if (
+      path
+        .slice(0, path.indexOf(this))
+        .some(element => element.localName === 'grampsjs-object-picker-dialog')
+    )
+      return
     const originalTarget = e.composedPath()[0]
     if (originalTarget.id === 'private') {
       this.data = {...this.data, private: e.detail.checked}

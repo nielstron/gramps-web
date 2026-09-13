@@ -2,6 +2,7 @@ import {html, css, LitElement} from 'lit'
 import {classMap} from 'lit/directives/class-map.js'
 import {sharedStyles} from '../SharedStyles.js'
 import {linkUrls} from '../util.js'
+import {appUrl, baseDir, parseAppPath} from '../appUrl.js'
 
 const NAVIGABLE = new Set([
   'person',
@@ -28,10 +29,21 @@ const PREVIEWABLE = new Set([
 const NO_HOVER =
   typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches
 
-export function _parseGrampsHref(href) {
+export function _parseGrampsHref(href, configuredBaseDir = baseDir) {
   // Resolved link from link_format: /person/I0042 or person/I0042
-  const m = href.match(/^\/?([a-z]+)\/([^/]+)$/)
-  if (m && NAVIGABLE.has(m[1])) return {objectType: m[1], grampsId: m[2]}
+  const path = parseAppPath(
+    href.startsWith('/') ? href : `/${href}`,
+    configuredBaseDir
+  )
+  if (
+    path &&
+    NAVIGABLE.has(path.page) &&
+    path.pageId &&
+    !path.pageId2 &&
+    !path.pageId3
+  ) {
+    return {objectType: path.page, grampsId: path.pageId}
+  }
   return null
 }
 
@@ -119,6 +131,7 @@ export class GrampsjsNoteContent extends LitElement {
     for (const a of container.querySelectorAll('a[href]')) {
       const parsed = _parseGrampsHref(a.getAttribute('href'))
       if (!parsed) continue
+      a.href = appUrl(`/${parsed.objectType}/${parsed.grampsId}`)
       a.addEventListener('click', e => {
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
           return

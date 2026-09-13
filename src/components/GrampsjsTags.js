@@ -95,36 +95,37 @@ export class GrampsjsTags extends GrampsjsAppStateMixin(LitElement) {
 
   render() {
     const canAdd = this.appState?.permissions?.canAdd
-    if (Object.keys(this.data).length === 0 && !this.edit && !canAdd) {
+    const visibleTags = this.data.filter(
+      obj => !this.hideTags.includes(obj.name)
+    )
+    if (visibleTags.length === 0 && !this.edit) {
       return html``
     }
     return html`
       ${this.noHeading ? '' : html`<h4>${this._('Tags')}</h4>`}
       <div class="tags">
         <md-chip-set>
-          ${this.data
-            .filter(obj => !this.hideTags.includes(obj.name))
-            .map(obj =>
-              this.edit
-                ? html`<md-input-chip
-                    label="${obj.name}"
-                    style="--tag-color:${colorToCss(
-                      obj.color,
-                      0.9
-                    )};--tag-color-bg:${colorToCss(obj.color, 0.12)}"
-                    @remove=${e => {
-                      e.preventDefault()
-                      this._handleClear(obj.handle)
-                    }}
-                  ></md-input-chip>`
-                : html`<md-assist-chip
-                    label="${obj.name}"
-                    style="--tag-color:${colorToCss(
-                      obj.color,
-                      0.9
-                    )};--tag-color-bg:${colorToCss(obj.color, 0.12)}"
-                  ></md-assist-chip>`
-            )}
+          ${visibleTags.map(obj =>
+            this.edit
+              ? html`<md-input-chip
+                  label="${obj.name}"
+                  style="--tag-color:${colorToCss(
+                    obj.color,
+                    0.9
+                  )};--tag-color-bg:${colorToCss(obj.color, 0.12)}"
+                  @remove=${e => {
+                    e.preventDefault()
+                    this._handleClear(obj.handle)
+                  }}
+                ></md-input-chip>`
+              : html`<md-assist-chip
+                  label="${obj.name}"
+                  style="--tag-color:${colorToCss(
+                    obj.color,
+                    0.9
+                  )};--tag-color-bg:${colorToCss(obj.color, 0.12)}"
+                ></md-assist-chip>`
+          )}
         </md-chip-set>
         ${canAdd
           ? html`

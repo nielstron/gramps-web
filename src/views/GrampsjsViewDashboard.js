@@ -214,7 +214,7 @@ export class GrampsjsViewDashboard extends GrampsjsView {
     if (!counts.families) {
       return this._renderGetStartedCard(
         this._('Connect the people in your tree by adding a family.'),
-        html`<md-outlined-button href="/new_family"
+        html`<md-outlined-button href="${appUrl('/new_family')}"
           >${this._('New Family')}</md-outlined-button
         >`
       )

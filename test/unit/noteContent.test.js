@@ -16,6 +16,15 @@ describe('_parseGrampsHref', () => {
     })
   })
 
+  it('parses an object link below the configured application base path', () => {
+    expect(
+      _parseGrampsHref('/stammbaum/person/I0042', '/stammbaum')
+    ).to.deep.equal({
+      objectType: 'person',
+      grampsId: 'I0042',
+    })
+  })
+
   it('parses family links', () => {
     expect(_parseGrampsHref('/family/F0001')).to.deep.equal({
       objectType: 'family',

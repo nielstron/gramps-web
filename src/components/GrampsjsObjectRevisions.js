@@ -19,6 +19,7 @@ import './GrampsjsTimedelta.js'
 
 import {GrampsjsAppStateMixin} from '../mixins/GrampsjsAppStateMixin.js'
 import {sharedStyles} from '../SharedStyles.js'
+import {appUrl} from '../appUrl.js'
 
 const PAGE_SIZE = 10
 const MAX_ITEMS = 50
@@ -144,7 +145,7 @@ export class GrampsjsObjectRevisions extends GrampsjsAppStateMixin(LitElement) {
       <md-list-item
         ?interactive="${!!transactionId}"
         type="${transactionId ? 'link' : 'text'}"
-        href="${transactionId ? `/revision/${transactionId}` : ''}"
+        href="${transactionId ? appUrl(`/revision/${transactionId}`) : ''}"
       >
         <div slot="headline">
           ${this._(transTypeLabels[change.trans_type] || 'Unknown')}
@@ -187,6 +188,13 @@ export class GrampsjsObjectRevisions extends GrampsjsAppStateMixin(LitElement) {
       if ('data' in data) {
         this._data = page === 1 ? data.data : [...this._data, ...data.data]
         this._totalCount = parseInt(data.total_count, 10) || 0
+        this.dispatchEvent(
+          new CustomEvent('revisions:count', {
+            detail: {count: this._totalCount},
+            bubbles: true,
+            composed: true,
+          })
+        )
       }
     } finally {
       this._loading = false

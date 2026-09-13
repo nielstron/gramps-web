@@ -42,7 +42,7 @@ export class GrampsjsChildren extends GrampsjsEditableList {
     this.hasShare = true
     this.hasAdd = false
     this.hasEdit = true
-    this.hasReorder = true
+    this.hasReorder = false
     this.reorderAction = 'reorderChildRef'
     this.objType = 'ChildRef'
   }
