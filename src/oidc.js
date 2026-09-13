@@ -1,5 +1,6 @@
 import {__APIHOST__, ACCESS_TOKEN_EXPIRY_MS} from './api.js'
 import {appUrl} from './appUrl.js'
+import {localStorage} from './storage.js'
 
 function storeTokens(data) {
   const expiresAt = Date.now() + ACCESS_TOKEN_EXPIRY_MS

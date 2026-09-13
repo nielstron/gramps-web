@@ -1,4 +1,5 @@
 import {html, css, LitElement} from 'lit'
+import {localStorage} from '../storage.js'
 import 'maplibre-gl'
 import '@openhistoricalmap/maplibre-gl-dates'
 import * as Diplomat from '@americana/diplomat'

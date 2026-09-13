@@ -1,4 +1,5 @@
 import {jwtDecode} from 'jwt-decode'
+import {localStorage} from './storage.js'
 
 import {fireEvent, normalizeRect} from './util.js'
 
