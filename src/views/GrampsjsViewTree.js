@@ -112,6 +112,9 @@ export class GrampsjsViewTree extends GrampsjsView {
   }
 
   _handleTabChange(e) {
+    // Route changes also update the hidden tree's tab selection. Material tabs
+    // can emit change afterwards; that must not navigate away from the profile.
+    if (!this.active || this.appState?.path?.page !== 'tree') return
     const view = getTreeViewForTab(e.target.activeTabIndex)
     fireEvent(this, 'edit-mode:off', {})
     fireEvent(this, 'nav', {

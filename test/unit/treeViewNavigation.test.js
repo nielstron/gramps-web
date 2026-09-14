@@ -20,6 +20,8 @@ describe('tree view navigation', () => {
 
   it('navigates to a URL containing the newly selected graph', () => {
     const view = document.createElement('grampsjs-view-tree')
+    view.active = true
+    view.appState = {path: {page: 'tree'}}
     view.view = 'ancestor'
     view.grampsId = 'I0001'
     let navigation
@@ -34,6 +36,8 @@ describe('tree view navigation', () => {
 
   it('preserves both endpoints when selecting the connection graph', () => {
     const view = document.createElement('grampsjs-view-tree')
+    view.active = true
+    view.appState = {path: {page: 'tree'}}
     view.view = 'relationship'
     view.grampsId = 'I0001'
     view.targetGrampsId = 'I0002'
@@ -46,6 +50,22 @@ describe('tree view navigation', () => {
 
     expect(navigation).toEqual({path: 'tree/connection/I0001/I0002'})
   })
+
+  it.each([false, true])(
+    'ignores tab changes after profile navigation even when active is still %s',
+    active => {
+      const view = document.createElement('grampsjs-view-tree')
+      view.active = active
+      view.appState = {path: {page: 'person', pageId: 'I0002'}}
+      view.grampsId = 'I0001'
+      const navigation = []
+      view.addEventListener('nav', event => navigation.push(event.detail))
+
+      view._handleTabChange({target: {activeTabIndex: 3}})
+
+      expect(navigation).toEqual([])
+    }
+  )
 
   it('stops reacting to global person selections after it is disconnected', () => {
     const view = document.createElement('grampsjs-view-tree')
