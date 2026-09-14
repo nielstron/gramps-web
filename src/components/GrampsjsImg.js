@@ -74,6 +74,8 @@ class GrampsjsImg extends LitElement {
     return {
       handle: {type: String},
       size: {type: Number},
+      full: {type: Boolean},
+      _fullLoaded: {state: true},
       rect: {type: Array},
       circle: {type: Boolean},
       cover: {type: Boolean},
@@ -92,6 +94,8 @@ class GrampsjsImg extends LitElement {
   constructor() {
     super()
     this.rect = []
+    this.full = false
+    this._fullLoaded = false
     this.circle = false
     this.cover = false
     this.square = false
@@ -138,13 +142,47 @@ class GrampsjsImg extends LitElement {
     )
   }
 
+  _renderProgressive() {
+    return html`
+      ${this._fullLoaded ? '' : this._renderThumb()}
+      ${keyed(
+        `${this.handle}-${this.checksum}-${this._imgGeneration}`,
+        html`
+          <img
+            class="original"
+            src="${getMediaUrl(this.handle)}"
+            style="display:${this._fullLoaded ? 'block' : 'none'}"
+            @load=${this._originalLoaded}
+            decoding="async"
+            alt=""
+          />
+        `
+      )}
+    `
+  }
+
+  async _originalLoaded(event) {
+    const image = event.currentTarget
+    const identity = `${this.handle}-${this.checksum}-${this._imgGeneration}`
+    try {
+      await image.decode()
+    } catch {
+      return // Keep the thumbnail if the original cannot be decoded.
+    }
+    if (identity === `${this.handle}-${this.checksum}-${this._imgGeneration}`) {
+      this._fullLoaded = true
+    }
+  }
+
   willUpdate(changedProps) {
     if (
       changedProps.has('handle') ||
       changedProps.has('mime') ||
-      changedProps.has('checksum')
+      changedProps.has('checksum') ||
+      changedProps.has('_imgGeneration')
     ) {
       this._error = false
+      this._fullLoaded = false
     }
   }
 
@@ -171,7 +209,9 @@ class GrampsjsImg extends LitElement {
   }
 
   getBBox() {
-    const img = this.shadowRoot.querySelector('img')
+    const img = this.shadowRoot.querySelector(
+      this._fullLoaded ? 'img.original' : 'img'
+    )
     if (img === null) {
       return null
     }
@@ -328,6 +368,9 @@ class GrampsjsImg extends LitElement {
   }
 
   render() {
+    if (this.full && this.mime.startsWith('image')) {
+      return this._renderProgressive()
+    }
     if (this._error) {
       return this.renderBrokenImage()
     }

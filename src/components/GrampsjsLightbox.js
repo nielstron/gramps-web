@@ -229,6 +229,7 @@ class GrampsjsLightbox extends LitElement {
 
   _close() {
     this.open = false
+    this.dispatchEvent(new CustomEvent('lightbox:closed'))
   }
 
   _handleLeft() {

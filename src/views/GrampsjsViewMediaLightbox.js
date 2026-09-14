@@ -76,6 +76,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
       editRect: {type: Boolean},
       rectHidden: {type: Boolean},
       _zoom: {type: Number},
+      _showOriginal: {state: true},
     }
   }
 
@@ -88,6 +89,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
     this.editRect = false
     this.rectHidden = false
     this._zoom = 1
+    this._showOriginal = false
     this._panX = 0
     this._panY = 0
     this._pinchStartDist = null
@@ -107,6 +109,9 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
     return html`
       <grampsjs-lightbox
         id="gallery-lightbox"
+        @lightbox:closed=${() => {
+          this._showOriginal = false
+        }}
         ?hideLeftArrow=${this.hideLeftArrow}
         ?hideRightArrow=${this.hideRightArrow}
       >
@@ -171,6 +176,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
   }
 
   open() {
+    this._showOriginal = true
     const lightBox = this.shadowRoot.getElementById('gallery-lightbox')
     if (lightBox) {
       lightBox.open = true
@@ -257,6 +263,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
       <grampsjs-img
         handle="${handle}"
         size="${this._imageSize()}"
+        ?full=${this._showOriginal}
         mime="${mime}"
         checksum="${this._data.checksum}"
         slot="image"
@@ -265,10 +272,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
   }
 
   _imageSize() {
-    const w = window.innerWidth
-    if (w <= 600) return 800
-    if (w <= 1200) return 1200
-    return 2000
+    return 400
   }
 
   // --- zoom ---

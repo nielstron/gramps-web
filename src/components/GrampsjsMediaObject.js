@@ -328,7 +328,7 @@ export class GrampsjsMediaObject extends GrampsjsObject {
     return html`
       <grampsjs-img
         handle="${this.data.handle}"
-        size="1000"
+        size="400"
         class="link"
         border
         mime="${this.data.mime}"
@@ -348,7 +348,7 @@ export class GrampsjsMediaObject extends GrampsjsObject {
       >
         <grampsjs-img
           handle="${this.data.handle}"
-          size="1000"
+          size="400"
           class="link"
           border
           mime="${this.data.mime}"
