@@ -25,6 +25,7 @@ export const TASK_LABELS = {
 
   // --- Database ---
   check_repair_database: 'Check and Repair Database',
+  pregenerate_thumbnails: 'Repair thumbnails',
   verify_database: 'Verify the Data',
   upgrade_database_schema: 'Upgrade database',
   delete_objects: 'Delete all objects',
@@ -56,6 +57,7 @@ export const CELERY_TO_TASK_NAME = {
 
   // --- Database ---
   check_repair_database: 'repairDb',
+  pregenerate_thumbnails: 'repairThumbnails',
   verify_database: 'verifyDb',
   upgrade_database_schema: 'upgradeDb',
   delete_objects: 'deleteObjects',

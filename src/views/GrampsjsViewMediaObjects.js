@@ -303,6 +303,7 @@ export class GrampsjsViewMediaObjects extends GrampsjsViewObjectsBase {
             handle="${row.handle}"
             size="100"
             square
+            cover
             mime="${row.mime}"
             checksum="${row.checksum}"
           ></grampsjs-img>
@@ -393,6 +394,7 @@ export class GrampsjsViewMediaObjects extends GrampsjsViewObjectsBase {
           handle="${row.handle}"
           size="300"
           square
+          cover
           mime="${row.mime}"
           checksum="${row.checksum}"
           @click="${() => this._handleImageClick(row)}"

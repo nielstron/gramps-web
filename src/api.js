@@ -761,7 +761,7 @@ export function getMediaUrlCropped(handle, rect) {
 }
 
 function _checksumParam(checksum) {
-  return checksum ? `&checksum=${checksum}` : ''
+  return `&thumbnail_version=2${checksum ? `&checksum=${checksum}` : ''}`
 }
 
 export function getThumbnailUrl(handle, size, square = false, checksum = null) {

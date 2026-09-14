@@ -252,6 +252,7 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
     return {
       _userInfo: {type: Object},
       _repairResults: {type: Object},
+      _thumbnailResults: {type: Object},
       _verifyResults: {type: Array},
       _verifyLoading: {type: Boolean},
       _verifyOptions: {type: Object},
@@ -811,6 +812,25 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
             </p>`
           : ''}
 
+        <h3>${this._('Repair thumbnails')}</h3>
+        <p>
+          ${this._(
+            'Regenerate cached thumbnails for existing media. New uploads are processed automatically.'
+          )}
+        </p>
+        <md-outlined-button @click="${this._repairThumbnails}">
+          ${this._('Repair thumbnails')}
+        </md-outlined-button>
+        <grampsjs-task-progress-indicator
+          id="progress-thumbnails"
+          taskName="repairThumbnails"
+          .appState="${this.appState}"
+          @task:complete="${this._handleThumbnailsComplete}"
+        ></grampsjs-task-progress-indicator>
+        ${this._thumbnailResults
+          ? html`<pre>${JSON.stringify(this._thumbnailResults, null, 2)}</pre>`
+          : ''}
+
         <h3>${this._('Verify the Data')}</h3>
         <p>${this._('Verifies the data against user-defined tests')}</p>
         ${this._renderVerifyOptions()}
@@ -1238,6 +1258,37 @@ export class GrampsjsViewAdminSettings extends GrampsjsView {
     } else {
       prog.setComplete()
     }
+  }
+
+  async _repairThumbnails() {
+    this._thumbnailResults = null
+    const prog = this.renderRoot.querySelector('#progress-thumbnails')
+    prog.reset()
+    prog.open = true
+    const data = await this.appState.apiPost(
+      '/api/trees/-/repair/thumbnails',
+      null,
+      {dbChanged: false}
+    )
+    if ('error' in data) {
+      prog.setError()
+      prog.errorMessage = data.error
+    } else if ('task' in data) {
+      prog.taskId = data.task.id
+      this.appState.registerTask(data.task.id, 'Repair thumbnails', {
+        taskName: 'repairThumbnails',
+      })
+    } else {
+      this._thumbnailResults = data
+      prog.setComplete()
+    }
+  }
+
+  _handleThumbnailsComplete(e) {
+    const info = e.detail?.status?.info
+    if (info !== undefined)
+      this._thumbnailResults =
+        typeof info === 'string' ? JSON.parse(info) : info
   }
 
   _handleRepairComplete(e) {
