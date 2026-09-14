@@ -1,5 +1,6 @@
 import {jwtDecode} from 'jwt-decode'
 import {localStorage} from './storage.js'
+import {toIntlLocale} from './locale.js'
 
 import {fireEvent, normalizeRect} from './util.js'
 
@@ -798,7 +799,7 @@ export async function queryNominatim(
 ) {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
     q
-  )}&format=jsonv2&limit=${limit}&accept-language=${lang}`
+  )}&format=jsonv2&limit=${limit}&accept-language=${toIntlLocale(lang)}`
   try {
     const resp = await fetch(url, {
       headers: {Accept: 'application/json'},

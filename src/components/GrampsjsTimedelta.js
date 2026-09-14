@@ -4,6 +4,7 @@ A natural language time delta component.
 
 import {html, LitElement} from 'lit'
 import dayjs from 'dayjs/esm'
+import {toDayjsLocale} from '../locale.js'
 import relativeTime from 'dayjs/esm/plugin/relativeTime'
 import LocalizedFormat from 'dayjs/esm/plugin/localizedFormat'
 
@@ -39,10 +40,11 @@ class GrampsjsTimedelta extends LitElement {
   }
 
   _updateString() {
-    const dayjsLocale = this.locale === 'pt_PT' ? 'pt' : this.locale
-    dayjs.locale(dayjsLocale.toLowerCase().replace('_', '-'))
-    this.timestampString = dayjs.unix(this.timestamp).fromNow()
-    this.tooltipString = dayjs.unix(this.timestamp).format('lll')
+    const date = dayjs
+      .unix(this.timestamp)
+      .locale(toDayjsLocale(this.locale, dayjs.Ls))
+    this.timestampString = date.fromNow()
+    this.tooltipString = date.format('lll')
   }
 
   connectedCallback() {

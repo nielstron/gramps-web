@@ -1,5 +1,6 @@
 import {html, css, LitElement} from 'lit'
 import {localStorage} from '../storage.js'
+import {toIntlLocale} from '../locale.js'
 import 'maplibre-gl'
 import '@openhistoricalmap/maplibre-gl-dates'
 import * as Diplomat from '@americana/diplomat'
@@ -320,7 +321,7 @@ class GrampsjsMap extends GrampsjsAppStateMixin(LitElement) {
     if (this._currentStyle !== MAP_STYLE_OHM) return
     const lang = this.appState?.i18n?.lang
     const locales = lang
-      ? [lang, ...Diplomat.getLocales()]
+      ? [toIntlLocale(lang), ...Diplomat.getLocales().map(toIntlLocale)]
       : Diplomat.getLocales()
     Diplomat.localizeStyle(this._map, locales, {
       localizedNamePropertyFormat: 'name_$1',

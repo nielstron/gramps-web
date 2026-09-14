@@ -29,6 +29,7 @@ import {
 import {apiVersionAtLeast, fireEvent} from '../util.js'
 import {applyScheme, DEFAULT_PRIMARY, DEFAULT_SECONDARY} from '../theme.js'
 import {DEFAULT_TREE_VIEW, TREE_VIEWS} from '../treeDefaults.js'
+import {toIntlLocale} from '../locale.js'
 
 const PERSISTENT_ACCESS_TOKEN_SCOPES = [
   {
@@ -627,9 +628,9 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
 
   _formatApiKeyDate(dateString) {
     const [year, month, day] = dateString.split('-').map(Number)
-    return new Intl.DateTimeFormat(this.appState?.settings?.lang).format(
-      new Date(year, month - 1, day)
-    )
+    return new Intl.DateTimeFormat(
+      toIntlLocale(this.appState?.settings?.lang)
+    ).format(new Date(year, month - 1, day))
   }
 
   async _copyApiKeyToken() {

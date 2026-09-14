@@ -4,6 +4,7 @@ import {axisBottom} from 'd3-axis'
 import {zoom as d3zoom, zoomIdentity} from 'd3-zoom'
 import {schemeSet1} from 'd3-scale-chromatic'
 import {formatDateString} from '../date.js'
+import {toIntlLocale} from '../locale.js'
 
 const EVENT_TYPE_COLOR = {
   Birth: schemeSet1[0], // red
@@ -74,7 +75,7 @@ const LABEL_H_GAP = 8 // minimum horizontal gap between labels
 
 // Normalize Gramps locale codes (de_AT → de-AT) for Intl
 export function normalizeLocale(locale) {
-  return (locale || 'en').replace('_', '-')
+  return toIntlLocale(locale)
 }
 
 // Returns the initial [start, end] domain: Jan 1st 100 years ago to now

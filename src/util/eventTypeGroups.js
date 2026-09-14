@@ -1,4 +1,5 @@
 // Keep this taxonomy in sync with gramps.gen.lib.eventtype.EventType._MENU.
+import {toIntlLocale} from '../locale.js'
 export const EVENT_TYPE_GROUPS = [
   {
     label: 'Life Events',
@@ -89,7 +90,7 @@ export function groupEventTypes(
   const categorizedTypes = new Set(
     EVENT_TYPE_GROUPS.flatMap(group => group.types)
   )
-  const collator = new Intl.Collator(locale.replaceAll('_', '-'), {
+  const collator = new Intl.Collator(toIntlLocale(locale), {
     numeric: true,
     sensitivity: 'base',
   })

@@ -1303,7 +1303,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
   async _fetchNominatim(value) {
     this._nominatimAbort?.abort()
     this._nominatimAbort = new AbortController()
-    const lang = (this.appState.i18n.lang || 'en').replaceAll('_', '-')
+    const lang = this.appState.i18n.lang || 'en'
     try {
       const res = await queryNominatim(value, {
         lang,

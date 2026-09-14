@@ -12,6 +12,12 @@ const events = [
 ]
 
 describe('timeline event type filter', () => {
+  it('sorts event types with a Gramps regional locale', () => {
+    const view = new GrampsjsViewTimeline()
+    view.appState = {i18n: {lang: 'en_GB', strings: {}}}
+    view._data = events
+    expect(view._eventTypes).toEqual(['Birth', 'Marriage'])
+  })
   it('keeps all events when no type is selected', () => {
     expect(filterEventsByType(events, '')).toEqual(events)
   })

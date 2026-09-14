@@ -10,6 +10,7 @@ import {personDisplayName} from '../util.js'
 import {getImageUrl} from '../charts/util.js'
 import './GrampsjsIcon.js'
 import './GrampsjsTooltip.js'
+import {toIntlLocale} from '../locale.js'
 
 class GrampsjsYtreeLineage extends GrampsjsAppStateMixin(LitElement) {
   static get styles() {
@@ -67,12 +68,7 @@ class GrampsjsYtreeLineage extends GrampsjsAppStateMixin(LitElement) {
       if (year < 0) year += 1
       const date = new Date(Date.UTC(year, 0, 1))
       const options = {year: 'numeric', ...(year <= 0 && {era: 'short'})}
-      let formatter
-      try {
-        formatter = new Intl.DateTimeFormat(locale.replace('_', '-'), options)
-      } catch (_) {
-        formatter = new Intl.DateTimeFormat('en-US', options)
-      }
+      const formatter = new Intl.DateTimeFormat(toIntlLocale(locale), options)
       return formatter.format(date)
     }
 

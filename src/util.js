@@ -1,6 +1,7 @@
 /* eslint-disable no-bitwise */
 import {html} from 'lit'
 import dayjs from 'dayjs/esm'
+import {toDayjsLocale, toGrampsLocale} from './locale.js'
 import relativeTime from 'dayjs/esm/plugin/relativeTime'
 
 import {
@@ -511,10 +512,7 @@ export function objectDetail(type, obj, strings) {
 }
 
 export function prettyTimeDiffTimestamp(timestamp, locale) {
-  // pt_PT is the only locale we have to rename
-  const dayjsLocale = locale === 'pt_PT' ? 'pt' : locale
-  dayjs.locale(dayjsLocale.toLowerCase().replace('_', '-'))
-  return dayjs.unix(timestamp).fromNow()
+  return dayjs.unix(timestamp).locale(toDayjsLocale(locale, dayjs.Ls)).fromNow()
 }
 
 export function debounce(func, wait) {
@@ -574,7 +572,7 @@ export function makeHandle() {
 export function getBrowserLanguage() {
   // get browser language and replace all '-' with '_'
   // since the strings from backend comes with underscore
-  const browserLang = navigator.language.replaceAll('-', '_')
+  const browserLang = toGrampsLocale(navigator.language)
   if (frontendLanguages.includes(browserLang)) {
     return browserLang
   }

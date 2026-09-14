@@ -1,6 +1,7 @@
 /*
 Date utility functions
 */
+import {toIntlLocale} from './locale.js'
 
 // eslint-disable-next-line class-methods-use-this
 export function toDate(dateVal) {
@@ -53,8 +54,7 @@ function formatMonthAndYear(date, locale) {
 }
 
 export function formatDateValue(dateVal, locale = browserLocale()) {
-  // Gramps uses identifiers such as en_GB; Intl expects BCP 47 (en-GB).
-  const intlLocale = locale.replaceAll('_', '-')
+  const intlLocale = toIntlLocale(locale)
   const [day, month, year] = dateVal
   if (!year) return ''
   if (!month) return String(year)

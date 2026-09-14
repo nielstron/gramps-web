@@ -9,6 +9,7 @@ import {GrampsjsView} from './GrampsjsView.js'
 import {GrampsjsStaleDataMixin} from '../mixins/GrampsjsStaleDataMixin.js'
 import {sdnToJsDate} from '../gcalendar.js'
 import {fireEvent} from '../util.js'
+import {toIntlLocale} from '../locale.js'
 import '../components/GrampsjsTimeline.js'
 import '../components/GrampsjsFormSelectObject.js'
 import {
@@ -318,7 +319,7 @@ export class GrampsjsViewTimeline extends GrampsjsStaleDataMixin(GrampsjsView) {
   }
 
   get _eventTypes() {
-    const locale = this.appState.i18n.lang || 'en'
+    const locale = toIntlLocale(this.appState.i18n.lang)
     return [
       ...new Set(this._data.map(event => event.eventType).filter(Boolean)),
     ].sort((a, b) => this._(a).localeCompare(this._(b), locale))
