@@ -1,6 +1,9 @@
 import {select} from 'd3-selection'
-import {chartNameDisplayFormat, fireEvent} from '../util.js'
-import {personGivenNameFromProfile} from '../util.js'
+import {
+  chartNameDisplayFormat,
+  fireEvent,
+  personGivenNameFromProfile,
+} from '../util.js'
 import {formatDateString} from '../date.js'
 import {appendOpenPersonButton} from './openPersonButton.js'
 import {
@@ -70,6 +73,7 @@ export function appendPersonCard(
   nodes
     .append('rect')
     .attr('fill', palette.personBox)
+    .attr('class', 'personBox')
     .attr('x', left)
     .attr('y', top)
     .attr('width', boxWidth)
@@ -164,8 +168,13 @@ export function setPersonCardInteraction(
 ) {
   nodes.selectAll('.open-person-btn').remove()
   if (openProfileLabel) {
-    appendOpenPersonButton(nodes.filter(grampsId), boxWidth / 2 - 14,
-      boxHeight / 2 - 14, openProfileLabel, grampsId)
+    appendOpenPersonButton(
+      nodes.filter(grampsId),
+      boxWidth / 2 - 14,
+      boxHeight / 2 - 14,
+      openProfileLabel,
+      grampsId
+    )
   }
   nodes
     .style('cursor', canEdit && !onSelect ? 'default' : 'pointer')

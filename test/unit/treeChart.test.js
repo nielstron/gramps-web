@@ -2,6 +2,10 @@ import {describe, expect, it} from 'vitest'
 import {select} from 'd3-selection'
 import {zoom, zoomIdentity, zoomTransform} from 'd3-zoom'
 import {TreeChart, viewBoxStart} from '../../src/charts/TreeChart.js'
+import {FamilyGraph} from '../../src/charts/model/FamilyGraph.js'
+import {layoutAncestors} from '../../src/charts/layout/treeLayout.js'
+import {chartNameDisplayFormat} from '../../src/util.js'
+import {chartPalette} from '../../src/charts/palette.js'
 
 const rootPerson = {
   id: 'person-root',
@@ -27,17 +31,23 @@ const chartSettings = {
 
 describe('TreeChart', () => {
   it('centers a small chart while keeping the selected person visible', () => {
-    const ancestors = {
-      ...rootPerson,
-      children: [
-        {
-          ...rootPerson,
-          id: 'person-parent',
-          person: {...rootPerson.person, gramps_id: 'I0043'},
+    const parent = {...rootPerson.person, handle: 'parent', gramps_id: 'I0043'}
+    const child = {
+      ...rootPerson.person,
+      extended: {
+        primary_parent_family: {
+          father_handle: parent.handle,
         },
-      ],
+      },
     }
-    const svg = TreeChart(null, ancestors, chartSettings)
+    const chart = new TreeChart()
+    chart.update(
+      layoutAncestors(new FamilyGraph([child, parent]), child.handle, {
+        depth: 3,
+      }),
+      chartSettings
+    )
+    const svg = chart.node
     const [viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight] = svg
       .getAttribute('viewBox')
       .split(',')
@@ -53,7 +63,16 @@ describe('TreeChart', () => {
   })
 
   it('opens a person profile from the magnifier without refocusing the tree', () => {
-    const svg = TreeChart(null, rootPerson, chartSettings)
+    const chart = new TreeChart()
+    chart.update(
+      layoutAncestors(
+        new FamilyGraph([rootPerson.person]),
+        rootPerson.person.handle,
+        {depth: 3}
+      ),
+      chartSettings
+    )
+    const svg = chart.node
     let navigationEvent
     let selectionEvent
     svg.addEventListener('nav', event => {
@@ -77,11 +96,6 @@ describe('TreeChart', () => {
     expect(selectionEvent).toBeUndefined()
   })
 })
-import {FamilyGraph} from '../../src/charts/model/FamilyGraph.js'
-import {layoutAncestors} from '../../src/charts/layout/treeLayout.js'
-import {chartNameDisplayFormat} from '../../src/util.js'
-import {chartPalette} from '../../src/charts/palette.js'
-
 describe('viewBoxStart', () => {
   it('centres a chart that fits the view', () => {
     expect(viewBoxStart(0, -100, 300, 1000)).toBe(-400)

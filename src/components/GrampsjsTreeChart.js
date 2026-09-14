@@ -22,6 +22,7 @@ const layoutProperties = [
   'nAnc',
   'nDesc',
   'gapX',
+  'gapY',
 ]
 
 class GrampsjsTreeChart extends GrampsjsChartBase {
@@ -101,17 +102,20 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
         ancestorDepth: this.nAnc,
         descendantDepth: this.nDesc,
         gapX: this.gapX,
+        gapY: this.gapY,
       })
     }
     if (this.descendants) {
       return layoutDescendants(this._graph, handle, {
         depth: this.nDesc,
         gapX: this.gapX,
+        gapY: this.gapY,
       })
     }
     return layoutAncestors(this._graph, handle, {
       depth: this.nAnc,
       gapX: this.gapX,
+      gapY: this.gapY,
     })
   }
 
@@ -130,14 +134,13 @@ class GrampsjsTreeChart extends GrampsjsChartBase {
     }
     this._chart.update(this._layout, {
       childrenTriangle,
-        getImageUrl: d => getImageUrl(d.person, 100),
-        orientation: this.descendants ? 'RTL' : 'LTR',
-        gapY: this.gapY,
-        bboxWidth: this.containerWidth,
-        bboxHeight: this.containerHeight,
-        nameDisplayFormat: this.nameDisplayFormat,
-        canEdit: this.canEdit,
-        openProfileLabel: this._('Person Details'),
+      getImageUrl: d => getImageUrl(d.person, 100),
+      orientation: this.descendants ? 'RTL' : 'LTR',
+      bboxWidth: this.containerWidth,
+      bboxHeight: this.containerHeight,
+      nameDisplayFormat: this.nameDisplayFormat,
+      canEdit: this.canEdit,
+      openProfileLabel: this._('Person Details'),
     })
   }
 
