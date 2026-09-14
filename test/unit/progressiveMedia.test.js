@@ -16,6 +16,7 @@ async function preview() {
 describe('progressive full image', () => {
   it('loads originals only after opening the lightbox, using a small preview', () => {
     const view = new GrampsjsViewMediaLightbox()
+    view.attachShadow({mode: 'open'})
     view._data = {handle: 'one', mime: 'image/jpeg'}
     const container = document.createElement('div')
     render(view._renderImage(), container)
