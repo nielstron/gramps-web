@@ -264,6 +264,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
         handle="${handle}"
         size="${this._imageSize()}"
         ?full=${this._showOriginal}
+        fit-viewport
         mime="${mime}"
         checksum="${this._data.checksum}"
         slot="image"
@@ -332,6 +333,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
   // --- mouse drag pan ---
 
   _handlePointerDown(e) {
+    if (e.pointerType === 'touch') return
     if (this._zoom <= 1) return
     this._dragStartX = e.clientX
     this._dragStartY = e.clientY
@@ -341,6 +343,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
   }
 
   _handlePointerMove(e) {
+    if (e.pointerType === 'touch') return
     if (this._zoom <= 1 || !e.buttons) return
     this._panX = this._dragStartPanX + (e.clientX - this._dragStartX)
     this._panY = this._dragStartPanY + (e.clientY - this._dragStartY)
@@ -378,6 +381,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
       }
     } else if (e.touches.length === 1 && this._zoom > 1) {
       e.stopPropagation()
+      e.preventDefault()
       this._panX =
         this._touchPanStartPanX + (e.touches[0].clientX - this._touchPanStartX)
       this._panY =
@@ -393,6 +397,12 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
     }
     if (this._zoom > 1) {
       e.stopPropagation()
+      if (e.touches.length === 1) {
+        this._touchPanStartX = e.touches[0].clientX
+        this._touchPanStartY = e.touches[0].clientY
+        this._touchPanStartPanX = this._panX
+        this._touchPanStartPanY = this._panY
+      }
     }
   }
 

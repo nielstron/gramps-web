@@ -31,6 +31,9 @@ describe('progressive full image', () => {
     expect(container.querySelector('grampsjs-img').getAttribute('size')).toBe(
       '400'
     )
+    expect(
+      container.querySelector('grampsjs-img').hasAttribute('fit-viewport')
+    ).toBe(true)
   })
   it('keeps the thumbnail until the original finishes decoding', async () => {
     const el = await preview()
@@ -80,5 +83,53 @@ describe('progressive full image', () => {
     await Promise.resolve()
     await el.updateComplete
     expect(el._fullLoaded).toBe(false)
+  })
+})
+
+describe('mobile lightbox gestures', () => {
+  it('does not process a touch as mouse dragging as well', () => {
+    const view = new GrampsjsViewMediaLightbox()
+    view._zoom = 2
+    const capture = vi.fn()
+    view._handlePointerDown({
+      pointerType: 'touch',
+      currentTarget: {setPointerCapture: capture},
+    })
+    expect(capture).not.toHaveBeenCalled()
+  })
+
+  it('continues panning from the remaining finger after a pinch', () => {
+    const view = new GrampsjsViewMediaLightbox()
+    view._zoom = 2
+    const event = x => ({
+      touches: [{clientX: x, clientY: 50}],
+      stopPropagation: vi.fn(),
+      preventDefault: vi.fn(),
+    })
+    view._handleTouchEnd(event(100))
+    view._handleTouchMove(event(110))
+    expect(view._panX).toBe(10)
+    expect(view._panY).toBe(0)
+  })
+})
+
+describe('shared thumbnail previews', () => {
+  it('shows a small matching crop until the requested thumbnail is decoded', async () => {
+    const el = await preview()
+    el.full = false
+    el.rect = [10, 20, 80, 90]
+    await el.updateComplete
+    const small = el.shadowRoot.querySelector('img.preview')
+    expect(small).not.toBeNull()
+    expect(small.src).toContain('/100')
+    const large = el.shadowRoot.querySelector('img[srcset]')
+    expect(new URL(small.src).pathname.replace('/100', '/1000')).toBe(
+      new URL(large.src).pathname
+    )
+    large.decode = vi.fn().mockResolvedValue()
+    large.dispatchEvent(new Event('load'))
+    await Promise.resolve()
+    await el.updateComplete
+    expect(el.shadowRoot.querySelector('img.preview')).toBeNull()
   })
 })

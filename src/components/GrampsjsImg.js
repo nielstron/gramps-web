@@ -42,6 +42,44 @@ class GrampsjsImg extends LitElement {
           display: block;
         }
 
+        :host([fit-viewport]) img {
+          width: min(
+            100vw,
+            calc(
+              (100dvh - var(--grampsjs-lightbox-toolbar-height, 70px)) *
+                var(--image-ratio, 1)
+            )
+          );
+          height: auto;
+          max-width: none;
+          max-height: calc(
+            100dvh - var(--grampsjs-lightbox-toolbar-height, 70px)
+          );
+        }
+
+        .preview-stack {
+          position: relative;
+        }
+        :host([cover]) .preview-stack {
+          width: 100%;
+          height: 100%;
+        }
+        .preview-stack.pending > img:not(.preview) {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          opacity: 0;
+        }
+        img.preview {
+          width: var(--preview-width);
+          height: auto;
+        }
+        img.preview.cover {
+          width: 100%;
+          height: 100%;
+        }
+
         .round {
           border-radius: 50%;
         }
@@ -76,6 +114,7 @@ class GrampsjsImg extends LitElement {
       size: {type: Number},
       full: {type: Boolean},
       _fullLoaded: {state: true},
+      _thumbLoaded: {state: true},
       rect: {type: Array},
       circle: {type: Boolean},
       cover: {type: Boolean},
@@ -96,6 +135,7 @@ class GrampsjsImg extends LitElement {
     this.rect = []
     this.full = false
     this._fullLoaded = false
+    this._thumbLoaded = false
     this.circle = false
     this.cover = false
     this.square = false
@@ -170,7 +210,37 @@ class GrampsjsImg extends LitElement {
       return // Keep the thumbnail if the original cannot be decoded.
     }
     if (identity === `${this.handle}-${this.checksum}-${this._imgGeneration}`) {
+      this._imageLoaded({currentTarget: image})
       this._fullLoaded = true
+    }
+  }
+
+  _imageLoaded(event) {
+    const image = event.currentTarget
+    this.style.setProperty(
+      '--image-ratio',
+      image.naturalWidth / image.naturalHeight
+    )
+  }
+
+  async _thumbnailLoaded(event) {
+    const image = event.currentTarget
+    const identity = `${this.handle}-${this.checksum}-${
+      this._imgGeneration
+    }-${JSON.stringify(this.rect)}-${this.size}`
+    try {
+      await image.decode()
+    } catch {
+      return
+    }
+    if (
+      identity ===
+      `${this.handle}-${this.checksum}-${this._imgGeneration}-${JSON.stringify(
+        this.rect
+      )}-${this.size}`
+    ) {
+      this._imageLoaded({currentTarget: image})
+      this._thumbLoaded = true
     }
   }
 
@@ -183,6 +253,19 @@ class GrampsjsImg extends LitElement {
     ) {
       this._error = false
       this._fullLoaded = false
+    }
+    if (
+      [
+        'handle',
+        'mime',
+        'checksum',
+        '_imgGeneration',
+        'rect',
+        'size',
+        'square',
+      ].some(key => changedProps.has(key))
+    ) {
+      this._thumbLoaded = false
     }
   }
 
@@ -264,6 +347,7 @@ class GrampsjsImg extends LitElement {
           @error=${this._errorHandler}
           alt=""
           style="${this.circle ? '' : `border-radius:${this.radius}px`}"
+          @load=${this._thumbnailLoaded}
           height=${ifDefined(this.displayHeight || undefined)}
           loading="lazy"
           decoding="async"
@@ -321,6 +405,7 @@ class GrampsjsImg extends LitElement {
         })}
         style="${this.circle ? '' : `border-radius:${this.radius}px`}"
         @error=${this._errorHandler}
+        @load=${this._thumbnailLoaded}
         alt=""
         height=${ifDefined(this.displayHeight || undefined)}
         loading="lazy"
@@ -416,7 +501,40 @@ class GrampsjsImg extends LitElement {
 
   _renderThumb() {
     const rect = normalizeRect(this.rect)
-    return rect ? this._renderImageCropped(rect) : this._renderImage()
+    const large = rect ? this._renderImageCropped(rect) : this._renderImage()
+    if (this.size <= 100) return large
+    const previewUrl = rect
+      ? getThumbnailUrlCropped(
+          this.handle,
+          rect,
+          100,
+          this.square,
+          this.checksum
+        )
+      : getThumbnailUrl(this.handle, 100, this.square, this.checksum)
+    return html`<div
+      class="preview-stack ${this._thumbLoaded ? '' : 'pending'}"
+      style="--preview-width:${this.size}px"
+    >
+      ${this._thumbLoaded
+        ? ''
+        : html`<img
+            class=${classMap({
+              preview: true,
+              cover: this.cover,
+              round: this.circle,
+              bordered: this.border,
+            })}
+            src=${previewUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            height=${ifDefined(this.displayHeight || undefined)}
+            style="${this.circle ? '' : `border-radius:${this.radius}px`}"
+            @load=${this._imageLoaded}
+          />`}
+      ${large}
+    </div>`
   }
 
   _renderFull() {
