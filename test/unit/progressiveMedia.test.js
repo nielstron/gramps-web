@@ -87,6 +87,49 @@ describe('progressive full image', () => {
 })
 
 describe('mobile lightbox gestures', () => {
+  it('keeps the currently centered image area fixed when zoom buttons are used', () => {
+    const view = new GrampsjsViewMediaLightbox()
+    view._zoom = 2
+    view._panX = -100
+    view._panY = 60
+    view._handleZoomIn()
+    expect(view._zoom).toBe(3)
+    expect(view._panX).toBe(-150)
+    expect(view._panY).toBe(90)
+  })
+
+  it('anchors wheel zoom at the pointer', () => {
+    const view = new GrampsjsViewMediaLightbox()
+    view._getZoomAnchor = () => ({x: 100, y: 50})
+    view._handleWheel({
+      deltaY: -1,
+      clientX: 100,
+      clientY: 50,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    })
+    expect(view._panX).toBeCloseTo(-10)
+    expect(view._panY).toBeCloseTo(-5)
+  })
+
+  it('keeps the pinch focal point stable and follows its movement', () => {
+    const view = new GrampsjsViewMediaLightbox()
+    view._getZoomAnchor = (x, y) => ({x, y})
+    const event = (a, b) => ({
+      touches: [
+        {clientX: a, clientY: 0},
+        {clientX: b, clientY: 0},
+      ],
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    })
+    view._handleTouchStart(event(100, 200))
+    view._handleTouchMove(event(50, 250))
+    expect(view._zoom).toBe(2)
+    expect(view._panX).toBe(-150)
+    view._handleTouchMove(event(150, 350))
+    expect(view._panX).toBe(-50)
+  })
   it('does not process a touch as mouse dragging as well', () => {
     const view = new GrampsjsViewMediaLightbox()
     view._zoom = 2

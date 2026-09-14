@@ -19,6 +19,7 @@ import './GrampsjsEditGender.js'
 import './GrampsjsPersonRelationship.js'
 import './GrampsjsFormExternalSearch.js'
 import './GrampsjsFormNewMedia.js'
+import '../views/GrampsjsViewMediaLightbox.js'
 import './GrampsjsTreeChartAddPerson.js'
 import {fireEvent, objectIconPath} from '../util.js'
 import {formatDateString} from '../date.js'
@@ -144,6 +145,7 @@ export class GrampsjsPerson extends GrampsjsObject {
       timelineData: {type: Array},
       _showFamilyEvents: {type: Boolean},
       _showRelatedEvents: {type: Boolean},
+      _showProfilePictureViewer: {state: true},
     }
   }
 
@@ -157,20 +159,21 @@ export class GrampsjsPerson extends GrampsjsObject {
     this.timelineData = []
     this._showFamilyEvents = true
     this._showRelatedEvents = false
+    this._showProfilePictureViewer = false
   }
 
   renderPicture() {
     if (this.data?.media_list?.length) {
       const ref = this.data.media_list[0]
       const obj = this.data.extended.media[0]
-      const label = this._('Add profile picture')
+      const label = this._('View profile picture')
       return html`
         <button
           class="profile-picture"
           type="button"
           aria-label="${label}"
           title="${label}"
-          @click="${this._handleAddProfilePictureClick}"
+          @click="${this._handleViewProfilePictureClick}"
         >
           <grampsjs-img
             handle="${obj.handle}"
@@ -183,6 +186,18 @@ export class GrampsjsPerson extends GrampsjsObject {
             checksum="${obj.checksum}"
           ></grampsjs-img>
         </button>
+        ${this._showProfilePictureViewer
+          ? html`
+              <grampsjs-view-media-lightbox
+                id="profile-picture-viewer"
+                handle="${obj.handle}"
+                .appState="${this.appState}"
+                active
+                hideLeftArrow
+                hideRightArrow
+              ></grampsjs-view-media-lightbox>
+            `
+          : ''}
       `
     }
 
@@ -213,6 +228,15 @@ export class GrampsjsPerson extends GrampsjsObject {
     }
 
     return html`<div class="profile-picture-placeholder"></div>`
+  }
+
+  async _handleViewProfilePictureClick(event) {
+    event.stopPropagation()
+    this._showProfilePictureViewer = true
+    await this.updateComplete
+    const viewer = this.renderRoot.querySelector('#profile-picture-viewer')
+    await viewer.updateComplete
+    viewer.open()
   }
 
   _handleAddProfilePictureClick() {

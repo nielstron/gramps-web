@@ -290,8 +290,18 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
     }
   }
 
-  _setZoom(newZoom) {
+  _setZoom(newZoom, anchor = {x: 0, y: 0}, initial) {
+    const previous = initial || {
+      zoom: this._zoom,
+      panX: this._panX,
+      panY: this._panY,
+      anchor,
+    }
     this._zoom = Math.max(1, Math.min(10, newZoom))
+    // Keep the same image point under the anchor as the scale changes.
+    const ratio = this._zoom / previous.zoom
+    this._panX = anchor.x + (previous.panX - previous.anchor.x) * ratio
+    this._panY = anchor.y + (previous.panY - previous.anchor.y) * ratio
     if (this._zoom === 1) {
       this._panX = 0
       this._panY = 0
@@ -307,6 +317,17 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
       ((this._zoom - 1) * (window.innerHeight - LIGHTBOX_TOOLBAR_HEIGHT)) / 2
     this._panX = Math.max(-maxPanX, Math.min(maxPanX, this._panX))
     this._panY = Math.max(-maxPanY, Math.min(maxPanY, this._panY))
+  }
+
+  _getZoomAnchor(clientX, clientY) {
+    const bounds = this.shadowRoot
+      .querySelector('.zoom-wrapper')
+      .getBoundingClientRect()
+    // The transformed bounds include panning; recover the unpanned center.
+    return {
+      x: clientX - (bounds.left + bounds.width / 2 - this._panX),
+      y: clientY - (bounds.top + bounds.height / 2 - this._panY),
+    }
   }
 
   _resetZoom() {
@@ -327,7 +348,10 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
     e.preventDefault()
     e.stopPropagation()
     const factor = e.deltaY > 0 ? 0.9 : 1.1
-    this._setZoom(this._zoom * factor)
+    this._setZoom(
+      this._zoom * factor,
+      this._getZoomAnchor(e.clientX, e.clientY)
+    )
   }
 
   // --- mouse drag pan ---
@@ -362,6 +386,15 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
       e.stopPropagation()
       this._pinchStartDist = this._getPinchDist(e)
       this._pinchStartZoom = this._zoom
+      this._pinchStart = {
+        zoom: this._zoom,
+        panX: this._panX,
+        panY: this._panY,
+        anchor: this._getZoomAnchor(
+          (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          (e.touches[0].clientY + e.touches[1].clientY) / 2
+        ),
+      }
     } else if (e.touches.length === 1 && this._zoom > 1) {
       e.stopPropagation()
       this._touchPanStartX = e.touches[0].clientX
@@ -377,7 +410,14 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
       e.preventDefault()
       if (this._pinchStartDist) {
         const dist = this._getPinchDist(e)
-        this._setZoom((this._pinchStartZoom * dist) / this._pinchStartDist)
+        this._setZoom(
+          (this._pinchStartZoom * dist) / this._pinchStartDist,
+          this._getZoomAnchor(
+            (e.touches[0].clientX + e.touches[1].clientX) / 2,
+            (e.touches[0].clientY + e.touches[1].clientY) / 2
+          ),
+          this._pinchStart
+        )
       }
     } else if (e.touches.length === 1 && this._zoom > 1) {
       e.stopPropagation()

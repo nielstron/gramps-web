@@ -535,8 +535,30 @@ describe('unified person picker flow', () => {
     const portrait = templateMarkup(person.renderPicture())
     expect(portrait).toContain('profile-picture')
     expect(portrait).toContain('media-handle')
-    expect(portrait).toContain('Add profile picture')
+    expect(portrait).toContain('View profile picture')
+    expect(portrait).not.toContain('Add profile picture')
+    expect(person.renderPicture().values).toContain(
+      person._handleViewProfilePictureClick
+    )
     expect(portrait).not.toContain('profile-picture-placeholder')
+  })
+
+  it('opens the portrait viewer without entering upload, including for readers', async () => {
+    const person = new GrampsjsPerson()
+    person.appState = {
+      ...appState,
+      permissions: {canAdd: false, canEdit: false},
+    }
+    const viewer = {updateComplete: Promise.resolve(), open: vi.fn()}
+    person.renderRoot = {querySelector: vi.fn().mockReturnValue(viewer)}
+    Object.defineProperty(person, 'updateComplete', {value: Promise.resolve()})
+    const upload = vi.spyOn(person, '_handleAddProfilePictureClick')
+    const stopPropagation = vi.fn()
+    await person._handleViewProfilePictureClick({stopPropagation})
+    expect(stopPropagation).toHaveBeenCalled()
+    expect(viewer.open).toHaveBeenCalledOnce()
+    expect(upload).not.toHaveBeenCalled()
+    expect(person._showProfilePictureViewer).toBe(true)
   })
 
   it('makes a newly uploaded portrait the first gallery image', async () => {
