@@ -312,13 +312,27 @@ describe('RelationshipChart', () => {
     const svg = RelationshipChart([dated], {
       grampsId: 'D',
       getImageUrl: () => '',
-      locale: 'de-DE',
+      locale: 'de_DE',
     })
 
     await vi.waitFor(() => {
       expect(
         [...svg.querySelectorAll('text')].map(node => node.textContent)
       ).toContain('*3.5.1972')
+    })
+  })
+
+  it('fills the available viewport without requiring shrink-to-fit', async () => {
+    const svg = RelationshipChart([person('ROOT', [])], {
+      grampsId: 'ROOT',
+      getImageUrl: () => '',
+      bboxWidth: 1100,
+      bboxHeight: 735,
+    })
+    expect(svg.getAttribute('width')).toBe('100%')
+    expect(svg.getAttribute('height')).toBe('100%')
+    await vi.waitFor(() => {
+      expect(svg.getAttribute('viewBox')).toBe('-550,-367.5,1100,735')
     })
   })
 

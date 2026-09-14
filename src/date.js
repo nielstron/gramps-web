@@ -53,18 +53,20 @@ function formatMonthAndYear(date, locale) {
 }
 
 export function formatDateValue(dateVal, locale = browserLocale()) {
+  // Gramps uses identifiers such as en_GB; Intl expects BCP 47 (en-GB).
+  const intlLocale = locale.replaceAll('_', '-')
   const [day, month, year] = dateVal
   if (!year) return ''
   if (!month) return String(year)
   const date = jsDate(year, month, day || 1)
-  if (!day) return formatMonthAndYear(date, locale)
+  if (!day) return formatMonthAndYear(date, intlLocale)
   const options = {
     year: 'numeric',
     month: 'numeric',
     day: 'numeric',
     timeZone: 'UTC',
   }
-  return new Intl.DateTimeFormat(locale, options).format(date)
+  return new Intl.DateTimeFormat(intlLocale, options).format(date)
 }
 
 export function formatDateString(value, locale = browserLocale()) {

@@ -2,6 +2,10 @@ import {describe, it, expect} from 'vitest'
 import {formatDateString, formatDateValue, toDate} from '../../src/date.js'
 
 describe('localized dates', () => {
+  it('accepts Gramps locale identifiers with underscores', () => {
+    expect(formatDateString('1985-06-15', 'en_GB')).to.equal('15/06/1985')
+    expect(formatDateString('1972-05', 'de_CH')).to.equal('5.1972')
+  })
   it('formats ISO dates in the requested browser locale', () => {
     expect(formatDateString('1985-06-15', 'en-US')).to.equal('6/15/1985')
     expect(formatDateString('1985-06-15', 'de-CH')).to.equal('15.6.1985')

@@ -887,6 +887,8 @@ export function RelationshipChart(
     )
     .attr('font-family', 'Inter var')
     .attr('font-size', 13)
+    .attr('width', '100%')
+    .attr('height', '100%')
 
   const chartContent = svg.append('g').attr('id', 'chart-content')
 
