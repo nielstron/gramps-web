@@ -292,7 +292,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._pendingPerson = null
     requestAnimationFrame(() => {
       this._mapEl._map.resize()
-      this._handlePersonSelected(person)
+      this._handlePersonSelected(person, {focusBirth: true})
     })
   }
 
@@ -726,7 +726,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
   _handleSearchSelected(event) {
     const {object, object_type: objectType} = event.detail
     if (objectType === TYPE_PERSON) {
-      this._handlePersonSelected(object)
+      this._handlePersonSelected(object, {focusBirth: true})
     } else if (objectType === TYPE_EXTERNAL) {
       this._handleExternalSelected(object)
     } else {
@@ -752,7 +752,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._writeMapUrl()
   }
 
-  _handlePersonSelected(person) {
+  _handlePersonSelected(person, options = {}) {
     this._activeSearchQuery = ''
     this._valueSearch = personProfileDisplayName(person.profile)
     this._selectedPerson = person
@@ -762,7 +762,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._clearSearchPersonRoutes()
     this._resetPersonScope()
     this._searchbox?.showDetails()
-    const highlighting = this._highlightPersonPlaces(person)
+    const highlighting = this._highlightPersonPlaces(person, options)
     this._writeMapUrl()
     return highlighting
   }
@@ -775,7 +775,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._scopePeople = null
   }
 
-  async _highlightPersonPlaces(person) {
+  async _highlightPersonPlaces(person, {focusBirth = false} = {}) {
     const lang = this.appState.i18n.lang || 'en'
     const data = await this.appState.apiGet(
       `/api/people/${person.handle}?extend=all&profile=all&locale=${lang}`
@@ -787,6 +787,22 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     if (this._selectedPerson?.handle !== person.handle) return
     const extPerson = data.data
     this._selectedPersonData = extPerson
+    if (focusBirth) {
+      const birthHandle =
+        extPerson.event_ref_list?.[extPerson.birth_ref_index]?.ref
+      const birth = (extPerson.extended?.events || []).find(
+        event => event.handle === birthHandle
+      )
+      const year = getGregorianYears(birth?.date)?.[0]
+      if (Number.isFinite(year) && year > 0) {
+        this._year = year
+        this._yearStart = year - Math.abs(this._yearSpan)
+        this._yearEnd = year + Math.abs(this._yearSpan)
+        this._minYear = Math.min(this._minYear, year)
+        this._applyPlaceFilter()
+        this._writeMapUrl()
+      }
+    }
     this._refreshPersonEventGroups()
     this._handlesHighlight = []
   }
@@ -1117,7 +1133,9 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
       )
       const person = result.data?.[0]
       if (person) {
-        await this._handlePersonSelected(person)
+        await this._handlePersonSelected(person, {
+          focusBirth: state.year == null,
+        })
         if (state.personScope !== PERSON_SCOPE_SELF) {
           await this._handlePersonScopeChange({
             detail: {value: state.personScope},

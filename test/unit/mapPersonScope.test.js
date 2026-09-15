@@ -3,6 +3,42 @@ import {describe, expect, it, vi} from 'vitest'
 import {GrampsjsViewMap} from '../../src/views/GrampsjsViewMap.js'
 
 describe('map person scope', () => {
+  it('centers the year on birth only when requested by person search', async () => {
+    const person = {
+      handle: 'person',
+      birth_ref_index: 0,
+      event_ref_list: [{ref: 'birth'}],
+      extended: {
+        events: [
+          {
+            handle: 'birth',
+            date: {calendar: 0, modifier: 0, dateval: [1, 1, 1780, false]},
+          },
+        ],
+      },
+    }
+    const view = new GrampsjsViewMap()
+    view.appState = {
+      apiGet: vi.fn().mockResolvedValue({data: person}),
+      i18n: {lang: 'en'},
+    }
+    view._selectedPerson = person
+    view._refreshPersonEventGroups = vi.fn()
+    view._applyPlaceFilter = vi.fn()
+    view._writeMapUrl = vi.fn()
+    view._year = 1926
+    view._yearSpan = 1000
+    await view._highlightPersonPlaces(person)
+    expect(view._year).toBe(1926)
+    await view._highlightPersonPlaces(person, {focusBirth: true})
+    expect(view._year).toBe(1780)
+    expect(view._yearStart).toBe(780)
+    expect(view._yearEnd).toBe(2780)
+    expect(view._yearSpan).toBe(1000)
+    person.birth_ref_index = -1
+    await view._highlightPersonPlaces(person, {focusBirth: true})
+    expect(view._year).toBe(1780)
+  })
   it('loads ancestor events without joining different people into one route', async () => {
     const apiGet = vi.fn().mockResolvedValue({
       data: [

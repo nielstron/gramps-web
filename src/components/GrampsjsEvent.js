@@ -3,13 +3,18 @@ import {html, css} from 'lit'
 import '@material/web/button/outlined-button.js'
 import '@material/web/iconbutton/icon-button.js'
 
-import {mdiTimelineOutline, mdiPencil} from '@mdi/js'
+import {mdiTimelineOutline, mdiPencil, mdiMap} from '@mdi/js'
 import {GrampsjsObject} from './GrampsjsObject.js'
 import './GrampsjsFormEditEventDetails.js'
 import './GrampsjsFormEditTitle.js'
 import './GrampsjsIcon.js'
 import './GrampsjsTooltip.js'
-import {emptyDate, fireEvent, objectIconPath} from '../util.js'
+import {
+  emptyDate,
+  fireEvent,
+  objectIconPath,
+  getGregorianYears,
+} from '../util.js'
 import {formatDateString} from '../date.js'
 import './GrampsjsObjectLink.js'
 import {
@@ -132,10 +137,19 @@ export class GrampsjsEvent extends GrampsjsObject {
             </md-icon-button>
           `
         : ''}
-      ${!this.preview && this.data?.profile?.date
+      ${!this.preview &&
+      (this.data?.profile?.date || this.data?.extended?.place)
         ? html`
             <div style="clear:left;"></div>
             <p class="button-list">
+              ${this.data?.extended?.place?.gramps_id
+                ? html`<md-outlined-button
+                    @click="${this._handleMapButtonClick}"
+                  >
+                    ${this._('Open in map')}
+                    <grampsjs-icon path="${mdiMap}" slot="icon"></grampsjs-icon>
+                  </md-outlined-button>`
+                : ''}
               <md-outlined-button @click="${this._handleTimelineButtonClick}">
                 ${this._('Show on timeline')}
                 <grampsjs-icon
@@ -157,6 +171,16 @@ export class GrampsjsEvent extends GrampsjsObject {
       })
     )
     fireEvent(this, 'nav', {path: 'timeline'})
+  }
+
+  _handleMapButtonClick() {
+    const params = new URLSearchParams({
+      place: this.data.extended.place.gramps_id,
+      events: this.data.handle,
+    })
+    const year = getGregorianYears(this.data.date)?.[0]
+    if (Number.isFinite(year) && year > 0) params.set('year', year)
+    fireEvent(this, 'nav', {path: `map?${params}`})
   }
 
   // eslint-disable-next-line class-methods-use-this

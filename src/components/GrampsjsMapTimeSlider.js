@@ -93,59 +93,25 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
     this.value = defaultRange.value
     this.span = defaultRange.span
     this.max = defaultRange.yearEnd
-    this._rangeStart = defaultRange.yearStart
-    this._rangeEnd = defaultRange.yearEnd
-  }
-
-  updated(changedProperties) {
-    if (changedProperties.has('value') || changedProperties.has('span')) {
-      const absSpan = Math.abs(this.span || 0)
-      const nextStart = this.value - absSpan
-      const nextEnd = this.value + absSpan
-      this._rangeStart = this._clampValue(nextStart)
-      this._rangeEnd = this._clampValue(nextEnd)
-    }
-    if (changedProperties.has('min') || changedProperties.has('max')) {
-      this._rangeStart = this._clampValue(this._rangeStart)
-      this._rangeEnd = this._clampValue(this._rangeEnd)
-    }
-  }
-
-  _clampValue(value) {
-    if (!Number.isFinite(value)) return this.min
-    if (value < this.min) return this.min
-    if (value > this.max) return this.max
-    return Math.round(value)
-  }
-
-  get _yearStart() {
-    return this._clampValue(this._rangeStart)
-  }
-
-  get _yearEnd() {
-    return this._clampValue(this._rangeEnd)
   }
 
   render() {
-    const yearStart = this._yearStart
-    const yearEnd = this._yearEnd
     return html`
       <div id="container">
         <md-slider
           id="time-slider"
-          ?range="${true}"
           @input="${this._handleInput}"
           labeled
           min="${this.min}"
           max="${this.max}"
           step="1"
-          .valueStart="${yearStart}"
-          .valueEnd="${yearEnd}"
+          .value="${this.value}"
         ></md-slider>
         <div class="date">
-          <span class="year">${yearStart}</span>
-          &ndash;
-          <span class="year">${yearEnd}</span>
+          <span class="year">${this.value}</span>
+          ${this.span > 0
+            ? html`&pm; <span class="span">${this.span}</span>`
+            : ''}
         </div>
         <div class="control">
           <md-icon-button
@@ -176,7 +142,7 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
         anchor="span-button"
         skip-restore-focus
       >
-        ${[1, 10, 25, 50, 100].map(
+        ${[1, 10, 25, 50, 100, 1000].map(
           years => html`
             <md-menu-item @click="${() => this._handleSpanYearsClick(years)}">
               <div slot="headline">&pm;&nbsp;${years}</div>
@@ -188,15 +154,11 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
   }
 
   _fireEvent() {
-    const yearStart = this._yearStart
-    const yearEnd = this._yearEnd
-    const spanAbs = Math.max(0, (yearEnd - yearStart) / 2)
-    const value = yearStart + spanAbs
     const detail = {
-      value,
-      span: this.span >= 0 ? spanAbs : -spanAbs,
-      yearStart,
-      yearEnd,
+      value: this.value,
+      span: this.span,
+      yearStart: this.value - Math.abs(this.span),
+      yearEnd: this.value + Math.abs(this.span),
     }
     fireEvent(this, 'timeslider:change', detail)
   }
@@ -215,13 +177,7 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
   }
 
   _handleSpanYearsClick(years) {
-    const value = this.value
-    this.value = value
     this.span = this.span > 0 ? years : -years
-    this._rangeStart = value - years
-    this._rangeEnd = value + years
-    this._rangeStart = this._clampValue(this._rangeStart)
-    this._rangeEnd = this._clampValue(this._rangeEnd)
     this._fireEvent()
   }
 
@@ -233,20 +189,7 @@ class GrampsjsMapTimeSlider extends GrampsjsAppStateMixin(LitElement) {
   _handleInput() {
     const slider = this.renderRoot.querySelector('md-slider')
     if (!slider) return
-    const start =
-      slider.valueStart != null
-        ? Number(slider.valueStart)
-        : Number(Array.isArray(slider.value) ? slider.value[0] : slider.value)
-    const end =
-      slider.valueEnd != null
-        ? Number(slider.valueEnd)
-        : Number(Array.isArray(slider.value) ? slider.value[1] : slider.value)
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return
-    this._rangeStart = this._clampValue(Math.min(start, end))
-    this._rangeEnd = this._clampValue(Math.max(start, end))
-    const span = (this._yearEnd - this._yearStart) / 2
-    this.value = this._yearStart + span
-    this.span = this.span >= 0 ? span : -span
+    this.value = Number(slider.value)
     this._fireEvent()
   }
 
