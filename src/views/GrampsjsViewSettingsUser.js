@@ -30,6 +30,7 @@ import {apiVersionAtLeast, fireEvent} from '../util.js'
 import {applyScheme, DEFAULT_PRIMARY, DEFAULT_SECONDARY} from '../theme.js'
 import {DEFAULT_TREE_VIEW, TREE_VIEWS} from '../treeDefaults.js'
 import {toIntlLocale} from '../locale.js'
+import {DEFAULT_ANNIVERSARY_RELATIONSHIP_DEGREE} from '../anniversaries.js'
 
 const PERSISTENT_ACCESS_TOKEN_SCOPES = [
   {
@@ -242,6 +243,8 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
         ${this.renderThemeSelect()}
         <h3>${this._('Family tree preferences')}</h3>
         ${this.renderTreePreferences()}
+        <h3>${this._('Anniversaries')}</h3>
+        ${this.renderAnniversaryPreferences()}
       </grampsjs-collapsible-section>
 
       <grampsjs-collapsible-section
@@ -384,6 +387,41 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
         </md-filled-select>
       </div>
     `
+  }
+
+  renderAnniversaryPreferences() {
+    const selected =
+      this.appState.settings.anniversaryRelationshipDegree ??
+      DEFAULT_ANNIVERSARY_RELATIONSHIP_DEGREE
+    return html`
+      <div class="tree-preferences">
+        <md-filled-select
+          id="anniversary-relationship-degree"
+          label="${this._('Maximum degree of relationship')}"
+          @change=${this._handleAnniversaryRelationshipDegreeChange}
+        >
+          ${Array.from({length: 11}, (_, degree) => degree).map(
+            degree => html`
+              <md-select-option
+                value=${degree}
+                ?selected=${degree === selected}
+              >
+                ${degree}
+              </md-select-option>
+            `
+          )}
+        </md-filled-select>
+      </div>
+    `
+  }
+
+  _handleAnniversaryRelationshipDegreeChange(event) {
+    const degree = Number(event.target.value)
+    if (Number.isInteger(degree) && degree >= 0 && degree <= 10) {
+      this.appState.updateAppearanceSettings({
+        anniversaryRelationshipDegree: degree,
+      })
+    }
   }
 
   _treeViewLabel(view) {

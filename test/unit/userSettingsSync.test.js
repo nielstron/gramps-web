@@ -86,6 +86,11 @@ describe('server-synchronized user settings', () => {
     expect(view.appState.updateAppearanceSettings).toHaveBeenNthCalledWith(2, {
       treeDefaultView: 'relationship',
     })
+
+    view._handleAnniversaryRelationshipDegreeChange({target: {value: '5'}})
+    expect(view.appState.updateAppearanceSettings).toHaveBeenNthCalledWith(3, {
+      anniversaryRelationshipDegree: 5,
+    })
   })
 
   it('uses server appearance settings and caches them for the next startup', () => {

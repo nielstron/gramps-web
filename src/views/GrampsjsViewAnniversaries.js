@@ -6,8 +6,24 @@ import '../components/GrampsjsTimedelta.js'
 import {GrampsjsConnectedComponent} from '../components/GrampsjsConnectedComponent.js'
 import {eventTitleFromProfile, fireEvent} from '../util.js'
 import {formatDateString} from '../date.js'
+import {participantHandles} from '../anniversaries.js'
 
 export class GrampsjsViewAnniversaries extends GrampsjsConnectedComponent {
+  static get properties() {
+    return {
+      ...super.properties,
+      homePersonHandle: {type: String},
+      relationshipDegree: {type: Number},
+    }
+  }
+
+  constructor() {
+    super()
+    this.homePersonHandle = ''
+    this.relationshipDegree = 4
+    this._lastRelationshipDegree = undefined
+  }
+
   static get styles() {
     return [
       super.styles,
@@ -138,13 +154,64 @@ export class GrampsjsViewAnniversaries extends GrampsjsConnectedComponent {
     }
   }
 
+  update(changed) {
+    if (this._lastRelationshipDegree !== this.relationshipDegree) {
+      this._lastRelationshipDegree = this.relationshipDegree
+      this._oldUrl = ''
+    }
+    super.update(changed)
+  }
+
+  async _updateGetData(url) {
+    const data = await this.appState.apiGet(url)
+    if ('data' in data) {
+      const events = await this._filterByRelationshipDegree(data.data)
+      this._data = {data: events.slice(0, 10)}
+      this.error = false
+      this._fireUpdateEvent()
+    } else if ('error' in data) {
+      this.error = true
+      this._errorMessage = data.error
+      this._errorDetail = data.errorDetail ?? {}
+    }
+  }
+
+  async _filterByRelationshipDegree(events) {
+    const handles = [
+      ...new Set(events.flatMap(event => participantHandles(event))),
+    ]
+    const distances = new Map(
+      await Promise.all(
+        handles.map(async handle => [handle, await this._distanceTo(handle)])
+      )
+    )
+    return events.filter(event =>
+      participantHandles(event).some(
+        handle => distances.get(handle) <= this.relationshipDegree
+      )
+    )
+  }
+
+  async _distanceTo(handle) {
+    if (handle === this.homePersonHandle) return 0
+    const result = await this.appState.apiGet(
+      `/api/relations/${this.homePersonHandle}/${handle}/path`
+    )
+    if (!('data' in result) || !result.data.connected) return Infinity
+    return result.data.steps.reduce(
+      (degree, step) => degree + (step.relation === 'sibling' ? 2 : 1),
+      0
+    )
+  }
+
   getUrl() {
+    if (!this.homePersonHandle) return ''
     const now = new Date()
     const m = now.getMonth() + 1
     const d = now.getDate()
     return `/api/events/?dates=*/${m}/${d}&profile=all&sort=-date&locale=${
       this.appState.i18n.lang || 'en'
-    }&pagesize=10&page=1`
+    }`
   }
 }
 

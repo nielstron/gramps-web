@@ -16,6 +16,7 @@ import {
   TREE_CONFIG_HOME_PAGE_IMAGE,
 } from '../api.js'
 import {appUrl} from '../appUrl.js'
+import {DEFAULT_ANNIVERSARY_RELATIONSHIP_DEGREE} from '../anniversaries.js'
 
 export class GrampsjsViewDashboard extends GrampsjsView {
   static get properties() {
@@ -257,6 +258,10 @@ export class GrampsjsViewDashboard extends GrampsjsView {
                 <grampsjs-view-anniversaries
                   id="anniversaries"
                   .appState="${this.appState}"
+                  .homePersonHandle=${this.homePersonDetails?.handle || ''}
+                  .relationshipDegree=${this.appState.settings
+                    ?.anniversaryRelationshipDegree ??
+                  DEFAULT_ANNIVERSARY_RELATIONSHIP_DEGREE}
                 >
                 </grampsjs-view-anniversaries>
               </div>

@@ -91,7 +91,12 @@ export function getSettings() {
   }
 }
 
-const APPEARANCE_SETTING_KEYS = ['lang', 'theme', 'treeDefaultView']
+const APPEARANCE_SETTING_KEYS = [
+  'lang',
+  'theme',
+  'treeDefaultView',
+  'anniversaryRelationshipDegree',
+]
 
 export function getAppearanceSettings(settings = getSettings()) {
   return Object.fromEntries(
