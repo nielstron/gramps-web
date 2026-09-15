@@ -223,8 +223,16 @@ class GrampsjsFormSelectType extends GrampsjsAppStateMixin(LitElement) {
     const types = nonLocal ? this.types : this.typesLocale
     const defaultTypesAll = types?.default || {}
     const customTypesAll = types?.custom || {}
-    const defaultTypes =
+    const defaultTypesUnfiltered =
       this.typeName in defaultTypesAll ? defaultTypesAll[this.typeName] : []
+    const defaultTypes = defaultTypesUnfiltered.filter((type, index) => {
+      const canonical = nonLocal
+        ? type
+        : this.types?.default?.[this.typeName]?.[index]
+      return (
+        this.typeName !== 'event_types' || canonical !== 'Number of Marriages'
+      )
+    })
     const customTypes =
       this.typeNameCustom || this.typeName in customTypesAll
         ? customTypesAll[this.typeNameCustom || this.typeName]
