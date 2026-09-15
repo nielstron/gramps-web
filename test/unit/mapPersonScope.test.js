@@ -36,8 +36,23 @@ describe('map person scope', () => {
     expect(view._yearEnd).toBe(2780)
     expect(view._yearSpan).toBe(1000)
     person.birth_ref_index = -1
+    person.event_ref_list = [{ref: 'later'}, {ref: 'unknown'}, {ref: 'early'}]
+    person.extended.events = [
+      {
+        handle: 'later',
+        date: {calendar: 0, modifier: 0, dateval: [1, 1, 1850, false]},
+      },
+      {handle: 'unknown'},
+      {
+        handle: 'early',
+        date: {calendar: 0, modifier: 0, dateval: [1, 1, 1820, false]},
+      },
+    ]
     await view._highlightPersonPlaces(person, {focusBirth: true})
-    expect(view._year).toBe(1780)
+    expect(view._year).toBe(1820)
+    person.extended.events = []
+    await view._highlightPersonPlaces(person, {focusBirth: true})
+    expect(view._year).toBe(1820)
   })
   it('loads ancestor events without joining different people into one route', async () => {
     const apiGet = vi.fn().mockResolvedValue({

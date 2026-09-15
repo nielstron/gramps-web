@@ -790,10 +790,16 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     if (focusBirth) {
       const birthHandle =
         extPerson.event_ref_list?.[extPerson.birth_ref_index]?.ref
-      const birth = (extPerson.extended?.events || []).find(
-        event => event.handle === birthHandle
-      )
-      const year = getGregorianYears(birth?.date)?.[0]
+      const events = extPerson.extended?.events || []
+      const birth = events.find(event => event.handle === birthHandle)
+      const birthYear = getGregorianYears(birth?.date)?.[0]
+      const eventYears = events
+        .map(event => getGregorianYears(event.date)?.[0])
+        .filter(year => Number.isFinite(year) && year > 0)
+      const year =
+        Number.isFinite(birthYear) && birthYear > 0
+          ? birthYear
+          : Math.min(...eventYears)
       if (Number.isFinite(year) && year > 0) {
         this._year = year
         this._yearStart = year - Math.abs(this._yearSpan)
