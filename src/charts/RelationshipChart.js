@@ -682,13 +682,23 @@ function remasterChart(
 }
 
 class ConnectionPathGraph {
-  constructor(data, boxWidth, boxHeight, grampsId, steps) {
+  constructor(
+    data,
+    boxWidth,
+    boxHeight,
+    grampsId,
+    steps,
+    contextFamilies = []
+  ) {
     this.boxWidth = boxWidth
     this.boxHeight = boxHeight
     this.rootPersonGrampsId = grampsId
     this.persons = {}
     this.rootPerson = undefined
     this.steps = steps
+    this.contextFamilies = new Map(
+      contextFamilies.map(family => [family.handle, family])
+    )
     for (const person of data) this.addPerson(person)
   }
 
@@ -711,11 +721,67 @@ class ConnectionPathGraph {
     return this.persons[handle] || false
   }
 
-  getNode() {
-    return false
+  getNode(handle) {
+    return this.contextFamilies.get(handle) || false
+  }
+
+  _generationByHandle() {
+    const generations = new Map()
+    if (this.steps.length) {
+      generations.set(this.steps[0].from_handle, 0)
+    } else if (this.rootPerson) {
+      generations.set(this.rootPerson.handle, 0)
+    }
+    for (const step of this.steps) {
+      const fromGeneration = generations.get(step.from_handle) ?? 0
+      const difference =
+        step.relation === 'child' ? 1 : step.relation === 'parent' ? -1 : 0
+      generations.set(step.to_handle, fromGeneration + difference)
+    }
+    for (const step of this.steps) {
+      const family = this.contextFamilies.get(step.family_handle)
+      if (!family || !['child', 'parent', 'sibling'].includes(step.relation)) {
+        continue
+      }
+      const childHandle =
+        step.relation === 'child'
+          ? step.to_handle
+          : step.relation === 'parent'
+          ? step.from_handle
+          : step.from_handle
+      const parentGeneration = (generations.get(childHandle) ?? 0) - 1
+      for (const handle of [family.father_handle, family.mother_handle]) {
+        if (handle && this.known(handle)) {
+          generations.set(handle, parentGeneration)
+        }
+      }
+    }
+    return generations
+  }
+
+  _structuralFamilies() {
+    const result = new Map()
+    for (const step of this.steps) {
+      if (!['child', 'parent', 'sibling'].includes(step.relation)) continue
+      const family = this.contextFamilies.get(step.family_handle)
+      if (!family) continue
+      if (!result.has(family.handle)) {
+        result.set(family.handle, {family, children: new Set()})
+      }
+      const children = result.get(family.handle).children
+      if (step.relation === 'child') children.add(step.to_handle)
+      if (step.relation === 'parent') children.add(step.from_handle)
+      if (step.relation === 'sibling') {
+        children.add(step.from_handle)
+        children.add(step.to_handle)
+      }
+    }
+    return result
   }
 
   getDot() {
+    const generations = this._generationByHandle()
+    const structuralFamilies = this._structuralFamilies()
     const nodes = Object.values(this.persons)
       .map(
         person => `
@@ -730,27 +796,79 @@ class ConnectionPathGraph {
           ]`
       )
       .join('\n')
-    const edges = this.steps
+    const familyNodes = [...structuralFamilies.values()]
       .map(
-        (step, index) => `
-          "node_${step.from_handle}" -> "node_${step.to_handle}" [
-            id="connection_${index}"
-            class="connection"
-            dir=none
-            minlen=2
-            weight=100
+        ({family}) => `
+          "node_${family.handle}" [
+            class="family_${family.handle}"
+            label=<.>
+            shape="none"
+            margin=0
+            fixedsize=true
+            width=0.1
+            height=0.1
           ]`
       )
       .join('\n')
+    const structure = [...structuralFamilies.values()]
+      .map(({family, children}) => {
+        const parentEdges = [family.father_handle, family.mother_handle]
+          .filter(handle => handle && this.known(handle))
+          .map(
+            handle =>
+              `"node_${handle}" -> "node_${family.handle}" [class="couple context", arrowhead=none, weight=100]`
+          )
+        const childEdges = [...children]
+          .filter(handle => this.known(handle))
+          .map(
+            handle =>
+              `"node_${family.handle}" -> "node_${handle}" [class="context", arrowhead=none, weight=100]`
+          )
+        return [...parentEdges, ...childEdges].join('\n')
+      })
+      .join('\n')
+    const ranks = new Map()
+    for (const [handle, generation] of generations) {
+      if (!ranks.has(generation)) ranks.set(generation, [])
+      ranks.get(generation).push([handle, generation])
+    }
+    const rankGroups = [...ranks.values()]
+      .map(
+        entries =>
+          `{ rank=same; ${entries
+            .map(([handle]) => `"node_${handle}"`)
+            .join('; ')} }`
+      )
+      .join('\n')
+    const edges = this.steps
+      .map((step, index) => {
+        const [source, target] =
+          step.relation === 'parent'
+            ? [step.to_handle, step.from_handle]
+            : [step.from_handle, step.to_handle]
+        const constrainsGeneration = ['parent', 'child'].includes(step.relation)
+        return `
+          "node_${source}" -> "node_${target}" [
+            id="connection_${index}"
+            class="connection"
+            dir=none
+            constraint=${constrainsGeneration}
+            weight=100
+          ]`
+      })
+      .join('\n')
     return `
       digraph connection {
-        rankdir=LR
+        rankdir=TB
         charset="UTF-8"
         pad=0.5
         nodesep=0.5
         ranksep=1.2
         splines=spline
         ${nodes}
+        ${familyNodes}
+        ${rankGroups}
+        ${structure}
         ${edges}
       }
     `
@@ -782,6 +900,7 @@ export function ConnectionPathChart(
     locale = undefined,
     openProfileLabel = 'Open profile',
     relationLabels = {},
+    contextFamilies = [],
   }
 ) {
   const resultnode = create('div').style('width', '100%')
@@ -803,7 +922,8 @@ export function ConnectionPathChart(
     boxWidth,
     boxHeight,
     grampsId,
-    steps
+    steps,
+    contextFamilies
   )
   const dot = graph.getDot()
   const labels = Object.fromEntries(

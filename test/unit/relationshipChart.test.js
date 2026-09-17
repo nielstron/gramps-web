@@ -438,6 +438,127 @@ describe('RelationshipChart', () => {
     )
   })
 
+  it('preserves generations in the connection path chart', async () => {
+    const family = {
+      handle: 'F1',
+      father_handle: 'P1',
+      mother_handle: 'P2',
+      child_ref_list: [{ref: 'C1'}],
+      type: 'Married',
+    }
+    const data = [person('P1', []), person('C1', []), person('P2', [])]
+    const steps = [
+      {
+        from_handle: 'P1',
+        to_handle: 'C1',
+        family_handle: 'F1',
+        relation: 'child',
+        relationship_type: 'Birth',
+      },
+      {
+        from_handle: 'C1',
+        to_handle: 'P2',
+        family_handle: 'F1',
+        relation: 'parent',
+        relationship_type: 'Birth',
+      },
+    ]
+    const svg = ConnectionPathChart(data, steps, {
+      grampsId: 'P1',
+      getImageUrl: () => '',
+      contextFamilies: [family],
+    })
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('[data-handle="C1"]')).toBeTruthy()
+    )
+
+    const y = handle =>
+      Number(
+        svg
+          .querySelector(`[data-handle="${handle}"]`)
+          .getAttribute('transform')
+          .match(/translate\([^ ]+ ([-\d.]+)/)[1]
+      )
+    expect(y('P1')).toBeCloseTo(y('P2'))
+    expect(y('C1')).toBeGreaterThan(y('P1'))
+  })
+
+  it('preserves generations when close relatives are hidden', async () => {
+    const data = [person('P1', []), person('C1', [])]
+    const steps = [
+      {
+        from_handle: 'P1',
+        to_handle: 'C1',
+        family_handle: 'F1',
+        relation: 'child',
+        relationship_type: 'Birth',
+      },
+    ]
+    const svg = ConnectionPathChart(data, steps, {
+      grampsId: 'P1',
+      getImageUrl: () => '',
+    })
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('[data-handle="C1"]')).toBeTruthy()
+    )
+
+    const y = handle =>
+      Number(
+        svg
+          .querySelector(`[data-handle="${handle}"]`)
+          .getAttribute('transform')
+          .match(/translate\([^ ]+ ([-\d.]+)/)[1]
+      )
+    expect(y('C1')).toBeGreaterThan(y('P1'))
+  })
+
+  it('uses close relatives to retain the family shape around a path', async () => {
+    const family = {
+      handle: 'F1',
+      father_handle: 'P1',
+      mother_handle: 'P2',
+      child_ref_list: [{ref: 'C1'}, {ref: 'C2'}],
+      type: 'Married',
+    }
+    const data = [
+      person('C1', []),
+      person('C2', []),
+      person('P1', []),
+      person('P2', []),
+    ]
+    const steps = [
+      {
+        from_handle: 'C1',
+        to_handle: 'C2',
+        family_handle: 'F1',
+        relation: 'sibling',
+        relationship_type: 'Birth',
+      },
+    ]
+    const svg = ConnectionPathChart(data, steps, {
+      grampsId: 'C1',
+      getImageUrl: () => '',
+      contextFamilies: [family],
+    })
+
+    await vi.waitFor(() =>
+      expect(svg.querySelector('[data-handle="P1"]')).toBeTruthy()
+    )
+
+    const y = handle =>
+      Number(
+        svg
+          .querySelector(`[data-handle="${handle}"]`)
+          .getAttribute('transform')
+          .match(/translate\([^ ]+ ([-\d.]+)/)[1]
+      )
+    expect(y('P1')).toBeCloseTo(y('P2'))
+    expect(y('C1')).toBeCloseTo(y('C2'))
+    expect(y('P1')).toBeLessThan(y('C1'))
+  })
+
   it('opens a profile from the connection-path magnifier without refocusing the tree', async () => {
     const data = [person('P1', []), person('P2', [])]
     const steps = [

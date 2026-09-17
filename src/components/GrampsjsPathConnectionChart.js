@@ -20,6 +20,7 @@ export class GrampsjsPathConnectionChart extends GrampsjsChartBase {
     return {
       grampsId: {type: String},
       steps: {type: Array},
+      contextFamilies: {type: Array},
       nameDisplayFormat: {type: String},
     }
   }
@@ -28,6 +29,7 @@ export class GrampsjsPathConnectionChart extends GrampsjsChartBase {
     super()
     this.grampsId = ''
     this.steps = []
+    this.contextFamilies = []
     this.nameDisplayFormat = 'Surname, Given'
   }
 
@@ -48,6 +50,7 @@ export class GrampsjsPathConnectionChart extends GrampsjsChartBase {
         partner: this._('Partner'),
         sibling: this._('Sibling'),
       },
+      contextFamilies: this.contextFamilies,
     })}`
   }
 }

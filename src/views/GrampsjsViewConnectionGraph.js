@@ -1,6 +1,7 @@
 import {css, html} from 'lit'
 
 import '@material/web/button/outlined-button.js'
+import '@material/web/switch/switch.js'
 
 import {mdiAccountSearch, mdiSwapHorizontal} from '@mdi/js'
 import {GrampsjsView} from './GrampsjsView.js'
@@ -13,6 +14,25 @@ import {
   personProfileDisplayName,
 } from '../util.js'
 import {getTreePath} from '../treeDefaults.js'
+
+export function connectionContextHandles(steps, families) {
+  const familiesByHandle = new Map(
+    families.map(family => [family.handle, family])
+  )
+  const pathHandles = new Set(
+    steps.flatMap(step => [step.from_handle, step.to_handle])
+  )
+  const contextHandles = new Set()
+  for (const step of steps) {
+    if (!['child', 'parent', 'sibling'].includes(step.relation)) continue
+    const family = familiesByHandle.get(step.family_handle)
+    if (!family) continue
+    for (const handle of [family.father_handle, family.mother_handle]) {
+      if (handle && !pathHandles.has(handle)) contextHandles.add(handle)
+    }
+  }
+  return [...contextHandles]
+}
 
 export class GrampsjsViewConnectionGraph extends GrampsjsView {
   static get styles() {
@@ -41,6 +61,14 @@ export class GrampsjsViewConnectionGraph extends GrampsjsView {
           color: var(--grampsjs-body-font-color-40);
         }
 
+        .context-toggle {
+          align-items: center;
+          cursor: pointer;
+          display: flex;
+          gap: 8px;
+          margin-left: auto;
+        }
+
         .message {
           margin: 36px 0;
           text-align: center;
@@ -62,7 +90,9 @@ export class GrampsjsViewConnectionGraph extends GrampsjsView {
       _source: {type: Object},
       _target: {type: Object},
       _people: {type: Array},
+      _families: {type: Array},
       _path: {type: Object},
+      showCloseRelatives: {type: Boolean},
     }
   }
 
@@ -73,7 +103,9 @@ export class GrampsjsViewConnectionGraph extends GrampsjsView {
     this._source = null
     this._target = null
     this._people = []
+    this._families = []
     this._path = null
+    this.showCloseRelatives = true
     this._requestId = 0
   }
 
@@ -121,6 +153,15 @@ export class GrampsjsViewConnectionGraph extends GrampsjsView {
               ${this._('Swap')}
             </md-outlined-button>`
           : ''}
+        ${this._path?.connected
+          ? html`<label class="context-toggle">
+              <md-switch
+                ?selected=${this.showCloseRelatives}
+                @input=${this._handleCloseRelativesToggle}
+              ></md-switch>
+              <span>${this._('Show close relatives')}</span>
+            </label>`
+          : ''}
       </div>
       ${this.loading
         ? html`<div class="message">${this._('Loading...')}</div>`
@@ -133,8 +174,9 @@ export class GrampsjsViewConnectionGraph extends GrampsjsView {
         : this._path?.connected
         ? html`<grampsjs-path-connection-chart
             .appState=${this.appState}
-            .data=${this._people}
+            .data=${this._visiblePeople}
             .steps=${this._path.steps}
+            .contextFamilies=${this.showCloseRelatives ? this._families : []}
             .grampsId=${this.grampsId}
             .nameDisplayFormat=${this.appState?.settings
               ?.relationshipChartNameDisplayFormat ??
@@ -160,6 +202,7 @@ export class GrampsjsViewConnectionGraph extends GrampsjsView {
     this.loading = true
     this._path = null
     this._people = []
+    this._families = []
     const [source, target] = await Promise.all([
       this._personByGrampsId(this.grampsId),
       this.targetGrampsId
@@ -187,20 +230,46 @@ export class GrampsjsViewConnectionGraph extends GrampsjsView {
     this._path = pathResult.data
     if (this._path.connected) {
       const lang = this.appState.i18n.lang || 'en'
+      const familyHandles = [...new Set(this._path.family_handles)]
+      const familiesResult = familyHandles.length
+        ? await this.appState.apiGet(
+            `/api/families/?handles=${familyHandles
+              .map(encodeURIComponent)
+              .join(
+                ','
+              )}&keys=handle,type,father_handle,mother_handle,child_ref_list`
+          )
+        : {data: []}
+      if (requestId !== this._requestId) return
+      this._families = familiesResult.data || []
+      const personHandles = [
+        ...this._path.person_handles,
+        ...connectionContextHandles(this._path.steps, this._families),
+      ]
       const peopleResult = await this.appState.apiGet(
-        `/api/people/?handles=${this._path.person_handles.join(
-          ','
-        )}&locale=${lang}&profile=self`
+        `/api/people/?handles=${personHandles
+          .map(encodeURIComponent)
+          .join(',')}&locale=${lang}&profile=self`
       )
       if (requestId !== this._requestId) return
       const byHandle = new Map(
         (peopleResult.data || []).map(person => [person.handle, person])
       )
-      this._people = this._path.person_handles.map(handle =>
-        byHandle.get(handle)
-      )
+      this._people = personHandles
+        .map(handle => byHandle.get(handle))
+        .filter(Boolean)
     }
     this.loading = false
+  }
+
+  get _visiblePeople() {
+    if (this.showCloseRelatives) return this._people
+    const pathHandles = new Set(this._path?.person_handles || [])
+    return this._people.filter(person => pathHandles.has(person.handle))
+  }
+
+  _handleCloseRelativesToggle(event) {
+    this.showCloseRelatives = event.target.selected
   }
 
   _handleTargetSelected(event) {
