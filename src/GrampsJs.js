@@ -1007,9 +1007,7 @@ export class GrampsJs extends LitElement {
     this._homePersonFetchingId = grampsId
     this._homePersonMissing = false
     this.appState
-      .apiGet(
-        `/api/people/?gramps_id=${grampsId}&profile=self&extend=media_list`
-      )
+      .apiGet(`/api/views/home-person/${encodeURIComponent(grampsId)}`)
       .then(data => {
         if (grampsId !== this._homePersonFetchingId) {
           return
@@ -1019,9 +1017,9 @@ export class GrampsJs extends LitElement {
           this._showError(data.error)
         } else if ('data' in data) {
           this._homePersonLoadedId = grampsId
-          this._homePersonDetails = data.data[0] ?? {}
+          this._homePersonDetails = data.data.person ?? {}
           // an empty result means the person no longer exists in the tree
-          this._homePersonMissing = data.data.length === 0
+          this._homePersonMissing = !data.data.person
         }
       })
   }

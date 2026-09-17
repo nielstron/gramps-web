@@ -22,39 +22,28 @@ describe('anniversary relationship filtering', () => {
     expect(participantHandles(event)).toEqual(['P1', 'P2', 'P3'])
   })
 
-  it('keeps only events with a participant within the configured degree', async () => {
+  it('requests already-scoped anniversaries from one backend view', () => {
     const view = new GrampsjsViewAnniversaries()
     view.homePersonHandle = 'HOME'
     view.relationshipDegree = 2
-    view.appState = {
-      apiGet: vi.fn(url => {
-        const handle = url.split('/').at(-2)
-        return Promise.resolve({
-          data: {
-            connected: true,
-            steps: Array(handle === 'NEAR' ? 2 : 3).fill({}),
-          },
-        })
-      }),
-    }
-    const near = eventWithParticipants(['NEAR'])
-    const far = eventWithParticipants([], [['FAR', undefined]])
+    view.appState = {i18n: {lang: 'de'}}
 
-    expect(await view._filterByRelationshipDegree([near, far])).toEqual([near])
+    expect(view.getUrl()).toMatch(
+      /^\/api\/views\/anniversaries\/HOME\?month=\d+&day=\d+&degree=2&limit=10&locale=de$/
+    )
   })
 
-  it('counts a sibling as two parent-child degrees', async () => {
+  it('uses the compound response without issuing per-participant requests', async () => {
     const view = new GrampsjsViewAnniversaries()
-    view.homePersonHandle = 'HOME'
+    const events = [{handle: 'E1'}]
     view.appState = {
-      apiGet: vi.fn().mockResolvedValue({
-        data: {
-          connected: true,
-          steps: [{relation: 'sibling'}],
-        },
-      }),
+      apiGet: vi.fn().mockResolvedValue({data: {events}}),
     }
+    view._fireUpdateEvent = vi.fn()
 
-    expect(await view._distanceTo('SIBLING')).toBe(2)
+    await view._updateGetData('/api/views/anniversaries/HOME')
+
+    expect(view._data.data).toEqual(events)
+    expect(view.appState.apiGet).toHaveBeenCalledOnce()
   })
 })

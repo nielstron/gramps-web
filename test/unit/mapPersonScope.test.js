@@ -56,10 +56,18 @@ describe('map person scope', () => {
   })
   it('loads ancestor events without joining different people into one route', async () => {
     const apiGet = vi.fn().mockResolvedValue({
-      data: [
-        {handle: 'ancestor-1', event_ref_list: [{ref: 'e1'}, {ref: 'e2'}]},
-        {handle: 'ancestor-2', event_ref_list: [{ref: 'e3'}]},
-      ],
+      data: {
+        people: [
+          {handle: 'ancestor-1', event_ref_list: [{ref: 'e1'}, {ref: 'e2'}]},
+          {handle: 'ancestor-2', event_ref_list: [{ref: 'e3'}]},
+        ],
+        families: [],
+        events: [
+          {handle: 'e1', date: {sortval: 1}, place: 'p1'},
+          {handle: 'e2', date: {sortval: 2}, place: 'p2'},
+          {handle: 'e3', date: {sortval: 3}, place: 'p3'},
+        ],
+      },
     })
     const view = new GrampsjsViewMap()
     view.appState = {apiGet, i18n: {lang: 'en', strings: {}}}
@@ -74,8 +82,8 @@ describe('map person scope', () => {
     await view._handlePersonScopeChange({detail: {value: 'ancestors'}})
 
     expect(apiGet).toHaveBeenCalledOnce()
-    expect(decodeURIComponent(apiGet.mock.calls[0][0])).toContain(
-      'IsLessThanNthGenerationAncestorOf'
+    expect(apiGet.mock.calls[0][0]).toBe(
+      '/api/views/map-scope/I1?direction=ancestors&degree=100'
     )
     expect(view._personPlaceHandles).toEqual(['p1', 'p2', 'p3'])
     expect(

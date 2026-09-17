@@ -40,6 +40,13 @@ describe('relationship chart view', () => {
       function: 'or',
       rules: [{name: 'DegreesOfSeparation', values: ['I1', 3]}],
     })
+    view.appState.i18n = {lang: 'de'}
+    expect(view._getDataUrl('I1')).toBe(
+      '/api/views/relationship-graph/I1?degree=3&locale=de'
+    )
+    expect(view._getDataItems({people: [{handle: 'P1'}]})).toEqual([
+      {handle: 'P1'},
+    ])
   })
 
   it('keeps a saved degree preference', () => {

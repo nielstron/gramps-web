@@ -203,62 +203,35 @@ export class GrampsjsViewConnectionGraph extends GrampsjsView {
     this._path = null
     this._people = []
     this._families = []
-    const [source, target] = await Promise.all([
-      this._personByGrampsId(this.grampsId),
-      this.targetGrampsId
-        ? this._personByGrampsId(this.targetGrampsId)
-        : Promise.resolve(null),
-    ])
-    if (requestId !== this._requestId) return
-    this._source = source
-    this._target = target
-    if (!source || !target) {
+    if (!this.targetGrampsId) {
+      this._source = await this._personByGrampsId(this.grampsId)
+      this._target = null
       this.loading = false
       return
     }
 
-    const pathResult = await this.appState.apiGet(
-      `/api/relations/${source.handle}/${target.handle}/path`
+    const lang = this.appState.i18n.lang || 'en'
+    const result = await this.appState.apiGet(
+      `/api/views/connection-graph/${encodeURIComponent(
+        this.grampsId
+      )}/${encodeURIComponent(this.targetGrampsId)}?locale=${lang}`
     )
     if (requestId !== this._requestId) return
-    if (!('data' in pathResult)) {
+    if (!('data' in result)) {
       this.loading = false
       this.error = true
-      this._errorMessage = pathResult.error
+      this._errorMessage = result.error
       return
     }
-    this._path = pathResult.data
-    if (this._path.connected) {
-      const lang = this.appState.i18n.lang || 'en'
-      const familyHandles = [...new Set(this._path.family_handles)]
-      const familiesResult = familyHandles.length
-        ? await this.appState.apiGet(
-            `/api/families/?handles=${familyHandles
-              .map(encodeURIComponent)
-              .join(
-                ','
-              )}&keys=handle,type,father_handle,mother_handle,child_ref_list`
-          )
-        : {data: []}
-      if (requestId !== this._requestId) return
-      this._families = familiesResult.data || []
-      const personHandles = [
-        ...this._path.person_handles,
-        ...connectionContextHandles(this._path.steps, this._families),
-      ]
-      const peopleResult = await this.appState.apiGet(
-        `/api/people/?handles=${personHandles
-          .map(encodeURIComponent)
-          .join(',')}&locale=${lang}&profile=self`
-      )
-      if (requestId !== this._requestId) return
-      const byHandle = new Map(
-        (peopleResult.data || []).map(person => [person.handle, person])
-      )
-      this._people = personHandles
-        .map(handle => byHandle.get(handle))
-        .filter(Boolean)
-    }
+    this._path = result.data.path
+    this._people = result.data.people
+    this._families = result.data.families
+    this._source = this._people.find(
+      person => person.gramps_id === this.grampsId
+    )
+    this._target = this._people.find(
+      person => person.gramps_id === this.targetGrampsId
+    )
     this.loading = false
   }
 

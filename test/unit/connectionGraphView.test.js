@@ -63,28 +63,26 @@ describe('connection graph view', () => {
       I2: {handle: 'C1', gramps_id: 'I2', profile: {}},
     }
     const apiGet = vi.fn(async url => {
-      if (url.includes('gramps_id=I1')) return {data: [people.I1]}
-      if (url.includes('gramps_id=I2')) return {data: [people.I2]}
-      if (url === '/api/relations/P1/C1/path') {
+      if (url === '/api/views/connection-graph/I1/I2?locale=en') {
         return {
           data: {
-            connected: true,
-            person_handles: ['P1', 'C1'],
-            family_handles: ['F1'],
-            steps: [
-              {
-                from_handle: 'P1',
-                to_handle: 'C1',
-                family_handle: 'F1',
-                relation: 'child',
-              },
-            ],
+            path: {
+              connected: true,
+              person_handles: ['P1', 'C1'],
+              family_handles: ['F1'],
+              steps: [
+                {
+                  from_handle: 'P1',
+                  to_handle: 'C1',
+                  family_handle: 'F1',
+                  relation: 'child',
+                },
+              ],
+            },
+            people: [people.I1, people.I2, {handle: 'P2', profile: {}}],
+            families: [family],
           },
         }
-      }
-      if (url.startsWith('/api/families/?handles=F1')) return {data: [family]}
-      if (url.startsWith('/api/people/?handles=P1,C1,P2')) {
-        return {data: [people.I1, people.I2, {handle: 'P2', profile: {}}]}
       }
       throw new Error(`Unexpected URL: ${url}`)
     })
@@ -102,5 +100,6 @@ describe('connection graph view', () => {
       'P2',
     ])
     expect(view._families).toEqual([family])
+    expect(apiGet).toHaveBeenCalledTimes(1)
   })
 })

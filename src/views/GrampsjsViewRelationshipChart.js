@@ -121,6 +121,18 @@ export class GrampsjsViewRelationshipChart extends GrampsjsViewTreeChartBase {
     }
   }
 
+  _getDataUrl(grampsId) {
+    const lang = this.appState.i18n.lang || 'en'
+    return `/api/views/relationship-graph/${encodeURIComponent(
+      grampsId
+    )}?degree=${this.nAnc}&locale=${lang}`
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  _getDataItems(data) {
+    return data.people ?? data
+  }
+
   renderChart() {
     return html`
       <div @add-new-person-relation="${this._handleAddPersonRelation}">

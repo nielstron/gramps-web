@@ -564,23 +564,32 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
   async _fetchData(grampsId) {
     const requestId = ++this._fetchRequestId
     this.loading = true
-    const rules = this._getPersonRules(grampsId)
-    const data = await this.appState.apiGet(
-      `/api/people/?rules=${encodeURIComponent(JSON.stringify(rules))}&locale=${
-        this.appState.i18n.lang || 'en'
-      }&profile=self&extend=event_ref_list,primary_parent_family,family_list`
-    )
+    const data = await this.appState.apiGet(this._getDataUrl(grampsId))
     if (requestId !== this._fetchRequestId) {
       return
     }
     this.loading = false
     if ('data' in data) {
       this.error = false
-      this._data = data.data
+      this._data = this._getDataItems(data.data)
     } else if ('error' in data) {
       this.error = true
       this._errorMessage = data.error
     }
+  }
+
+  _getDataUrl(grampsId) {
+    const rules = this._getPersonRules(grampsId)
+    return `/api/people/?rules=${encodeURIComponent(
+      JSON.stringify(rules)
+    )}&locale=${
+      this.appState.i18n.lang || 'en'
+    }&profile=self&extend=event_ref_list,primary_parent_family,family_list`
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  _getDataItems(data) {
+    return data
   }
 
   _goToPerson() {

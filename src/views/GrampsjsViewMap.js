@@ -30,11 +30,7 @@ import {
 } from '../util.js'
 import {GrampsjsStaleDataMixin} from '../mixins/GrampsjsStaleDataMixin.js'
 import {queryNominatim, getMapViewport, saveMapViewport} from '../api.js'
-import {
-  PERSON_SCOPE_SELF,
-  personScopeOptions,
-  personScopeRules,
-} from '../personScope.js'
+import {PERSON_SCOPE_SELF, personScopeOptions} from '../personScope.js'
 import {formatDateString} from '../date.js'
 import {mapUrlFromState, parseMapUrlState} from '../viewUrlState.js'
 import {defaultMapTimeRange} from '../mapTimeRange.js'
@@ -193,6 +189,8 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._searchPersonPlaceHandles = []
     this._searchRequestId = 0
     this._scopePeople = null
+    this._scopeFamilies = null
+    this._scopeEvents = null
     // Intentionally non-reactive: only read on filter-change events, never
     // needs to trigger a re-render on its own.
     this._activeSearchQuery = ''
@@ -773,6 +771,8 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     this._personEventGroups = []
     this._personFilterMode = PERSON_SCOPE_SELF
     this._scopePeople = null
+    this._scopeFamilies = null
+    this._scopeEvents = null
   }
 
   async _highlightPersonPlaces(person, {focusBirth = false} = {}) {
@@ -820,12 +820,13 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
           ? [this._selectedPersonData]
           : EMPTY_ARRAY
         : this._scopePeople ?? EMPTY_ARRAY
+    const scoped = this._personFilterMode !== PERSON_SCOPE_SELF
     this._setPersonEventGroups(
       buildPersonEventGroups(
         people,
-        this._dataFamilies,
-        this._dataEvents,
-        this._dataPeople
+        scoped ? this._scopeFamilies ?? EMPTY_ARRAY : this._dataFamilies,
+        scoped ? this._scopeEvents ?? EMPTY_ARRAY : this._dataEvents,
+        scoped ? this._scopePeople ?? EMPTY_ARRAY : this._dataPeople
       )
     )
   }
@@ -844,6 +845,8 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     const mode = event.detail.value
     this._personFilterMode = mode
     this._scopePeople = null
+    this._scopeFamilies = null
+    this._scopeEvents = null
     this._writeMapUrl()
     if (mode === PERSON_SCOPE_SELF) {
       this._refreshPersonEventGroups()
@@ -851,15 +854,14 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     }
 
     const grampsId = this._selectedPerson?.gramps_id
-    const rules = personScopeRules(grampsId, mode)
-    if (!rules) return
+    if (!grampsId) return
     this._personScopeSeq = (this._personScopeSeq ?? 0) + 1
     const seq = this._personScopeSeq
     const selectedHandle = this._selectedPerson.handle
     const result = await this.appState.apiGet(
-      `/api/people/?rules=${encodeURIComponent(
-        JSON.stringify(rules)
-      )}&keys=handle,event_ref_list,family_list`
+      `/api/views/map-scope/${encodeURIComponent(
+        grampsId
+      )}?direction=${mode}&degree=100`
     )
     if (
       seq !== this._personScopeSeq ||
@@ -869,7 +871,9 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
       return
     }
     if ('data' in result) {
-      this._scopePeople = result.data
+      this._scopePeople = result.data.people
+      this._scopeFamilies = result.data.families
+      this._scopeEvents = result.data.events
       this._applyScopePeople()
     } else if ('error' in result) {
       this._setPersonEventGroups([])
