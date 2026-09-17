@@ -9,7 +9,6 @@ export class GrampsjsViewHourglassChart extends GrampsjsViewTreeChartBase {
     super()
     this._setAnc = true
     this._setDesc = true
-    this.defaults.nAnc = 2
     this._spacingSettingsKey = 'hourglassChartSpacing'
     this.defaults.gapX = 60
   }

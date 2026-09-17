@@ -8,7 +8,6 @@ export class GrampsjsViewTreeChart extends GrampsjsViewTreeChartBase {
   constructor() {
     super()
     this._setAnc = true
-    this.defaults.nAnc = 3
     this._spacingSettingsKey = 'ancestorChartSpacing'
   }
 

@@ -3,7 +3,9 @@ import {GrampsjsViewRelationshipChart} from '../../src/views/GrampsjsViewRelatio
 import {GrampsjsViewTreeChart} from '../../src/views/GrampsjsViewTreeChart.js'
 import {GrampsjsViewDescendantChart} from '../../src/views/GrampsjsViewDescendantChart.js'
 import {GrampsjsViewHourglassChart} from '../../src/views/GrampsjsViewHourglassChart.js'
+import {GrampsjsViewFanChart} from '../../src/views/GrampsjsViewFanChart.js'
 import {DEFAULT_RELATIONSHIP_LAYOUT} from '../../src/charts/relationshipLayout.js'
+import {DEFAULT_TREE_DEPTH} from '../../src/treeDefaults.js'
 
 describe('relationship chart view', () => {
   it('uses the tuned grouping priorities by default', () => {
@@ -28,21 +30,23 @@ describe('relationship chart view', () => {
     expect(view.renderChart().values).toContain(view.appState)
   })
 
-  it('shows three degrees of separation by default', () => {
+  it('shows ten degrees of separation by default', () => {
     const view = new GrampsjsViewRelationshipChart()
     view.appState = {
       settings: {},
       updateSettings: vi.fn(),
     }
 
-    expect(view.nAnc).toBe(3)
+    expect(view.nAnc).toBe(DEFAULT_TREE_DEPTH)
     expect(view._getPersonRules('I1')).toEqual({
       function: 'or',
-      rules: [{name: 'DegreesOfSeparation', values: ['I1', 3]}],
+      rules: [
+        {name: 'DegreesOfSeparation', values: ['I1', DEFAULT_TREE_DEPTH]},
+      ],
     })
     view.appState.i18n = {lang: 'de'}
     expect(view._getDataUrl('I1')).toBe(
-      '/api/views/relationship-graph/I1?degree=3&locale=de'
+      `/api/views/relationship-graph/I1?degree=${DEFAULT_TREE_DEPTH}&locale=de`
     )
     expect(
       view._getDataItems({
@@ -69,6 +73,19 @@ describe('relationship chart view', () => {
         },
       },
     ])
+  })
+
+  it.each([
+    [GrampsjsViewTreeChart, 'nAnc'],
+    [GrampsjsViewDescendantChart, 'nDesc'],
+    [GrampsjsViewHourglassChart, 'nAnc'],
+    [GrampsjsViewHourglassChart, 'nDesc'],
+    [GrampsjsViewFanChart, 'nAnc'],
+  ])('uses the shared default depth for %s.%s', (View, property) => {
+    const view = new View()
+    view.appState = {settings: {}, updateSettings: vi.fn()}
+
+    expect(view[property]).toBe(DEFAULT_TREE_DEPTH)
   })
 
   it('keeps a saved degree preference', () => {

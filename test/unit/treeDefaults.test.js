@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import {
   DEFAULT_TREE_VIEW,
+  DEFAULT_TREE_DEPTH,
   TREE_VIEWS,
   getTreePath,
   getTreeViewTabIndex,
@@ -9,6 +10,7 @@ import {
 describe('treeDefaults', () => {
   it('uses the relationship graph by default', () => {
     expect(DEFAULT_TREE_VIEW).to.equal('relationship')
+    expect(DEFAULT_TREE_DEPTH).to.equal(10)
   })
 
   it('returns the correct index for known tree views', () => {

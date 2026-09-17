@@ -8,6 +8,7 @@ export const TREE_VIEWS = [
 ]
 
 export const DEFAULT_TREE_VIEW = 'relationship'
+export const DEFAULT_TREE_DEPTH = 10
 
 export function getTreeViewTabIndex(view) {
   const index = TREE_VIEWS.indexOf(view)

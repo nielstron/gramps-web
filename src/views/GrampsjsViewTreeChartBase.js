@@ -21,6 +21,7 @@ import '../components/GrampsjsTooltip.js'
 
 import {chartNameDisplayFormat, fireEvent} from '../util.js'
 import {iconButtonColorStyles} from '../SharedStyles.js'
+import {DEFAULT_TREE_DEPTH} from '../treeDefaults.js'
 
 export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
   GrampsjsView
@@ -179,8 +180,8 @@ export class GrampsjsViewTreeChartBase extends GrampsjsStaleDataMixin(
   }
 
   defaults = {
-    nAnc: 1,
-    nDesc: 1,
+    nAnc: DEFAULT_TREE_DEPTH,
+    nDesc: DEFAULT_TREE_DEPTH,
     nMaxImages: 50,
     nameDisplayFormat: chartNameDisplayFormat.surnameThenGiven,
     gapX: 30,
