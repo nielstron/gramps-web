@@ -73,6 +73,7 @@
     "Please upload a file in Gramps XML (.gramps) format without media files.": "Bitte lade eine Datei im Gramps XML (.gramps) Format ohne Mediendateien hoch.",
     "If you intend to synchronize an existing Gramps database with Gramps Web, use the Gramps XML (.gramps) format instead.": "Wenn du beabsichtigst, eine bestehende Gramps-Datenbank mit Gramps Web zu synchronisieren, verwende stattdessen das Gramps-XML-Format (.gramps).",
     "Username": "Benutzername",
+    "Username or e-mail": "Benutzername oder E-Mail",
     "Password": "Kennwort",
     "login": "Anmeldung",
     "Lost password?": "Kennwort vergessen?",

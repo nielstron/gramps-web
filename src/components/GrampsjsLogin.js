@@ -259,7 +259,7 @@ class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
                     @input="${this._credChanged}"
                     @change="${this._credChanged}"
                   />
-                  <label for="username">${this._('Username')}</label>
+                  <label for="username">${this._('Username or e-mail')}</label>
                 </div>
                 <div class="text-field-wrapper">
                   <input

@@ -40,7 +40,7 @@ export class GrampsjsViewNewPerson extends GrampsjsNewPersonMixin(
     this.error = false
     const created = data.data.find(obj => obj.new._class === 'Person').new
     if (treeWasEmpty && !('homePerson' in (this.appState.settings ?? {}))) {
-      this.appState.updateSettings({homePerson: created.gramps_id}, true)
+      await this.appState.updateUserSettings({homePerson: created.gramps_id})
     }
     await this._handleCreatedObjects([created])
   }

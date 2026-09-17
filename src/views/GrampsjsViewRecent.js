@@ -10,6 +10,7 @@ import '../components/GrampsjsSearchResultList.js'
 import '../components/GrampsjsIcon.js'
 import './GrampsjsViewRevisions.js'
 import {fireEvent} from '../util.js'
+import {objectSummariesUrl} from '../objectPicker.js'
 
 export class GrampsjsViewRecentObject extends GrampsjsView {
   static get styles() {
@@ -152,26 +153,17 @@ export class GrampsjsViewRecentObject extends GrampsjsView {
       return
     }
     this.loading = true
-    const query = this._data
-      .map(obj => obj.grampsId.trim().replace(/\s\s+/g, ' OR '))
-      .filter(grampsId => grampsId && grampsId.trim())
-      .join(' OR ')
-    const data = await this.appState.apiGet(
-      `/api/search/?query=${query}&locale=${
-        lang || 'en'
-      }&profile=all&page=1&pagesize=100`
-    )
+    const url = objectSummariesUrl(this._data, lang || 'en')
+    if (!url) {
+      this._searchResult = []
+      this.loading = false
+      return
+    }
+    const data = await this.appState.apiGet(url)
     this.loading = false
     if ('data' in data) {
       this.error = false
-      const dataObject = data.data.reduce((obj, item) => {
-        // eslint-disable-next-line no-param-reassign
-        obj[item?.object?.gramps_id] = item
-        return obj
-      }, {})
-      this._searchResult = this._data
-        .map(obj => dataObject[obj.grampsId])
-        .filter(obj => obj !== undefined)
+      this._searchResult = data.data
     } else if ('error' in data) {
       this.error = true
       this._errorMessage = data.error

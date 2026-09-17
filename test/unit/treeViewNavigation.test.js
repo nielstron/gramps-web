@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 
 import '../../src/views/GrampsjsViewTree.js'
 
@@ -49,6 +49,36 @@ describe('tree view navigation', () => {
     view._handleTabChange({target: {activeTabIndex: 5}})
 
     expect(navigation).toEqual({path: 'tree/connection/I0001/I0002'})
+  })
+
+  it('persists and immediately opens a newly selected home person', async () => {
+    const view = document.createElement('grampsjs-view-tree')
+    view.active = true
+    view.view = 'relationship'
+    view.appState = {
+      updateUserSettings: vi.fn().mockResolvedValue({
+        data: {homePerson: 'I0042'},
+      }),
+    }
+    const navigation = []
+    view.addEventListener('nav', event => navigation.push(event.detail))
+    const event = {
+      detail: {objects: [{object: {gramps_id: 'I0042'}}]},
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    }
+
+    await view._handleHomePerson(event)
+
+    expect(view.appState.updateUserSettings).toHaveBeenCalledWith({
+      homePerson: 'I0042',
+    })
+    expect(navigation).toEqual([
+      {
+        path: 'tree/relationship/I0042',
+        replaceHistory: true,
+      },
+    ])
   })
 
   it.each([false, true])(

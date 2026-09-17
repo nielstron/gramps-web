@@ -947,6 +947,7 @@ export const grampsStrings = [
   'Use rounded corners e.g. to differentiate between women and men.',
   'Use rounded corners to differentiate between women and men.',
   'Username: ',
+  'Username or e-mail',
   'Value',
   'Verify the Data',
   'Verifies the data against user-defined tests',

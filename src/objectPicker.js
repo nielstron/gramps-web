@@ -49,6 +49,25 @@ export function pickerObjectTypes(objectType) {
     .filter(type => CREATABLE_OBJECT_TYPES.includes(type))
 }
 
+export function objectSummariesUrl(objects, lang = 'en') {
+  const references = objects
+    .map(object => {
+      const objectType = (
+        object.objectType ||
+        object.className ||
+        ''
+      ).toLowerCase()
+      const identifier = object.handle || object.grampsId
+      return objectType && identifier ? `${objectType}:${identifier}` : ''
+    })
+    .filter(Boolean)
+  return references.length
+    ? `/api/views/object-summaries?objects=${encodeURIComponent(
+        references.join(',')
+      )}&locale=${lang}`
+    : ''
+}
+
 export function personNameFromQuery(query) {
   const normalized = query.trim().replace(/\s+/g, ' ')
   if (!normalized) return {_class: 'Name'}

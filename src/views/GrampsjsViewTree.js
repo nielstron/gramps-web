@@ -387,13 +387,21 @@ export class GrampsjsViewTree extends GrampsjsView {
     this.renderRoot.querySelector('#homeperson-select')?.open()
   }
 
-  _handleHomePerson(e) {
+  async _handleHomePerson(e) {
     const grampsId = e.detail.objects[0]?.object?.gramps_id
-    if (grampsId) {
-      this.appState.updateSettings({homePerson: grampsId}, true)
-    }
     e.preventDefault()
     e.stopPropagation()
+    if (grampsId) {
+      const result = await this.appState.updateUserSettings({
+        homePerson: grampsId,
+      })
+      if ('data' in result) {
+        fireEvent(this, 'nav', {
+          path: getTreePath(this.view, grampsId, this.targetGrampsId),
+          replaceHistory: true,
+        })
+      }
+    }
   }
 }
 

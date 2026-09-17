@@ -26,6 +26,7 @@ import {
   OBJECT_PICKER_CANCELLED_EVENT,
   OBJECT_PICKER_CREATED_EVENT,
   loadNewObjectView,
+  objectSummariesUrl,
   pickerObjectTypes,
 } from '../objectPicker.js'
 import './GrampsjsSearchResultList.js'
@@ -613,33 +614,25 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
       )
     }
     if (filtered.length === 0) return
-    this._data = filtered
+    const objects = filtered
       .filter(obj => !this.excludeHandles.includes(obj.handle))
       .reverse()
-      .map(obj => ({
-        object_type: obj.className?.toLowerCase(),
-        object: {gramps_id: obj.grampsId},
-        loading: true,
-      }))
-    const query = filtered
-      .map(obj => obj.grampsId?.trim())
-      .filter(Boolean)
-      .join(' OR ')
-    const url = `/api/search/?query=${encodeURIComponent(query)}&locale=${
-      this.appState.i18n.lang || 'en'
-    }&profile=all&page=1&pagesize=100`
+    this._data = objects.map(obj => ({
+      object_type: obj.className?.toLowerCase(),
+      object: {handle: obj.handle, gramps_id: obj.grampsId},
+      loading: true,
+    }))
+    const url = objectSummariesUrl(objects, this.appState.i18n.lang || 'en')
+    if (!url) {
+      this._data = []
+      return
+    }
     const data = await this.appState.apiGet(url)
     if (this._fetchId !== fetchId) return
     if ('data' in data) {
-      const byId = Object.fromEntries(
-        data.data.map(item => [item?.object?.gramps_id, item])
+      this._data = data.data.filter(
+        obj => !this.excludeHandles.includes(obj.handle ?? obj.object?.handle)
       )
-      this._data = this._data
-        .map(placeholder => byId[placeholder.object?.gramps_id] ?? placeholder)
-        .filter(obj => !obj.loading)
-        .filter(
-          obj => !this.excludeHandles.includes(obj.handle ?? obj.object?.handle)
-        )
     } else {
       this._data = []
       this._error = true
@@ -668,31 +661,16 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
       object: {handle},
       loading: true,
     }))
-    pairs.forEach(({objectType, handle}) =>
-      this._fetchBookmarkObject(objectType, handle, fetchId)
-    )
-  }
-
-  async _fetchBookmarkObject(objectType, handle, fetchId) {
-    const endpoint = objectTypeToEndpoint[objectType]
-    if (!endpoint) return
-    const data = await this.appState.apiGet(
-      `/api/${endpoint}/${handle}?locale=${
-        this.appState.i18n.lang || 'en'
-      }&profile=self`
-    )
+    const url = objectSummariesUrl(pairs, this.appState.i18n.lang || 'en')
+    const data = await this.appState.apiGet(url)
     if (this._fetchId !== fetchId) return
     if ('data' in data) {
-      const updated = {
-        object_type: objectType,
-        object: data.data,
-        handle: data.data.handle,
-      }
-      this._data = this._data.map(item =>
-        item.object?.handle === handle ? updated : item
+      this._data = data.data.filter(
+        obj => !this.excludeHandles.includes(obj.handle ?? obj.object?.handle)
       )
     } else {
-      this._data = this._data.filter(item => item.object?.handle !== handle)
+      this._data = []
+      this._error = true
     }
   }
 
@@ -709,13 +687,10 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
             `type:${this.objectType || '*'}`
           )}&page=1&pagesize=20`
     }
-    let url = `/api/search/?locale=${lang}&profile=all&page=1&pagesize=20`
-    if (value) {
-      url = `${url}&query=${encodeURIComponent(`${value}*`)}`
-    } else {
-      url = `${url}&sort=-change&query=${encodeURIComponent('*')}`
-    }
-    return `${url}${typeParam}`
+    if (!value) return `/api/views/recent-changes?limit=20${typeParam}`
+    return `/api/search/?locale=${lang}&summary=1&page=1&pagesize=20&query=${encodeURIComponent(
+      `${value}*`
+    )}${typeParam}`
   }
 
   _getActiveTypes() {
