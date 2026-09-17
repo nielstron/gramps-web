@@ -15,6 +15,19 @@ describe('person relationship', () => {
     expect(element.getUrl()).to.contain('depth=100')
   })
 
+  it('does not request a relationship already included with the person', () => {
+    const element = new GrampsjsPersonRelationship()
+    element.person1 = 'home'
+    element.person2 = 'ancestor'
+    element.relationshipData = {
+      relationship_string: 'grandfather',
+      distance_common_origin: 2,
+      distance_common_other: 0,
+    }
+
+    expect(element.getUrl()).to.equal('')
+  })
+
   it('uses repeated Ur for a direct ancestor beyond the named range', () => {
     expect(
       formatDistantGermanLinealRelationship(

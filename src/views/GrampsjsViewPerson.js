@@ -78,9 +78,12 @@ export class GrampsjsViewPerson extends GrampsjsViewObject {
   }
 
   getUrl() {
+    const relationship = this.homePersonDetails?.handle
+      ? `&relationship_to=${encodeURIComponent(this.homePersonDetails.handle)}`
+      : ''
     return `/api/people/?gramps_id=${this.grampsId}&locale=${
       this.appState.i18n.lang || 'en'
-    }&profile=all&backlinks=true&extend=all&precision=1`
+    }&profile=all&backlinks=true&extend=all&precision=1${relationship}`
   }
 
   renderElement() {
@@ -89,6 +92,7 @@ export class GrampsjsViewPerson extends GrampsjsViewObject {
         .data=${this._data}
         .appState="${this.appState}"
         .homePersonDetails=${this.homePersonDetails}
+        .relationshipData=${this._data.profile?.relationship_to}
         .timelineData=${this._timelineData}
         ?edit="${this.edit}"
         ?canEdit="${this.canEdit}"

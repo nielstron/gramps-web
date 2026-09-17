@@ -142,6 +142,7 @@ export class GrampsjsPerson extends GrampsjsObject {
   static get properties() {
     return {
       homePersonDetails: {type: Object},
+      relationshipData: {type: Object},
       timelineData: {type: Array},
       _showFamilyEvents: {type: Boolean},
       _showRelatedEvents: {type: Boolean},
@@ -152,6 +153,7 @@ export class GrampsjsPerson extends GrampsjsObject {
   constructor() {
     super()
     this.homePersonDetails = {}
+    this.relationshipData = undefined
     this._objectsName = 'People'
     this._objectEndpoint = 'people'
     this._objectIcon = objectIconPath.person
@@ -374,6 +376,7 @@ export class GrampsjsPerson extends GrampsjsObject {
             person1="${this.homePersonDetails.handle}"
             person2="${this.data.handle}"
             person2Sex="${this.data.profile?.sex || 'U'}"
+            .relationshipData=${this.relationshipData}
             .appState="${this.appState}"
           ></grampsjs-person-relationship>
         </dd>

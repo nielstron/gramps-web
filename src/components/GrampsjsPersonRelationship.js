@@ -29,6 +29,7 @@ export class GrampsjsPersonRelationship extends GrampsjsConnectedComponent {
       person1: {type: String},
       person2: {type: String},
       person2Sex: {type: String},
+      relationshipData: {type: Object},
     }
   }
 
@@ -37,9 +38,11 @@ export class GrampsjsPersonRelationship extends GrampsjsConnectedComponent {
     this.person1 = ''
     this.person2 = ''
     this.person2Sex = 'U'
+    this.relationshipData = undefined
   }
 
   getUrl() {
+    if (this.relationshipData !== undefined) return ''
     return `/api/relations/${this.person1}/${this.person2}?depth=100&locale=${
       this.appState.i18n.lang || 'en'
     }`
@@ -51,9 +54,10 @@ export class GrampsjsPersonRelationship extends GrampsjsConnectedComponent {
   }
 
   renderContent() {
-    const relation = this._data?.data?.relationship_string
+    const data = this.relationshipData ?? this._data?.data
+    const relation = data?.relationship_string
     const distantGermanRelation = this.appState.i18n.lang?.startsWith('de')
-      ? formatDistantGermanLinealRelationship(this._data?.data, this.person2Sex)
+      ? formatDistantGermanLinealRelationship(data, this.person2Sex)
       : null
     if (this.person1 === this.person2) {
       return html`${this._('self')}`
@@ -68,6 +72,11 @@ export class GrampsjsPersonRelationship extends GrampsjsConnectedComponent {
       return html`${this._('Not Related')}`
     }
     return html`${relation}`
+  }
+
+  render() {
+    if (this.relationshipData !== undefined) return this.renderContent()
+    return super.render()
   }
 }
 
