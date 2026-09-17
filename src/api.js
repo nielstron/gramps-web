@@ -671,6 +671,33 @@ export async function apiGetTokens(username, password) {
   }
 }
 
+export async function apiRequestMagicLogin(email) {
+  try {
+    const resp = await fetch(`${__APIHOST__}/api/token/magic/`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({email}),
+    })
+    if (resp.status !== 201) {
+      let resJson
+      try {
+        resJson = await resp.json()
+      } catch {
+        resJson = {}
+      }
+      throw new Error(
+        resJson?.error?.message || resp.statusText || `Error ${resp.status}`
+      )
+    }
+    return {}
+  } catch (error) {
+    return {error: error.message}
+  }
+}
+
 // Creates the first tree for a user whose token has no `tree` claim yet,
 // assigns it via the one-time `PUT /users/-/` onboarding write, and
 // refreshes the stored access token so it picks up the new claim.

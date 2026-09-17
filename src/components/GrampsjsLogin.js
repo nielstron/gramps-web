@@ -12,6 +12,7 @@ import './GrampsjsOidcButton.js'
 import {sharedStyles} from '../SharedStyles.js'
 import {
   apiGetTokens,
+  apiRequestMagicLogin,
   apiResetPassword,
   apiGetOIDCConfig,
   apiOIDCLogin,
@@ -192,6 +193,7 @@ class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
       credentials: {type: Object},
       tree: {type: String},
       oidcConfig: {type: Object},
+      magicLinkSent: {type: Boolean},
     }
   }
 
@@ -202,6 +204,7 @@ class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
     this.credentials = {}
     this.tree = ''
     this.oidcConfig = {}
+    this.magicLinkSent = false
   }
 
   async connectedCallback() {
@@ -298,6 +301,10 @@ class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
                 >
                 </mwc-circular-progress>
                 <p class="forgot-password">
+                  <span class="link" @click="${this._requestMagicLink}"
+                    >${this._('Email me a sign-in link')}</span
+                  >
+                  &middot;
                   <span
                     class="link"
                     @click="${() => {
@@ -306,6 +313,18 @@ class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
                     >${this._('Lost password?')}</span
                   >
                 </p>
+                ${this.magicLinkSent
+                  ? html`<p class="success">
+                      <grampsjs-icon
+                        path="${mdiCheckCircle}"
+                        color="currentColor"
+                      ></grampsjs-icon
+                      ><br />
+                      ${this._(
+                        'If an account exists for this e-mail address, a sign-in link has been sent.'
+                      )}
+                    </p>`
+                  : ''}
               `}
           ${this.oidcConfig?.enabled &&
           this.oidcConfig?.providers &&
@@ -430,6 +449,20 @@ class GrampsjsLogin extends GrampsjsAppStateMixin(LitElement) {
         document.location.href = getLoginReturnUrl()
       }
     })
+  }
+
+  async _requestMagicLink() {
+    const email = this.shadowRoot.getElementById('username')?.value?.trim()
+    if (!email) {
+      this._showError('E-mail must not be empty.')
+      return
+    }
+    const res = await apiRequestMagicLogin(email)
+    if ('error' in res) {
+      this._showError(res.error)
+      return
+    }
+    this.magicLinkSent = true
   }
 
   async _submitOIDCLogin(providerId) {

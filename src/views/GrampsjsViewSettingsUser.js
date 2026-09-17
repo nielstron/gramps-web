@@ -221,7 +221,11 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
         <h3>${this._('Change E-mail')}</h3>
         ${this.renderChangeEmail()}
 
-        <h3>${this._('Change password')}</h3>
+        <h3>
+          ${this._userInfo?.has_password
+            ? this._('Change password')
+            : this._('Set password')}
+        </h3>
         ${this.renderChangePw()}
         ${this._supportsPersistentAccessTokens()
           ? html`
@@ -495,11 +499,13 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
   renderChangePw() {
     return html`
       <p>
-        <md-filled-text-field
-          id="old-pw"
-          label="${this._('Old password')}"
-          type="password"
-        ></md-filled-text-field>
+        ${this._userInfo?.has_password
+          ? html`<md-filled-text-field
+              id="old-pw"
+              label="${this._('Old password')}"
+              type="password"
+            ></md-filled-text-field>`
+          : ''}
         <md-filled-text-field
           id="new-pw"
           label="${this._('New password')}"
@@ -986,13 +992,18 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
   _changePw() {
     const formOldPw = this.shadowRoot.getElementById('old-pw')
     const formNewPw = this.shadowRoot.getElementById('new-pw')
-    if (!formOldPw.value || !formNewPw.value) {
+    if (
+      !formNewPw.value ||
+      (this._userInfo?.has_password && !formOldPw.value)
+    ) {
       return
     }
     this.loading = true
     const payload = {
-      old_password: formOldPw.value,
       new_password: formNewPw.value,
+    }
+    if (this._userInfo?.has_password) {
+      payload.old_password = formOldPw.value
     }
     this.appState
       .apiPost('/api/users/-/password/change', payload)
@@ -1006,8 +1017,9 @@ export class GrampsjsViewSettingsUser extends GrampsjsView {
           fireEvent(this, 'grampsjs:notification', {
             message: 'Password successfully updated',
           })
-          formOldPw.value = ''
+          if (formOldPw) formOldPw.value = ''
           formNewPw.value = ''
+          this._fetchOwnUserDetails()
         }
       })
   }
