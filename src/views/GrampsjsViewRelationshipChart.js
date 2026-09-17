@@ -130,7 +130,20 @@ export class GrampsjsViewRelationshipChart extends GrampsjsViewTreeChartBase {
 
   // eslint-disable-next-line class-methods-use-this
   _getDataItems(data) {
-    return data.people ?? data
+    if (!data.people || !data.families) return data.people ?? data
+    const families = new Map(
+      data.families.map(family => [family.handle, family])
+    )
+    return data.people.map(person => ({
+      ...person,
+      extended: {
+        families: (person.family_handles ?? [])
+          .map(handle => families.get(handle))
+          .filter(Boolean),
+        primary_parent_family:
+          families.get(person.primary_parent_family_handle) ?? {},
+      },
+    }))
   }
 
   renderChart() {

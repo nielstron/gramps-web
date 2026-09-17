@@ -44,8 +44,30 @@ describe('relationship chart view', () => {
     expect(view._getDataUrl('I1')).toBe(
       '/api/views/relationship-graph/I1?degree=3&locale=de'
     )
-    expect(view._getDataItems({people: [{handle: 'P1'}]})).toEqual([
-      {handle: 'P1'},
+    expect(
+      view._getDataItems({
+        people: [
+          {
+            handle: 'P1',
+            family_handles: ['F1'],
+            primary_parent_family_handle: 'F2',
+          },
+        ],
+        families: [
+          {handle: 'F1', father_handle: 'P1'},
+          {handle: 'F2', mother_handle: 'P2'},
+        ],
+      })
+    ).toEqual([
+      {
+        handle: 'P1',
+        family_handles: ['F1'],
+        primary_parent_family_handle: 'F2',
+        extended: {
+          families: [{handle: 'F1', father_handle: 'P1'}],
+          primary_parent_family: {handle: 'F2', mother_handle: 'P2'},
+        },
+      },
     ])
   })
 

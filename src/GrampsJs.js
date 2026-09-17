@@ -903,8 +903,9 @@ export class GrampsJs extends LitElement {
         }
         if (setReady) {
           this._setReady()
+        } else {
+          this._loadHomePersonInfo(true)
         }
-        this._loadHomePersonInfo()
       }
     })
   }
@@ -999,9 +1000,13 @@ export class GrampsJs extends LitElement {
       })
   }
 
-  _loadHomePersonInfo() {
+  _loadHomePersonInfo(force = false) {
     const grampsId = this.appState.settings.homePerson
-    if (!grampsId || grampsId === this._homePersonFetchingId) {
+    if (
+      !grampsId ||
+      grampsId === this._homePersonFetchingId ||
+      (!force && grampsId === this._homePersonLoadedId)
+    ) {
       return
     }
     this._homePersonFetchingId = grampsId
@@ -1045,7 +1050,9 @@ export class GrampsJs extends LitElement {
   async _loadUserSettings() {
     const {sub, tree} = this.appState.auth.claims
     const account = `${sub}:${tree}`
-    let result = await this.appState.apiGet('/api/users/-/settings')
+    let result = await this.appState.apiGet(
+      '/api/users/-/settings?include_home_person=1'
+    )
     if (!('data' in result)) return
     if (
       sub !== this.appState.auth.claims.sub ||
@@ -1069,6 +1076,11 @@ export class GrampsJs extends LitElement {
       sub === this.appState.auth.claims.sub &&
       tree === this.appState.auth.claims.tree
     ) {
+      if (result.data.homePersonDetails?.handle) {
+        this._homePersonDetails = result.data.homePersonDetails
+        this._homePersonLoadedId = result.data.homePerson
+        this._homePersonMissing = false
+      }
       this._handleUserSettings(result.data)
     }
   }

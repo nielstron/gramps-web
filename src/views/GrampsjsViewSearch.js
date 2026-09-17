@@ -338,7 +338,7 @@ export class GrampsjsViewSearch extends GrampsjsView {
   async _fetchData(query, page) {
     let url = `/api/search/?query=${query}&locale=${
       this.appState.i18n.lang || 'en'
-    }&profile=all&page=${page}&pagesize=20`
+    }&summary=1&page=${page}&pagesize=20`
     if (this._semanticEnabled()) {
       url = `${url}&semantic=${this.semantic ? 1 : 0}`
     }

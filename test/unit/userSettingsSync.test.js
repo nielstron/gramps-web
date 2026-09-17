@@ -24,6 +24,56 @@ describe('server-synchronized user settings', () => {
     expect(app.appState.settings).toEqual({theme: 'dark', homePerson: 'I0042'})
   })
 
+  it('does not fetch an already loaded home person a second time', () => {
+    const app = Object.create(GrampsJs.prototype)
+    app.appState = {
+      settings: {homePerson: 'I0042'},
+      apiGet: vi.fn(),
+    }
+    app._homePersonLoadedId = 'I0042'
+    app._homePersonFetchingId = null
+
+    app._loadHomePersonInfo()
+
+    expect(app.appState.apiGet).not.toHaveBeenCalled()
+  })
+
+  it('loads home-person card data with the user settings request', async () => {
+    const details = {handle: 'P42', gramps_id: 'I0042'}
+    const app = Object.create(GrampsJs.prototype)
+    app.appState = {
+      auth: {claims: {sub: 'user1', tree: 'tree1'}},
+      apiGet: vi.fn().mockResolvedValue({
+        data: {homePerson: 'I0042', homePersonDetails: details},
+      }),
+    }
+    app._handleUserSettings = vi.fn()
+
+    await app._loadUserSettings()
+
+    expect(app.appState.apiGet).toHaveBeenCalledWith(
+      '/api/users/-/settings?include_home_person=1'
+    )
+    expect(app._homePersonDetails).toBe(details)
+    expect(app._homePersonLoadedId).toBe('I0042')
+  })
+
+  it('refreshes loaded home-person details after a database change', () => {
+    const app = Object.create(GrampsJs.prototype)
+    app.appState = {
+      settings: {homePerson: 'I0042'},
+      apiGet: vi.fn().mockResolvedValue({data: {person: {handle: 'P42'}}}),
+    }
+    app._homePersonLoadedId = 'I0042'
+    app._homePersonFetchingId = null
+
+    app._loadHomePersonInfo(true)
+
+    expect(app.appState.apiGet).toHaveBeenCalledWith(
+      '/api/views/home-person/I0042'
+    )
+  })
+
   it('matches an unset home person after login and applies the saved result', async () => {
     const app = Object.create(GrampsJs.prototype)
     app.appState = {
