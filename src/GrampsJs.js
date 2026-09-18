@@ -145,7 +145,6 @@ export class GrampsJs extends LitElement {
     this._homePersonMissing = false
     this._homePersonFetchingId = null
     this._homePersonLoadedId = null
-    this._homePersonMatchAttemptedFor = null
     this._showShortcuts = false
     this._shortcutPressed = ''
     this._firstRunToken = ''
@@ -1049,8 +1048,7 @@ export class GrampsJs extends LitElement {
 
   async _loadUserSettings() {
     const {sub, tree} = this.appState.auth.claims
-    const account = `${sub}:${tree}`
-    let result = await this.appState.apiGet(
+    const result = await this.appState.apiGet(
       '/api/users/-/settings?include_home_person=1'
     )
     if (!('data' in result)) return
@@ -1059,19 +1057,6 @@ export class GrampsJs extends LitElement {
       tree !== this.appState.auth.claims.tree
     )
       return
-    if (
-      tree &&
-      !('homePerson' in result.data) &&
-      this._homePersonMatchAttemptedFor !== account
-    ) {
-      this._homePersonMatchAttemptedFor = account
-      const match = await this.appState.apiPost(
-        '/api/users/-/settings/home-person/match',
-        {},
-        {dbChanged: false}
-      )
-      if ('data' in match) result = match
-    }
     if (
       sub === this.appState.auth.claims.sub &&
       tree === this.appState.auth.claims.tree
@@ -1324,7 +1309,6 @@ export class GrampsJs extends LitElement {
 
   _handleLogout(e) {
     this._metadataConfirmed = false
-    this._homePersonMatchAttemptedFor = null
     // On an OIDC logout the browser is about to leave for the identity
     // provider; showing the login view here would re-enter the OIDC flow
     // before that happens (#1325).

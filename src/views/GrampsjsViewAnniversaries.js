@@ -21,6 +21,8 @@ export class GrampsjsViewAnniversaries extends GrampsjsConnectedComponent {
     this.homePersonHandle = ''
     this.relationshipDegree = 4
     this._lastRelationshipDegree = undefined
+    this.loading = false
+    this._data = {data: []}
   }
 
   static get styles() {
@@ -154,6 +156,11 @@ export class GrampsjsViewAnniversaries extends GrampsjsConnectedComponent {
   }
 
   update(changed) {
+    if (changed.has('homePersonHandle') && !this.homePersonHandle) {
+      this.loading = false
+      this.error = false
+      this._data = {data: []}
+    }
     if (this._lastRelationshipDegree !== this.relationshipDegree) {
       this._lastRelationshipDegree = this.relationshipDegree
       this._oldUrl = ''

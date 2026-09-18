@@ -74,23 +74,19 @@ describe('server-synchronized user settings', () => {
     )
   })
 
-  it('matches an unset home person after login and applies the saved result', async () => {
+  it('does not search for a home person during login or reload', async () => {
     const app = Object.create(GrampsJs.prototype)
     app.appState = {
       auth: {claims: {sub: 'user1', tree: 'tree1'}},
       apiGet: vi.fn().mockResolvedValue({data: {}}),
-      apiPost: vi.fn().mockResolvedValue({data: {homePerson: 'I42'}}),
+      apiPost: vi.fn(),
     }
     app._handleUserSettings = vi.fn()
     await app._loadUserSettings()
-    expect(app.appState.apiPost).toHaveBeenCalledWith(
-      '/api/users/-/settings/home-person/match',
-      {},
-      {dbChanged: false}
-    )
-    expect(app._handleUserSettings).toHaveBeenCalledWith({homePerson: 'I42'})
+    expect(app.appState.apiPost).not.toHaveBeenCalled()
+    expect(app._handleUserSettings).toHaveBeenCalledWith({})
     await app._loadUserSettings()
-    expect(app.appState.apiPost).toHaveBeenCalledOnce()
+    expect(app.appState.apiPost).not.toHaveBeenCalled()
   })
 
   it.each(['I42', '', null])(
@@ -109,18 +105,19 @@ describe('server-synchronized user settings', () => {
     }
   )
 
-  it('continues loading settings when matching fails', async () => {
+  it('continues loading settings without a home person', async () => {
     const app = Object.create(GrampsJs.prototype)
     app.appState = {
       auth: {claims: {sub: 'user1', tree: 'tree1'}},
       apiGet: vi.fn().mockResolvedValue({data: {appearance: {theme: 'dark'}}}),
-      apiPost: vi.fn().mockResolvedValue({error: 'Tree unavailable'}),
+      apiPost: vi.fn(),
     }
     app._handleUserSettings = vi.fn()
     await app._loadUserSettings()
     expect(app._handleUserSettings).toHaveBeenCalledWith({
       appearance: {theme: 'dark'},
     })
+    expect(app.appState.apiPost).not.toHaveBeenCalled()
   })
 
   it('writes appearance changes through the synchronized settings method', () => {

@@ -17,6 +17,14 @@ function eventWithParticipants(people = [], families = []) {
 }
 
 describe('anniversary relationship filtering', () => {
+  it('is immediately empty when no home person is set', () => {
+    const view = new GrampsjsViewAnniversaries()
+
+    expect(view.getUrl()).toBe('')
+    expect(view.loading).toBe(false)
+    expect(view._data).toEqual({data: []})
+  })
+
   it('collects and deduplicates direct and family participants', () => {
     const event = eventWithParticipants(['P1', 'P2'], [['P2', 'P3']])
     expect(participantHandles(event)).toEqual(['P1', 'P2', 'P3'])
