@@ -57,6 +57,20 @@ describe('FamilyGraph', () => {
     expect(graph.children('R', {birthOnly: true})).toEqual(['A'])
   })
 
+  it('returns a child only once when it belongs to multiple parent families', () => {
+    const firstFamily = family('first', 'P', 'A', [childRef('C')])
+    const secondFamily = family('second', 'P', 'B', [childRef('C')])
+    const parent = {
+      handle: 'P',
+      gramps_id: 'IP',
+      extended: {families: [firstFamily, secondFamily]},
+    }
+    const duplicateChildGraph = new FamilyGraph([parent])
+
+    expect(duplicateChildGraph.children('P')).toEqual(['C'])
+    expect(duplicateChildGraph.children('P', {birthOnly: true})).toEqual(['C'])
+  })
+
   it('returns no children for a person without families', () => {
     expect(graph.children('S')).toEqual([])
     expect(graph.children('X')).toEqual([])

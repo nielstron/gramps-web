@@ -37,15 +37,19 @@ export class FamilyGraph {
   // parent is Birth are included.
   children(handle, {birthOnly = false} = {}) {
     const families = this.person(handle)?.extended?.families || []
-    return families.flatMap(family => {
-      const isFather = family.father_handle === handle
-      if (!isFather && family.mother_handle !== handle) {
-        return []
-      }
-      const relationKey = isFather ? 'frel' : 'mrel'
-      return (family.child_ref_list || [])
-        .filter(childRef => !birthOnly || childRef[relationKey] === 'Birth')
-        .map(childRef => childRef.ref)
-    })
+    return [
+      ...new Set(
+        families.flatMap(family => {
+          const isFather = family.father_handle === handle
+          if (!isFather && family.mother_handle !== handle) {
+            return []
+          }
+          const relationKey = isFather ? 'frel' : 'mrel'
+          return (family.child_ref_list || [])
+            .filter(childRef => !birthOnly || childRef[relationKey] === 'Birth')
+            .map(childRef => childRef.ref)
+        })
+      ),
+    ]
   }
 }
