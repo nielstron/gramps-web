@@ -1,208 +1,216 @@
-import {create, local} from 'd3-selection'
-import {curveBumpX, link, symbolTriangle, symbol} from 'd3-shape'
-import {zoom, zoomIdentity, zoomTransform} from 'd3-zoom'
+import {select} from 'd3-selection'
+import {curveBumpX, link} from 'd3-shape'
+import {mdiChevronLeft, mdiChevronRight} from '@mdi/js'
 import {fireEvent} from '../util.js'
+import {ChartCanvas, place} from './ChartCanvas.js'
 import {treeLayoutDefaults} from './layout/treeLayout.js'
-import {chartPalette} from './palette.js'
-import {
-  appendPersonCard,
-  clearPersonCardInteraction,
-  setPersonCardInteraction,
-} from './personCard.js'
 
-// Returns the viewBox start along one axis. A chart that fits the view is
-// centred as a whole. One that overflows is centred on `focus`, without
-// showing space beyond the chart's extent.
-export function viewBoxStart(focus, extentMin, extentMax, viewSize) {
-  if (extentMax - extentMin <= viewSize) {
-    return (extentMin + extentMax - viewSize) / 2
+const {boxWidth, boxHeight} = treeLayoutDefaults
+
+// Radius of the root person's menu button and its gap to the card, in pixels
+const menuButtonRadius = 20
+const menuButtonGap = 8
+
+// Returns the horizontal position of the root person's menu button, which
+// keeps a gap to the visible edge of the card: the colour stripe reaching 4px
+// past the box on the left for orientation 'LTR', the box on the right for
+// 'RTL'
+function menuButtonX(orientation) {
+  return orientation === 'LTR'
+    ? -(boxWidth / 2 + 4 + menuButtonGap + menuButtonRadius)
+    : boxWidth / 2 + menuButtonGap + menuButtonRadius
+}
+
+// Returns `bounds` widened to include the root person's menu button, which
+// lies outside the layout
+function boundsWithMenuButton(bounds, orientation) {
+  const x = menuButtonX(orientation)
+  return {
+    ...bounds,
+    xMin: Math.min(bounds.xMin, x - menuButtonRadius),
+    xMax: Math.max(bounds.xMax, x + menuButtonRadius),
   }
-  return Math.min(
-    Math.max(focus - viewSize / 2, extentMin),
-    extentMax - viewSize
+}
+
+// Returns keys that stay the same for a person across layouts with different
+// root people: the handle, numbered when a person appears more than once, or
+// the layout key for a person who was not fetched
+function joinKeys(layout) {
+  const occurrences = new Map()
+  return new Map(
+    layout.nodes.map(node => {
+      if (!node.handle) {
+        return [node, `key:${node.key}`]
+      }
+      const occurrence = occurrences.get(node.handle) ?? 0
+      occurrences.set(node.handle, occurrence + 1)
+      return [node, `${node.handle}:${occurrence}`]
+    })
   )
 }
 
-// The inputs each card was last drawn with
-const cardInputs = local()
+// Gives `node` the join key `key`, and gives the node that had that key the
+// previous key of `node`
+function assignKey(keys, node, key) {
+  const previousKey = keys.get(node)
+  for (const [other, otherKey] of keys) {
+    if (otherKey === key) {
+      keys.set(other, previousKey)
+    }
+  }
+  keys.set(node, key)
+}
 
 // Draws layouts from `layoutAncestors`, `layoutDescendants` or
-// `layoutHourglass` into an SVG that is created once. Each update changes only
-// what differs: positions, the viewBox and edit mode are updated in place, and
-// a card is redrawn only when its person, image, name format or palette
-// changes.
-export class TreeChart {
+// `layoutHourglass`. People are matched across layouts by handle, so a person
+// who is in both keeps their node and card.
+//
+// With the update option `childrenTriangle`, the root person gets a menu
+// button labelled `triangleLabel` that opens the menu of relatives, on the
+// left for `orientation` 'LTR' and on the right for 'RTL'.
+export class TreeChart extends ChartCanvas {
   constructor() {
-    this._zoom = zoom().on('zoom', event =>
-      this._content.attr('transform', event.transform)
-    )
-    this._svg = create('svg')
-      .attr('font-family', 'Inter var')
-      .attr('font-size', 13)
-      .call(this._zoom)
-    this._content = this._svg.append('g').attr('id', 'chart-content')
-    this._links = this._content
-      .append('g')
-      .attr('fill', 'none')
-      .attr('stroke-opacity', 0.4)
-      .attr('stroke-width', 1)
-    this._nodes = this._content.append('g')
-    this._rootHandle = undefined
+    super()
+    this._links.attr('stroke-opacity', 0.4)
+    this._keys = new Map()
+    this._root = undefined
   }
 
-  get node() {
-    return this._svg.node()
+  get boxSize() {
+    return {boxWidth, boxHeight}
   }
 
-  // Removes all people and links, keeping the zoom transform
-  clear() {
-    this._links.selectChildren().remove()
-    this._nodes.selectChildren().remove()
+  get nodeClass() {
+    return 'person-node'
   }
 
-  // With `childrenTriangle`, the root person gets a triangle that opens the
-  // menu of relatives, on the left for orientation 'LTR' and on the right for
-  // 'RTL'. Without `interactive`, the chart has no add person buttons,
-  // triangle, click or hover handling, cursors or shadows. Colours come from
-  // `palette`.
-  update(
+  prepare(
     layout,
+    {interactive, childrenTriangle = false, orientation = 'LTR'}
+  ) {
+    const previousKeys = this._keys
+    this._keys = joinKeys(layout)
+    this._root = layout.nodes.find(node => node.generation === 0)
+    return {
+      bounds:
+        interactive && childrenTriangle
+          ? boundsWithMenuButton(layout.bounds, orientation)
+          : layout.bounds,
+      rootHandle: this._root.handle,
+      // Any node of the root person in the previous layout can become the
+      // root node, which is at the origin
+      candidates: [...previousKeys]
+        .filter(([node]) => node.handle === this._root.handle)
+        .map(([, key]) => ({key, position: [0, 0]})),
+    }
+  }
+
+  // The node kept in place becomes the root node, also when it is another
+  // occurrence of a person who appears more than once
+  keepInPlace(key) {
+    assignKey(this._keys, this._root, key)
+  }
+
+  nodeKey(node) {
+    return this._keys.get(node)
+  }
+
+  linkKey(treeLink) {
+    return this._keys.get(treeLink.target)
+  }
+
+  enterNode(enter) {
+    const node = enter.append('g').attr('class', 'person-node')
+    node.append('g').attr('class', 'person-card')
+    return node
+  }
+
+  isRootPerson(node) {
+    return node.generation === 0
+  }
+
+  linkEnds(treeLink) {
+    return [place(treeLink.source), place(treeLink.target)]
+  }
+
+  // A link joins the facing sides of two boxes slightly inside their edges
+  linkPath([source, target]) {
+    const inset = boxWidth / 2 - 10
+    const direction = Math.sign(target[0] - source[0])
+    return link(curveBumpX)({
+      source: [source[0] + direction * inset, source[1]],
+      target: [target[0] - direction * inset, target[1]],
+    })
+  }
+
+  styleLinks(links, palette) {
+    this._links.attr('stroke', palette.link)
+  }
+
+  drawExtras(nodes, options) {
+    this._updateMenuButton(nodes, options)
+  }
+
+  // The menu button is a chevron pointing away from the root card, in a round
+  // area of `menuButtonRadius` that is shaded while the pointer is on it or it
+  // has focus
+  _updateMenuButton(
+    nodes,
     {
+      interactive,
       childrenTriangle = false,
+      triangleLabel = '',
       orientation = 'LTR',
-      getImageUrl = () => '',
-      nameDisplayFormat,
-      openProfileLabel = '',
-      locale,
-      canEdit = false,
-      interactive = true,
-      palette = chartPalette,
-      bboxWidth,
-      bboxHeight,
+      palette,
     }
   ) {
-    const {boxWidth, boxHeight} = treeLayoutDefaults
-    const {xMin, xMax, yMin, yMax} = layout.bounds
-    this._svg.attr('viewBox', [
-      viewBoxStart(0, xMin, xMax, bboxWidth),
-      viewBoxStart(0, yMin, yMax, bboxHeight),
-      bboxWidth,
-      bboxHeight,
-    ])
-    this._resetPanForNewRoot(layout)
-
-    // Links join the facing sides of two boxes, slightly inside their edges
-    const linkInset = boxWidth / 2 - 10
-    this._links
-      .attr('stroke', palette.link)
-      .selectChildren('path')
-      .data(layout.links, l => l.target.key)
-      .join('path')
-      .attr('d', ({source, target}) => {
-        const direction = Math.sign(target.x - source.x)
-        return link(curveBumpX)({
-          source: [source.x + direction * linkInset, source.y],
-          target: [target.x - direction * linkInset, target.y],
-        })
-      })
-
-    const nodes = this._nodes
-      .selectChildren('.person-node')
-      .data(layout.nodes, d => d.key)
-      .join(enter => {
-        const node = enter.append('g').attr('class', 'person-node')
-        node.append('g').attr('class', 'person-card')
-        return node
-      })
-      .attr('transform', d => `translate(${d.x},${d.y})`)
-      .style('filter', d =>
-        interactive && d.generation === 0
-          ? `drop-shadow(0 3px 8px ${palette.shadow})`
-          : null
-      )
-
-    const changedCards = nodes
-      .filter(function (d) {
-        const inputs = {
-          person: d.person,
-          imageUrl: getImageUrl(d),
-          nameDisplayFormat,
-          locale,
-          palette,
-        }
-        const previous = cardInputs.get(this)
-        cardInputs.set(this, inputs)
-        return (
-          !previous ||
-          Object.keys(inputs).some(key => inputs[key] !== previous[key])
-        )
-      })
-      .select('.person-card')
-    changedCards.selectChildren().remove()
-    appendPersonCard(changedCards, {
-      profile: d => d.person?.profile,
-      imageUrl: getImageUrl,
-      boxWidth,
-      boxHeight,
-      nameDisplayFormat,
-      locale,
-      palette,
-    })
-
-    if (interactive) {
-      setPersonCardInteraction(nodes, {
-        profile: d => d.person?.profile,
-        handle: d => d.handle,
-        grampsId: d => d.person?.gramps_id || d.person?.profile?.gramps_id,
-        openProfileLabel,
-        boxWidth,
-        boxHeight,
-        canEdit,
-        palette,
-      })
-    } else {
-      clearPersonCardInteraction(nodes)
-    }
-
     const side = orientation === 'LTR' ? -1 : 1
-    nodes
+    const x = menuButtonX(orientation)
+    function openMenu(e) {
+      fireEvent(this, 'pedigree:show-children', {})
+      e.stopPropagation()
+      e.preventDefault()
+    }
+    // Shades the button while the pointer is on it or it has focus
+    function shade() {
+      select(this)
+        .select('circle')
+        .attr('fill-opacity', this.matches(':hover, :focus') ? 1 : 0)
+    }
+    const buttons = nodes
       .selectChildren('.children-triangle')
       .data(d =>
         interactive && childrenTriangle && d.generation === 0 ? [d] : []
       )
-      .join(enter =>
-        enter
-          .append('path')
+      .join(enter => {
+        const button = enter
+          .append('g')
           .attr('class', 'children-triangle')
           .attr('id', 'triangle-children')
-          .attr('d', symbol().type(symbolTriangle).size(200))
-          .on('click', function (e) {
-            fireEvent(this, 'pedigree:show-children', {
-              pageX: e.pageX,
-              pageY: e.pageY,
-            })
-            e.stopPropagation()
-            e.preventDefault()
+          .attr('role', 'button')
+          .attr('tabindex', 0)
+          .style('cursor', 'pointer')
+          .on('click', openMenu)
+          .on('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              openMenu.call(this, e)
+            }
           })
-      )
+          .on('mouseenter mouseleave focus blur', shade)
+        button
+          .append('circle')
+          .attr('r', menuButtonRadius)
+          .attr('fill-opacity', 0)
+        // The 24px icon is centred on the button
+        button.append('path').attr('transform', 'translate(-12,-12)')
+        return button
+      })
+      .attr('transform', `translate(${x},0)`)
+      .attr('aria-label', triangleLabel)
+    buttons.select('circle').attr('fill', palette.triangleHover)
+    buttons
+      .select('path')
+      .attr('d', side < 0 ? mdiChevronLeft : mdiChevronRight)
       .attr('fill', palette.triangle)
-      .attr(
-        'transform',
-        `translate(${side * (boxWidth / 2 + 12)},0) rotate(${
-          side * 90
-        }) scale(-1, 0.5)`
-      )
-  }
-
-  // A new root person keeps the zoom level but not the pan, so they start at
-  // the default position
-  _resetPanForNewRoot(layout) {
-    const rootHandle = layout.nodes.find(node => node.generation === 0)?.handle
-    if (rootHandle === this._rootHandle) {
-      return
-    }
-    this._rootHandle = rootHandle
-    const {k} = zoomTransform(this.node)
-    this._svg.call(this._zoom.transform, zoomIdentity.scale(k))
   }
 }

@@ -312,7 +312,7 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
         <md-icon-button
           ?disabled="${index === 0}"
           @click="${onUp}"
-          title="${this._('Move up')}"
+          title="${this._('Move Up')}"
         >
           <grampsjs-icon
             path="${mdiArrowUp}"
@@ -324,7 +324,7 @@ export class GrampsjsRelationships extends GrampsjsAppStateMixin(LitElement) {
         <md-icon-button
           ?disabled="${index === total - 1}"
           @click="${onDown}"
-          title="${this._('Move down')}"
+          title="${this._('Move Down')}"
         >
           <grampsjs-icon
             path="${mdiArrowDown}"

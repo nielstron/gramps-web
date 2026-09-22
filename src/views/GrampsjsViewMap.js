@@ -1175,9 +1175,11 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     const filterFunction = place => {
       if (this._year > 0 && this._yearSpan > 0) {
         const placeEvents =
+          this._eventsByPlace?.get(place.handle) ??
           place?.backlinks?.event?.map(handle =>
             this._dataEvents?.find(event => event.handle === handle)
-          ) ?? []
+          ) ??
+          []
         if (placeEvents.length === 0) return false
         return placeEvents.some(event =>
           isDateBetweenYears(event?.date, this._yearStart, this._yearEnd)
@@ -1368,7 +1370,7 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     const data = await this.appState.apiGet(
       `/api/places/?locale=${
         this.appState.i18n.lang || 'en'
-      }&profile=self&backlinks=1&place_hierarchy=0`
+      }&profile=self&place_hierarchy=0`
     )
     this.loading = false
     if ('data' in data) {
@@ -1399,6 +1401,12 @@ export class GrampsjsViewMap extends GrampsjsStaleDataMixin(GrampsjsView) {
     if ('data' in data) {
       this.error = false
       this._dataEvents = data.data.filter(event => event.place)
+      this._eventsByPlace = new Map()
+      for (const event of this._dataEvents) {
+        const placeEvents = this._eventsByPlace.get(event.place) ?? []
+        placeEvents.push(event)
+        this._eventsByPlace.set(event.place, placeEvents)
+      }
       this._refreshPersonEventGroups()
       this._minYear = this._getMinYear()
       this._applyPlaceFilter()

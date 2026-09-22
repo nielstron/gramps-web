@@ -1,708 +1,225 @@
-import {Graphviz} from '@hpcc-js/wasm'
-import {describe, expect, it, vi} from 'vitest'
-import {
-  ConnectionPathChart,
-  focusPerson,
-  Relgraph,
-  RelationshipChart,
-  generateDot,
-  openPersonProfile,
-  surnameWithBirthName,
-} from '../../src/charts/RelationshipChart.js'
+import {describe, it, expect} from 'vitest'
+import {select} from 'd3-selection'
+import {zoomTransform} from 'd3-zoom'
+import {RelationshipChart} from '../../src/charts/RelationshipChart.js'
+import {layoutRelationships} from '../../src/charts/layout/relationshipLayout.js'
+import {FamilyGraph} from '../../src/charts/model/FamilyGraph.js'
 
-const emptyParentFamily = {
-  handle: '',
-  father_handle: '',
-  mother_handle: '',
+const childRef = (ref, frel = 'Birth', mrel = 'Birth') => ({ref, frel, mrel})
+
+const family = (handle, father, mother, children, type = 'Married') => ({
+  handle,
+  type,
+  father_handle: father,
+  mother_handle: mother,
+  child_ref_list: children,
+})
+
+const person = (handle, extended = {}) => ({
+  handle,
+  gramps_id: `I_${handle}`,
+  profile: {gramps_id: `I_${handle}`, name_surname: handle},
+  extended: {families: [], ...extended},
+})
+
+// R is the birth child of F and M and the adopted child of A1 and A2. R has
+// K with S, who is not married to R, and L with T.
+const fFM = family('fFM', 'F', 'M', [childRef('R')])
+const fA = family('fA', 'A1', 'A2', [childRef('R', 'Adopted', 'Adopted')])
+const fRS = family('fRS', 'R', 'S', [childRef('K')], 'Unknown')
+const fRT = family('fRT', 'R', 'T', [childRef('L')])
+const graph = new FamilyGraph([
+  person('R', {
+    primary_parent_family: fFM,
+    parent_families: [fFM, fA],
+    families: [fRS, fRT],
+  }),
+  person('F', {families: [fFM]}),
+  person('M', {families: [fFM]}),
+  person('A1', {families: [fA]}),
+  person('A2', {families: [fA]}),
+  person('S', {families: [fRS]}),
+  person('T', {families: [fRT]}),
+  person('K', {primary_parent_family: fRS}),
+  person('L', {primary_parent_family: fRT}),
+])
+
+const size = {bboxWidth: 3000, bboxHeight: 2000}
+
+const nodeWithKey = (chart, key) =>
+  [...chart.node.querySelectorAll('.node')].find(
+    node => node.__data__.key === key
+  )
+
+const translateOf = node => {
+  const [, x, y] = /translate\(([^,]+),([^)]+)\)/.exec(
+    node.getAttribute('transform')
+  )
+  return [Number(x), Number(y)]
 }
 
-function person(handle, families, primaryParentFamily = emptyParentFamily) {
-  return {
-    handle,
-    gramps_id: handle,
-    profile: {name_given: handle, name_surname: 'Test'},
-    extended: {
-      families,
-      primary_parent_family: primaryParentFamily,
-    },
-  }
+// Position of a node relative to the top left corner of the view
+const viewPosition = (chart, key) => {
+  const [x, y] = zoomTransform(chart.node).apply(
+    translateOf(nodeWithKey(chart, key))
+  )
+  const [left, top] = chart.node.getAttribute('viewBox').split(',').map(Number)
+  return [x - left, y - top]
 }
 
-function graphWithThreePartners() {
-  const family1 = {
-    handle: 'F1',
-    father_handle: 'P',
-    mother_handle: 'S1',
-    child_ref_list: [{ref: 'C1'}],
-  }
-  const family2 = {
-    handle: 'F2',
-    father_handle: 'P',
-    mother_handle: 'S2',
-    child_ref_list: [{ref: 'C2'}],
-  }
-  const family3 = {
-    handle: 'F3',
-    father_handle: 'P',
-    mother_handle: 'S3',
-    child_ref_list: [],
-  }
-  const data = [
-    person('P', [family1, family2, family3]),
-    person('S1', [family1]),
-    person('S2', [family2]),
-    person('S3', [family3]),
-    person('C1', [], family1),
-    person('C2', [], family2),
-  ]
-  return new Relgraph(data, 190, 90, 'P')
-}
+const expectClose = (actual, expected) =>
+  actual.forEach((value, i) => expect(value).toBeCloseTo(expected[i]))
 
-function graphWithPartnerNetworkAndSiblings() {
-  const parentFamily = {
-    handle: 'FP',
-    father_handle: 'G1',
-    mother_handle: 'G2',
-  }
-  const primaryFamily = {
-    handle: 'FTS',
-    father_handle: 'T',
-    mother_handle: 'S',
-  }
-  const familyWith = (handle, father, mother) => ({
-    handle,
-    father_handle: father,
-    mother_handle: mother,
-  })
-  const tC = familyWith('FTC', 'T', 'C')
-  const tA = familyWith('FTA', 'T', 'A')
-  const sR = familyWith('FSR', 'R', 'S')
-  const data = [
-    person('C', [tC]),
-    person('N', [], primaryFamily),
-    person('S', [primaryFamily, sR]),
-    person('R', [sR]),
-    person('H2', [], parentFamily),
-    person('T', [primaryFamily, tC, tA], parentFamily),
-    person('G1', [parentFamily]),
-    person('G2', [parentFamily]),
-    person('A', [tA]),
-    person('H1', [], parentFamily),
-  ]
-  return new Relgraph(data, 190, 90, 'N')
-}
-
-function graphWithChildRelationships() {
-  const childRefs = [
-    {ref: 'B', frel: 'Birth', mrel: 'Birth'},
-    {ref: 'U', frel: 'Birth', mrel: 'Unknown'},
-    {ref: 'A', frel: 'Adopted', mrel: 'Adopted'},
-    {ref: 'F', frel: 'Foster', mrel: 'Foster'},
-    {ref: 'S', frel: 'Stepchild', mrel: 'Stepchild'},
-  ]
-  const family = {
-    handle: 'FR',
-    father_handle: 'P1',
-    mother_handle: 'P2',
-    type: 'Married',
-    child_ref_list: childRefs,
-  }
-  return [
-    person('P1', [family]),
-    person('P2', [family]),
-    ...childRefs.map(ref => person(ref.ref, [], family)),
-  ]
-}
-
-function personXPositions(svg) {
-  return [...svg.querySelectorAll('[class*="person_"]')]
-    .map(node => ({
-      handle: node.getAttribute('class').match(/person_(\S+)/)[1],
-      x: Number(node.querySelector('text').getAttribute('x')),
-      y: Number(node.querySelector('text').getAttribute('y')),
-    }))
-    .sort((a, b) => a.x - b.x)
-}
+const click = node =>
+  node.dispatchEvent(new MouseEvent('click', {bubbles: true}))
 
 describe('RelationshipChart', () => {
-  it('recognizes the selected root when its Gramps ID is profile-only', () => {
-    const selected = person('selected-handle', [])
-    selected.profile.gramps_id = 'I0042'
-    delete selected.gramps_id
-
-    const graph = new Relgraph([selected], 190, 90, 'I0042')
-
-    expect(graph.getRootPerson()?.handle).toBe('selected-handle')
+  it('draws a card for every person node and highlights the root person', async () => {
+    const chart = new RelationshipChart()
+    chart.update(await layoutRelationships(graph, 'R'), size)
+    const people = [...chart.node.querySelectorAll('.node.person')]
+    expect(people.map(node => node.__data__.key).sort()).toEqual([
+      'fA:A1',
+      'fA:A2',
+      'fFM:F',
+      'fFM:M',
+      'fRS:R',
+      'fRS:S',
+      'fRT:R',
+      'fRT:T',
+      'p_K:K',
+      'p_L:L',
+    ])
+    expect(
+      people.filter(node => node.style.filter).map(node => node.__data__.key)
+    ).toEqual(['fRS:R', 'fRT:R'])
+    expect(people.every(node => node.querySelector('text'))).toBe(true)
   })
 
-  it('shows a differing alternate birth surname after the current surname', () => {
-    const personData = {
-      profile: {name_surname: 'Müller'},
-      primary_name: {
-        type: 'Married Name',
-        surname_list: [{prefix: '', surname: 'Müller', connector: ''}],
-      },
-      alternate_names: [
-        {
-          type: 'Birth Name',
-          surname_list: [{prefix: 'von', surname: 'Bern', connector: ''}],
-        },
-      ],
+  it('links adopted children with dashes', async () => {
+    const chart = new RelationshipChart()
+    chart.update(await layoutRelationships(graph, 'R'), size)
+    const dashed = [...chart.node.querySelectorAll('path.link')].filter(path =>
+      path.getAttribute('stroke-dasharray')
+    )
+    expect(dashed.map(path => path.__data__.source.key)).toEqual([
+      'family:fA',
+      'family:fA',
+    ])
+  })
+
+  it('starts the links of a family at its marker', async () => {
+    const chart = new RelationshipChart()
+    chart.update(await layoutRelationships(graph, 'R'), size)
+    const marker = nodeWithKey(chart, 'family:fRT')
+    const [x, y] = translateOf(marker)
+    const ring = marker.querySelector('circle.married')
+    const [cx, cy] = ['cx', 'cy'].map(name => Number(ring.getAttribute(name)))
+    const link = [...chart.node.querySelectorAll('path.link')].find(
+      path => path.__data__.source.key === 'family:fRT'
+    )
+    const [, startX, startY] = /^M([^,]+),([^C]+)/.exec(link.getAttribute('d'))
+    expectClose([Number(startX), Number(startY)], [x + cx, y + cy])
+  })
+
+  it('centres the family marker in the gap between the partner cards', async () => {
+    const chart = new RelationshipChart()
+    chart.update(await layoutRelationships(graph, 'R'), size)
+    // The visible edges of a card are its colour stripe and its box
+    const edges = key => {
+      const node = nodeWithKey(chart, key)
+      const [x] = translateOf(node)
+      const [stripe, box] = node.querySelectorAll('.person-card > rect')
+      return [
+        x + Number(stripe.getAttribute('x')),
+        x + Number(box.getAttribute('x')) + Number(box.getAttribute('width')),
+      ]
     }
-
-    expect(surnameWithBirthName(personData, 'born')).to.equal(
-      'Müller (born von Bern)'
-    )
+    const [, leftEnd] = edges('fRT:R')
+    const [rightStart] = edges('fRT:T')
+    const marker = nodeWithKey(chart, 'family:fRT')
+    const cx = Number(marker.querySelector('circle.married').getAttribute('cx'))
+    expect(translateOf(marker)[0] + cx).toBeCloseTo((leftEnd + rightStart) / 2)
   })
 
-  it('does not repeat the birth surname when it is already preferred', () => {
-    const personData = {
-      profile: {name_surname: 'Bern'},
-      primary_name: {
-        type: 'Birth Name',
-        surname_list: [{prefix: '', surname: 'Bern', connector: ''}],
-      },
-      alternate_names: [],
+  it('marks married couples', async () => {
+    const chart = new RelationshipChart()
+    chart.update(await layoutRelationships(graph, 'R'), size)
+    const married = [...chart.node.querySelectorAll('.node.family')]
+      .filter(node => node.querySelector('circle.married'))
+      .map(node => node.__data__.key)
+    expect(married.sort()).toEqual(['family:fA', 'family:fFM', 'family:fRT'])
+  })
+
+  it('keeps nodes and cards when only the container size changes', async () => {
+    const chart = new RelationshipChart()
+    const layout = await layoutRelationships(graph, 'R')
+    chart.update(layout, size)
+    const node = nodeWithKey(chart, 'fRT:T')
+    const text = node.querySelector('text')
+    chart.update(layout, {...size, bboxWidth: 2000})
+    expect(nodeWithKey(chart, 'fRT:T')).toBe(node)
+    expect(node.querySelector('text')).toBe(text)
+  })
+
+  it('keeps the clicked node of a person with several families in place', async () => {
+    const chart = new RelationshipChart()
+    chart.update(await layoutRelationships(graph, 'F'), size)
+    const before = viewPosition(chart, 'fRT:R')
+    click(nodeWithKey(chart, 'fRT:R'))
+    chart.update(await layoutRelationships(graph, 'R'), size)
+    expectClose(viewPosition(chart, 'fRT:R'), before)
+  })
+
+  it('keeps the first visible node of a new root person in place', async () => {
+    const chart = new RelationshipChart()
+    chart.update(await layoutRelationships(graph, 'F'), size)
+    const before = viewPosition(chart, 'fRS:R')
+    chart.update(await layoutRelationships(graph, 'R'), size)
+    expectClose(viewPosition(chart, 'fRS:R'), before)
+  })
+
+  it('keeps the root person in place when new data puts them in a family', async () => {
+    const chart = new RelationshipChart()
+    // Without S, T and their children, R is not drawn in any couple
+    const withoutPartners = new FamilyGraph(
+      graph.people().filter(p => !['S', 'T', 'K', 'L'].includes(p.handle))
+    )
+    chart.update(await layoutRelationships(withoutPartners, 'R'), size)
+    const before = viewPosition(chart, 'p_R:R')
+    chart.update(await layoutRelationships(graph, 'R'), size)
+    expect(nodeWithKey(chart, 'p_R:R')).toBeUndefined()
+    expectClose(viewPosition(chart, 'fRS:R'), before)
+  })
+
+  it('fits the whole chart into the view when asked', async () => {
+    const chart = new RelationshipChart()
+    const layout = await layoutRelationships(graph, 'R')
+    chart.update(layout, {bboxWidth: 300, bboxHeight: 200, fit: true})
+    expect(zoomTransform(chart.node).k).toBeLessThan(1)
+    for (const node of chart.node.querySelectorAll('.node')) {
+      const [x, y] = viewPosition(chart, node.__data__.key)
+      expect(x).toBeGreaterThanOrEqual(0)
+      expect(x).toBeLessThanOrEqual(300)
+      expect(y).toBeGreaterThanOrEqual(0)
+      expect(y).toBeLessThanOrEqual(200)
     }
-
-    expect(surnameWithBirthName(personData, 'born')).to.equal('Bern')
   })
 
-  it('uses married and birth name types independently of their display order', () => {
-    const personData = {
-      profile: {name_surname: 'Bern'},
-      primary_name: {
-        type: 'Birth Name',
-        surname_list: [{prefix: 'von', surname: 'Bern', connector: ''}],
-      },
-      alternate_names: [
-        {
-          type: 'Married Name',
-          surname_list: [{prefix: '', surname: 'Müller', connector: ''}],
-        },
-      ],
-    }
-
-    expect(surnameWithBirthName(personData, 'born')).to.equal(
-      'Müller (born von Bern)'
+  it('leaves out shadows and clicks when not interactive', async () => {
+    const chart = new RelationshipChart()
+    chart.update(await layoutRelationships(graph, 'R'), {
+      ...size,
+      interactive: false,
+    })
+    const root = nodeWithKey(chart, 'fRS:R')
+    expect(root.style.filter).toBe('')
+    const selected = []
+    root.addEventListener('pedigree:person-selected', e =>
+      selected.push(e.detail)
     )
-  })
-
-  it('opens a person profile when its node is clicked', () => {
-    let navigationEvent
-    window.addEventListener(
-      'nav',
-      event => {
-        navigationEvent = event
-      },
-      {once: true}
-    )
-
-    const personNode = document.createElement('div')
-    document.body.append(personNode)
-    openPersonProfile.call(personNode, undefined, {
-      profile: {gramps_id: 'I0042'},
-    })
-    personNode.remove()
-
-    expect(navigationEvent.detail).toEqual({path: 'person/I0042'})
-  })
-
-  it('does not refocus a person card for a magnifier-originated click', () => {
-    const personNode = document.createElement('div')
-    const magnifier = document.createElement('button')
-    magnifier.className = 'open-person-btn'
-    personNode.append(magnifier)
-    let selectionEvent
-    personNode.addEventListener('pedigree:person-selected', event => {
-      selectionEvent = event
-    })
-
-    focusPerson.call(
-      personNode,
-      {defaultPrevented: false, target: magnifier},
-      {data: {gramps_id: 'I0042'}}
-    )
-
-    expect(selectionEvent).toBeUndefined()
-  })
-
-  it('keeps unconventional Gramps IDs inside one route segment', () => {
-    let navigationEvent
-    const personNode = document.createElement('div')
-    personNode.addEventListener('nav', event => {
-      navigationEvent = event
-    })
-
-    openPersonProfile.call(personNode, undefined, {
-      data: {gramps_id: 'I/Mieszko I'},
-    })
-
-    expect(navigationEvent.detail).toEqual({
-      path: 'person/I%2FMieszko%20I',
-    })
-  })
-
-  it('refocuses the tree when a person node is clicked', async () => {
-    const selected = person('I0042', [])
-    const svg = RelationshipChart([selected], {
-      grampsId: 'I0042',
-      getImageUrl: () => '',
-    })
-    let selectionEvent
-    svg.addEventListener('pedigree:person-selected', event => {
-      selectionEvent = event
-    })
-
-    await vi.waitFor(() => expect(svg.querySelector('g.person')).toBeTruthy(), {
-      timeout: 10_000,
-    })
-    svg
-      .querySelector('g.person')
-      .dispatchEvent(new MouseEvent('click', {bubbles: true}))
-
-    expect(selectionEvent?.detail).toEqual({grampsId: 'I0042'})
-  })
-
-  it('opens the profile from the magnifier button', async () => {
-    const selected = person('I0042', [])
-    const svg = RelationshipChart([selected], {
-      grampsId: 'I0042',
-      getImageUrl: () => '',
-    })
-    let navigationEvent
-    svg.addEventListener('nav', event => {
-      navigationEvent = event
-    })
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('.open-person-btn')).toBeTruthy()
-    )
-    expect(svg.querySelector('.open-person-hit-area').getAttribute('r')).toBe(
-      '18'
-    )
-    svg
-      .querySelector('.open-person-btn')
-      .dispatchEvent(new MouseEvent('click', {bubbles: true}))
-
-    expect(navigationEvent?.detail).toEqual({path: 'person/I0042'})
-  })
-
-  it('renders an ellipsis for a missing given name', async () => {
-    const unknown = person('U', [])
-    unknown.profile.name_given = ''
-    unknown.profile.name_surname = 'Meyer'
-
-    const svg = RelationshipChart([unknown], {
-      grampsId: 'U',
-      getImageUrl: () => '',
-    })
-
-    await vi.waitFor(() => {
-      expect(
-        [...svg.querySelectorAll('text')].map(node => node.textContent)
-      ).toContain('…')
-    })
-  })
-
-  it('formats dates using the chart locale', async () => {
-    const dated = person('D', [])
-    dated.profile.birth = {date: '1972-05-03'}
-
-    const svg = RelationshipChart([dated], {
-      grampsId: 'D',
-      getImageUrl: () => '',
-      locale: 'de_DE',
-    })
-
-    await vi.waitFor(() => {
-      expect(
-        [...svg.querySelectorAll('text')].map(node => node.textContent)
-      ).toContain('*3.5.1972')
-    })
-  })
-
-  it('fills the available viewport without requiring shrink-to-fit', async () => {
-    const svg = RelationshipChart([person('ROOT', [])], {
-      grampsId: 'ROOT',
-      getImageUrl: () => '',
-      bboxWidth: 1100,
-      bboxHeight: 735,
-    })
-    expect(svg.getAttribute('width')).toBe('100%')
-    expect(svg.getAttribute('height')).toBe('100%')
-    await vi.waitFor(() => {
-      expect(svg.getAttribute('viewBox')).toBe('-550,-367.5,1100,735')
-    })
-  })
-
-  it('uses family junctions only for partnerships with children', () => {
-    const dot = generateDot(graphWithThreePartners())
-
-    expect(dot.match(/class="person_P"/g)).toHaveLength(1)
-    expect(dot.match(/class="family_F[123]"/g)).toHaveLength(2)
-    expect(dot.match(/class="couple"/g)).toHaveLength(4)
-    expect(dot.match(/class="childless-couple"/g)).toHaveLength(1)
-    expect(dot.match(/class="child"/g)).toHaveLength(2)
-    expect(dot).not.toContain('fakeparent')
-  })
-
-  it('renders a childless partnership as one curved edge', async () => {
-    const svg = RelationshipChart(graphWithThreePartners().getData(), {
-      grampsId: 'P',
-      getImageUrl: () => '',
-    })
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('.edge.childless-couple')).toBeTruthy()
-    )
-
-    const edge = svg.querySelector('.edge.childless-couple')
-    const path = edge.getAttribute('d')
-    expect(path).toMatch(/C/)
-    const [, sourceY, targetY] = path.match(
-      /^M[-\d.]+,([-\d.]+)C.* [-\d.]+,([-\d.]+)$/
-    )
-    const nodeBottom = handle => {
-      const node = svg.querySelector(`[data-handle="${handle}"]`)
-      const transform = node.getAttribute('transform')
-      const box = node.querySelector('.personBox')
-      return (
-        Number(transform.match(/translate\([^ ]+ ([-\d.]+)/)[1]) +
-        Number(box.getAttribute('y')) +
-        Number(box.getAttribute('height'))
-      )
-    }
-    expect(Number(sourceY)).toBeCloseTo(nodeBottom('P'))
-    expect(Number(targetY)).toBeCloseTo(nodeBottom('S3'))
-    expect(svg.querySelector('.family_F3')).toBeNull()
-  })
-
-  it('uses distinct line styles for non-birth child relationships', async () => {
-    const svg = RelationshipChart(graphWithChildRelationships(), {
-      grampsId: 'B',
-      getImageUrl: () => '',
-    })
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('[data-child-handle="S"]')).toBeTruthy()
-    )
-
-    const edge = handle => svg.querySelector(`[data-child-handle="${handle}"]`)
-    expect(edge('B').hasAttribute('stroke-dasharray')).toBe(false)
-    expect(edge('U').getAttribute('stroke-dasharray')).toBe('8 5')
-    expect(edge('A').getAttribute('stroke-dasharray')).toBe('10 3 2 3')
-    expect(edge('F').getAttribute('stroke-dasharray')).toBe('2 4')
-    expect(edge('S').getAttribute('stroke-dasharray')).toBe('14 4 2 4')
-    expect(edge('U').getAttribute('data-frel')).toBe('Birth')
-    expect(edge('U').getAttribute('data-mrel')).toBe('Unknown')
-  })
-
-  it('dashes uncertain and non-birth connections in the connection path chart', async () => {
-    const data = [person('P1', []), person('C1', []), person('C2', [])]
-    const steps = [
-      {
-        from_handle: 'P1',
-        to_handle: 'C1',
-        family_handle: 'F1',
-        relation: 'child',
-        relationship_type: 'Unknown',
-      },
-      {
-        from_handle: 'C1',
-        to_handle: 'C2',
-        family_handle: 'F2',
-        relation: 'child',
-        relationship_type: 'Adopted',
-      },
-    ]
-    const svg = ConnectionPathChart(data, steps, {
-      grampsId: 'P1',
-      getImageUrl: () => '',
-    })
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('.edge.connection')).toBeTruthy()
-    )
-
-    const edges = [...svg.querySelectorAll('.edge.connection')]
-    const edgeByRelationship = relationship =>
-      edges.find(
-        edge => edge.getAttribute('data-relationship-type') === relationship
-      )
-    expect(edgeByRelationship('Unknown').getAttribute('stroke-dasharray')).toBe(
-      '8 5'
-    )
-    expect(edgeByRelationship('Adopted').getAttribute('stroke-dasharray')).toBe(
-      '10 3 2 3'
-    )
-  })
-
-  it('preserves generations in the connection path chart', async () => {
-    const family = {
-      handle: 'F1',
-      father_handle: 'P1',
-      mother_handle: 'P2',
-      child_ref_list: [{ref: 'C1'}],
-      type: 'Married',
-    }
-    const data = [person('P1', []), person('C1', []), person('P2', [])]
-    const steps = [
-      {
-        from_handle: 'P1',
-        to_handle: 'C1',
-        family_handle: 'F1',
-        relation: 'child',
-        relationship_type: 'Birth',
-      },
-      {
-        from_handle: 'C1',
-        to_handle: 'P2',
-        family_handle: 'F1',
-        relation: 'parent',
-        relationship_type: 'Birth',
-      },
-    ]
-    const svg = ConnectionPathChart(data, steps, {
-      grampsId: 'P1',
-      getImageUrl: () => '',
-      contextFamilies: [family],
-    })
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('[data-handle="C1"]')).toBeTruthy()
-    )
-
-    const y = handle =>
-      Number(
-        svg
-          .querySelector(`[data-handle="${handle}"]`)
-          .getAttribute('transform')
-          .match(/translate\([^ ]+ ([-\d.]+)/)[1]
-      )
-    expect(y('P1')).toBeCloseTo(y('P2'))
-    expect(y('C1')).toBeGreaterThan(y('P1'))
-  })
-
-  it('preserves generations when close relatives are hidden', async () => {
-    const data = [person('P1', []), person('C1', [])]
-    const steps = [
-      {
-        from_handle: 'P1',
-        to_handle: 'C1',
-        family_handle: 'F1',
-        relation: 'child',
-        relationship_type: 'Birth',
-      },
-    ]
-    const svg = ConnectionPathChart(data, steps, {
-      grampsId: 'P1',
-      getImageUrl: () => '',
-    })
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('[data-handle="C1"]')).toBeTruthy()
-    )
-
-    const y = handle =>
-      Number(
-        svg
-          .querySelector(`[data-handle="${handle}"]`)
-          .getAttribute('transform')
-          .match(/translate\([^ ]+ ([-\d.]+)/)[1]
-      )
-    expect(y('C1')).toBeGreaterThan(y('P1'))
-  })
-
-  it('uses close relatives to retain the family shape around a path', async () => {
-    const family = {
-      handle: 'F1',
-      father_handle: 'P1',
-      mother_handle: 'P2',
-      child_ref_list: [{ref: 'C1'}, {ref: 'C2'}],
-      type: 'Married',
-    }
-    const data = [
-      person('C1', []),
-      person('C2', []),
-      person('P1', []),
-      person('P2', []),
-    ]
-    const steps = [
-      {
-        from_handle: 'C1',
-        to_handle: 'C2',
-        family_handle: 'F1',
-        relation: 'sibling',
-        relationship_type: 'Birth',
-      },
-    ]
-    const svg = ConnectionPathChart(data, steps, {
-      grampsId: 'C1',
-      getImageUrl: () => '',
-      contextFamilies: [family],
-    })
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('[data-handle="P1"]')).toBeTruthy()
-    )
-
-    const y = handle =>
-      Number(
-        svg
-          .querySelector(`[data-handle="${handle}"]`)
-          .getAttribute('transform')
-          .match(/translate\([^ ]+ ([-\d.]+)/)[1]
-      )
-    expect(y('P1')).toBeCloseTo(y('P2'))
-    expect(y('C1')).toBeCloseTo(y('C2'))
-    expect(y('P1')).toBeLessThan(y('C1'))
-  })
-
-  it('opens a profile from the connection-path magnifier without refocusing the tree', async () => {
-    const data = [person('P1', []), person('P2', [])]
-    const steps = [
-      {
-        from_handle: 'P1',
-        to_handle: 'P2',
-        family_handle: 'F1',
-        relation: 'partner',
-        relationship_type: 'Married',
-      },
-    ]
-    const svg = ConnectionPathChart(data, steps, {
-      grampsId: 'P1',
-      getImageUrl: () => '',
-    })
-    document.body.append(svg)
-    let navigationEvent
-    let selectionEvent
-    const onSelection = event => {
-      selectionEvent = event
-    }
-    svg.addEventListener('nav', event => {
-      navigationEvent = event
-    })
-    window.addEventListener('pedigree:person-selected', onSelection)
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('.open-person-btn')).toBeTruthy()
-    )
-    svg
-      .querySelector('.open-person-btn')
-      .dispatchEvent(new MouseEvent('click', {bubbles: true, composed: true}))
-
-    expect(navigationEvent?.detail).toEqual({path: 'person/P1'})
-    expect(selectionEvent).toBeUndefined()
-    window.removeEventListener('pedigree:person-selected', onSelection)
-    svg.remove()
-  })
-
-  it('renders a married family with two rings', async () => {
-    const svg = RelationshipChart(graphWithChildRelationships(), {
-      grampsId: 'B',
-      getImageUrl: () => '',
-    })
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('.marriage-rings')).toBeTruthy()
-    )
-
-    expect(svg.querySelectorAll('.marriage-rings circle')).toHaveLength(2)
-  })
-
-  it('renders rings on a childless marriage arc', async () => {
-    const data = graphWithThreePartners().getData()
-    data[0].extended.families.find(family => family.handle === 'F3').type =
-      'Married'
-    const svg = RelationshipChart(data, {
-      grampsId: 'P',
-      getImageUrl: () => '',
-    })
-
-    await vi.waitFor(() =>
-      expect(svg.querySelector('.edge.childless-couple')).toBeTruthy()
-    )
-
-    expect(svg.querySelectorAll('.marriage-rings circle')).toHaveLength(2)
-  })
-
-  it('places family junctions between partners and children', async () => {
-    const graphviz = await Graphviz.load()
-    const svg = new DOMParser().parseFromString(
-      graphviz.layout(generateDot(graphWithThreePartners()), 'svg', 'dot'),
-      'image/svg+xml'
-    )
-    const y = (type, handle) =>
-      Number(svg.querySelector(`.${type}_${handle} text`).getAttribute('y'))
-
-    expect(svg.querySelectorAll('.person_P')).toHaveLength(1)
-    expect(y('person', 'S1')).toBeCloseTo(y('person', 'P'))
-    expect(y('person', 'S2')).toBeCloseTo(y('person', 'P'))
-    expect(y('person', 'S3')).toBeCloseTo(y('person', 'P'))
-    expect(y('family', 'F1')).toBeGreaterThan(y('person', 'P'))
-    expect(y('person', 'C1')).toBeGreaterThan(y('family', 'F1'))
-    expect(y('family', 'F2')).toBeGreaterThan(y('person', 'P'))
-    expect(y('person', 'C2')).toBeGreaterThan(y('family', 'F2'))
-  })
-
-  it('keeps a connected partner network together instead of inserting siblings', async () => {
-    const graphviz = await Graphviz.load()
-    const svg = new DOMParser().parseFromString(
-      graphviz.layout(
-        generateDot(graphWithPartnerNetworkAndSiblings()),
-        'svg',
-        'dot'
-      ),
-      'image/svg+xml'
-    )
-    const sameGeneration = personXPositions(svg).filter(
-      person => person.y === personXPositions(svg).find(p => p.handle === 'T').y
-    )
-    const partnerNetwork = new Set(['R', 'S', 'T', 'C', 'A'])
-    const positions = sameGeneration
-      .map((person, index) => (partnerNetwork.has(person.handle) ? index : -1))
-      .filter(index => index >= 0)
-
-    expect(Math.max(...positions) - Math.min(...positions) + 1).toBe(
-      positions.length
-    )
-  })
-
-  it('can prioritize siblings over partners without changing family membership', async () => {
-    const graphviz = await Graphviz.load()
-    const graph = graphWithPartnerNetworkAndSiblings()
-    const dot = generateDot(graph, {partners: 1, children: 1, siblings: 100})
-    const svg = new DOMParser().parseFromString(
-      graphviz.layout(dot, 'svg', 'dot'),
-      'image/svg+xml'
-    )
-    const people = personXPositions(svg)
-    const sameGeneration = people.filter(
-      person => person.y === people.find(p => p.handle === 'T').y
-    )
-    const siblings = new Set(['H1', 'H2', 'T'])
-    const positions = sameGeneration.flatMap((person, index) =>
-      siblings.has(person.handle) ? [index] : []
-    )
-
-    expect(positions).toHaveLength(3)
-    expect(Math.max(...positions) - Math.min(...positions)).toBe(2)
-    expect(svg.querySelectorAll('[class*="person_"]')).toHaveLength(
-      graph.getPersons().length
-    )
-    expect(dot.match(/class="child"/g)).toHaveLength(graph.getEdges().length)
-  })
-
-  it('uses the child priority for parent-child alignment and allows zero weights', () => {
-    const dot = generateDot(graphWithThreePartners(), {
-      partners: 0,
-      children: 80,
-      siblings: 0,
-    })
-    expect(dot).not.toContain('cluster_partners')
-    expect(dot).toContain('class="couple", arrowhead=none, weight=0')
-    expect(dot).toContain('color="#555", weight=80')
-    expect(dot).not.toContain('cluster_siblings')
+    click(root)
+    expect(selected).toEqual([])
+    select(chart.node).selectAll('*').interrupt()
   })
 })

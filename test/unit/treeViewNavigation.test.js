@@ -102,7 +102,12 @@ describe('tree view navigation', () => {
     view.active = false
     view.view = 'relationship'
     view.grampsId = 'I0001'
-    view.appState = {i18n: {lang: 'en', strings: {}}}
+    view.appState = {
+      i18n: {lang: 'en', strings: {}},
+      apiGet: vi.fn().mockResolvedValue({
+        data: {people: [], families: []},
+      }),
+    }
     view.renderContent = () => ''
     let navigation
     view.addEventListener('nav', event => {

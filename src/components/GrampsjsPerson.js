@@ -1,5 +1,6 @@
 import {html, css} from 'lit'
 import '@material/web/button/outlined-button'
+import '@material/web/iconbutton/outlined-icon-button'
 import '@material/web/chips/chip-set'
 import '@material/web/chips/filter-chip'
 import {
@@ -32,6 +33,10 @@ export class GrampsjsPerson extends GrampsjsObject {
     return [
       super.styles,
       css`
+        span.event {
+          display: inline-block;
+        }
+
         .events-chips {
           margin-bottom: 16px;
         }
@@ -104,6 +109,15 @@ export class GrampsjsPerson extends GrampsjsObject {
           --md-icon-button-icon-opacity: 1;
         }
 
+        p.button-list.labeled {
+          display: none;
+        }
+
+        p.button-list.icon-only md-outlined-icon-button {
+          --md-outlined-icon-button-container-width: 48px;
+          --md-outlined-icon-button-container-height: 48px;
+        }
+
         :host([preview]) #picture {
           float: right;
           margin: 0 0 8px 16px;
@@ -133,6 +147,14 @@ export class GrampsjsPerson extends GrampsjsObject {
             float: right;
             margin: 0 0 24px 32px;
             text-align: right;
+          }
+
+          p.button-list.labeled {
+            display: flex;
+          }
+
+          p.button-list.icon-only {
+            display: none;
           }
         }
       `,
@@ -297,12 +319,7 @@ export class GrampsjsPerson extends GrampsjsObject {
               </md-icon-button>
             `
           : ''
-        : html`<p class="button-list">
-            ${this._renderTreeBtn()} ${this._renderTimelineBtn()}
-            ${this._renderMapBtn()} ${this._renderDnaBtn()}
-            ${this._renderAddFamilyMemberBtn()}
-            ${this._renderExternalSearchBtn()}
-          </p>`}
+        : this._renderButtons()}
       ${this.appState?.permissions?.canAdd
         ? html`<grampsjs-tree-chart-add-person
             id="add-family-member"
@@ -479,6 +496,82 @@ export class GrampsjsPerson extends GrampsjsObject {
   _handleTreeButtonClick() {
     const view = this.appState?.settings?.treeDefaultView ?? DEFAULT_TREE_VIEW
     fireEvent(this, 'nav', {path: getTreePath(view, this.data.gramps_id)})
+  }
+
+  _getButtons() {
+    const hasDna = this.data?.person_ref_list?.some(ref => ref.rel === 'DNA')
+    return [
+      {
+        label: 'Show in tree',
+        path: mdiFamilyTree,
+        handler: this._handleTreeButtonClick,
+      },
+      {
+        label: 'Show on timeline',
+        path: mdiTimelineOutline,
+        handler: this._handleTimelineButtonClick,
+      },
+      {label: 'Open in map', path: mdiMap, handler: this._handleMapButtonClick},
+      ...(hasDna
+        ? [
+            {
+              label: 'DNA matches',
+              path: mdiDna,
+              handler: this._handleDnaButtonClick,
+            },
+          ]
+        : []),
+      ...(this.appState?.permissions?.canAdd
+        ? [
+            {
+              label: 'Add Family Member',
+              path: mdiAccountMultiplePlus,
+              handler: this._handleAddFamilyMemberClick,
+            },
+          ]
+        : []),
+      {
+        label: 'External Search',
+        path: mdiSearchWeb,
+        handler: this._handleExternalSearchClick,
+      },
+    ]
+  }
+
+  _renderButtons() {
+    const buttons = this._getButtons()
+    return html`
+      <p class="button-list labeled">
+        ${buttons.map(
+          btn => html`
+            <md-outlined-button @click="${btn.handler}">
+              ${this._(btn.label)}
+              <grampsjs-icon
+                path="${btn.path}"
+                color="var(--mdc-theme-primary)"
+                slot="icon"
+              ></grampsjs-icon>
+            </md-outlined-button>
+          `
+        )}
+      </p>
+      <p class="button-list icon-only">
+        ${buttons.map(
+          btn => html`
+            <md-outlined-icon-button
+              @click="${btn.handler}"
+              aria-label="${this._(btn.label)}"
+              title="${this._(btn.label)}"
+            >
+              <grampsjs-icon
+                path="${btn.path}"
+                color="var(--mdc-theme-primary)"
+              ></grampsjs-icon>
+            </md-outlined-icon-button>
+          `
+        )}
+      </p>
+    `
   }
 
   _handleTimelineButtonClick() {
