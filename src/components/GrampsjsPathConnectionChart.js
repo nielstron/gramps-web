@@ -2,7 +2,8 @@ import {css, html} from 'lit'
 
 import {GrampsjsChartBase} from './GrampsjsChartBase.js'
 import {RelationshipChart} from '../charts/RelationshipChart.js'
-import {layoutRelationships} from '../charts/layout/relationshipLayout.js'
+import {familyMarkerPosition} from '../charts/familyMarker.js'
+import {layoutConnection} from '../charts/layout/connectionLayout.js'
 import {chartTransitionDuration, getImageUrl} from '../charts/util.js'
 import {fireEvent} from '../util.js'
 
@@ -15,6 +16,31 @@ const connectionColor = relation =>
   }[relation] || '#7b1fa2')
 
 class ConnectionPathChart extends RelationshipChart {
+  linkEnds({source, target, points}) {
+    return [
+      source.kind === 'family' ? [source.x, source.y] : points[0],
+      target.kind === 'family'
+        ? [target.x, target.y]
+        : points[points.length - 1],
+    ]
+  }
+
+  drawExtras(nodes, options) {
+    super.drawExtras(nodes, options)
+    const markers = nodes
+      .filter(node => node.kind === 'family')
+      .select('.family-marker')
+    const [x, y] = familyMarkerPosition(this.boxSize.boxHeight)
+    markers.attr('transform', `translate(${-x},${-y})`)
+    markers
+      .filter(node => node.family.type !== 'Married')
+      .append('circle')
+      .attr('cx', x)
+      .attr('cy', y)
+      .attr('r', 2)
+      .attr('fill', options.palette.familyMarker)
+  }
+
   styleLinks(links, palette) {
     super.styleLinks(links, palette)
     links
@@ -31,36 +57,6 @@ class ConnectionPathChart extends RelationshipChart {
         title.textContent = link.label || link.relationshipType || link.relation
       })
   }
-}
-
-function connectionLayout(layout, steps, labels) {
-  const nodesByHandle = new Map()
-  for (const node of layout.nodes) {
-    if (node.kind === 'person' && !nodesByHandle.has(node.handle)) {
-      nodesByHandle.set(node.handle, node)
-    }
-  }
-  const connections = steps.flatMap((step, index) => {
-    const source = nodesByHandle.get(step.from_handle)
-    const target = nodesByHandle.get(step.to_handle)
-    if (!source || !target) return []
-    return [
-      {
-        key: `connection:${index}:${source.key}->${target.key}`,
-        kind: 'connection',
-        relation: step.relation,
-        relationshipType: step.relationship_type,
-        label: labels[step.relation],
-        source,
-        target,
-        points: [
-          [source.x, source.y],
-          [target.x, target.y],
-        ],
-      },
-    ]
-  })
-  return {...layout, links: [...layout.links, ...connections]}
 }
 
 export class GrampsjsPathConnectionChart extends GrampsjsChartBase {
@@ -109,7 +105,8 @@ export class GrampsjsPathConnectionChart extends GrampsjsChartBase {
     if (
       changed.has('data') ||
       changed.has('grampsId') ||
-      changed.has('steps')
+      changed.has('steps') ||
+      changed.has('contextFamilies')
     ) {
       const root = this._graph.personByGrampsId(this.grampsId)
       if (root) this._requestLayout(root.handle)
@@ -141,13 +138,21 @@ export class GrampsjsPathConnectionChart extends GrampsjsChartBase {
     const request = ++this._layoutRequest
     let layout = null
     try {
-      const baseLayout = await layoutRelationships(this._graph, rootHandle)
-      layout = connectionLayout(baseLayout, this.steps, {
+      layout = await layoutConnection(
+        this.data,
+        rootHandle,
+        this.steps,
+        this.contextFamilies
+      )
+      const labels = {
         parent: this._('Parent'),
         child: this._('Child'),
         partner: this._('Partner'),
         sibling: this._('Sibling'),
-      })
+      }
+      for (const link of layout.links) {
+        if (link.kind === 'connection') link.label = labels[link.relation]
+      }
     } catch (error) {
       if (request === this._layoutRequest) {
         fireEvent(this, 'grampsjs:error', {message: error.message})
