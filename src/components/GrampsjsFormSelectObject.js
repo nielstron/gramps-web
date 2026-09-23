@@ -54,6 +54,7 @@ class GrampsjsFormSelectObject extends GrampsjsAppStateMixin(LitElement) {
     return {
       objectType: {type: String},
       objects: {type: Array},
+      suggestedObjects: {type: Array},
       multiple: {type: Boolean},
       label: {type: String},
       disabled: {type: Boolean},
@@ -70,6 +71,7 @@ class GrampsjsFormSelectObject extends GrampsjsAppStateMixin(LitElement) {
     super()
     this.objectType = ''
     this.objects = []
+    this.suggestedObjects = []
     this.multiple = false
     this.label = ''
     this.disabled = false
@@ -118,6 +120,7 @@ class GrampsjsFormSelectObject extends GrampsjsAppStateMixin(LitElement) {
         objectType="${this.objectType}"
         ?multiple="${this.multiple}"
         .excludeHandles="${this._handleList()}"
+        .suggestedObjects="${this.suggestedObjects}"
         .appState="${this.appState}"
         @select-object:selected="${this._handleSelected}"
       ></grampsjs-object-picker-dialog>

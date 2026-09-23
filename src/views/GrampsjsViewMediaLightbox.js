@@ -1,6 +1,8 @@
 import {html, css} from 'lit'
 import {
   mdiAccount,
+  mdiAccountEdit,
+  mdiCheck,
   mdiAccountOff,
   mdiDownload,
   mdiMagnifyMinus,
@@ -15,6 +17,7 @@ import {GrampsjsView} from './GrampsjsView.js'
 import '../components/GrampsjsLightbox.js'
 import '../components/GrampsjsRectContainer.js'
 import '../components/GrampsjsRect.js'
+import '../components/GrampsjsFaceAnnotations.js'
 import '../components/GrampsjsTooltip.js'
 import '../components/GrampsjsIcon.js'
 import {getMediaUrl} from '../api.js'
@@ -87,7 +90,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
     this.hideLeftArrow = false
     this.hideRightArrow = false
     this.editRect = false
-    this.rectHidden = false
+    this.rectHidden = true
     this._zoom = 1
     this._showOriginal = false
     this._panX = 0
@@ -102,15 +105,18 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
     this._dragStartY = 0
     this._dragStartPanX = 0
     this._dragStartPanY = 0
-    this._handleDbChanged = this._updateData.bind(this)
+    this._handleDbChanged = () => this._updateData(false)
   }
 
   renderContent() {
     return html`
       <grampsjs-lightbox
         id="gallery-lightbox"
+        .disableTouch=${this.editRect}
         @lightbox:closed=${() => {
           this._showOriginal = false
+          this.editRect = false
+          this.rectHidden = true
         }}
         ?hideLeftArrow=${this.hideLeftArrow}
         ?hideRightArrow=${this.hideRightArrow}
@@ -127,20 +133,38 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
         <span slot="button">
           <md-icon-button
             id="btn-toggle-rect"
-            aria-label="${this._('Toggle person outlines')}"
-            ?disabled="${this._zoom > 1}"
+            aria-label="${this._(
+              this.appState.permissions?.canEdit
+                ? 'Annotate people'
+                : 'Toggle person outlines'
+            )}"
+            aria-pressed="${this.appState.permissions?.canEdit
+              ? this.editRect
+              : !this.rectHidden}"
+            ?disabled="${!this._data.mime?.startsWith('image/')}"
             @click="${this._handleToggleRectButtonClick}"
           >
             <grampsjs-icon
-              path="${this.rectHidden ? mdiAccount : mdiAccountOff}"
+              path="${this.appState.permissions?.canEdit
+                ? this.editRect
+                  ? mdiCheck
+                  : mdiAccountEdit
+                : this.rectHidden
+                ? mdiAccount
+                : mdiAccountOff}"
               color="var(--mdc-theme-primary)"
             ></grampsjs-icon>
           </md-icon-button>
           <grampsjs-tooltip for="btn-toggle-rect"
-            >${this._('Toggle person outlines')}</grampsjs-tooltip
+            >${this._(
+              this.appState.permissions?.canEdit
+                ? 'Annotate people'
+                : 'Toggle person outlines'
+            )}</grampsjs-tooltip
           >
           <md-icon-button
             aria-label="${this._('Zoom in')}"
+            ?disabled=${this.editRect}
             @click="${this._handleZoomIn}"
           >
             <grampsjs-icon
@@ -222,6 +246,17 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
   }
 
   _innerContainerContentImage() {
+    if (this.editRect && this.appState.permissions?.canEdit) {
+      return html`<grampsjs-face-annotations
+        style="--grampsjs-lightbox-toolbar-height: 160px;"
+        .data=${this._data}
+        .appState=${this.appState}
+        @keydown=${e => e.stopPropagation()}
+        @annotations:changed=${() => this._updateData(false)}
+      >
+        ${this._renderImage()}
+      </grampsjs-face-annotations>`
+    }
     const zoomed = this._zoom > 1
     return html`
       <div
@@ -241,7 +276,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
           @rect:save="${this._handleSaveRect}"
         >
           ${this._renderImage()}
-          ${this._getRectangles().map(
+          ${(this.rectHidden || zoomed ? [] : this._getRectangles()).map(
             obj => html`
               <grampsjs-rect
                 .rect="${obj.rect}"
@@ -465,7 +500,13 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
   }
 
   _handleToggleRectButtonClick() {
-    this.rectHidden = !this.rectHidden
+    if (this.appState.permissions?.canEdit) {
+      this._resetZoom()
+      this.editRect = !this.editRect
+      this.rectHidden = !this.editRect
+    } else {
+      this.rectHidden = !this.rectHidden
+    }
   }
 
   _handleSaveRect(e) {
@@ -498,6 +539,8 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
   update(changed) {
     super.update(changed)
     if (changed.has('handle')) {
+      this.editRect = false
+      this.rectHidden = true
       this._updateData()
       this._resetZoom()
     }
@@ -509,10 +552,12 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
     }&profile=all&backlinks=true&extend=all`
   }
 
-  _updateData() {
+  _updateData(clear = true) {
     if (this.handle !== undefined && this.handle) {
-      this._data = {}
+      if (clear) this._data = {}
+      const handle = this.handle
       this.appState.apiGet(this.getUrl()).then(data => {
+        if (this.handle !== handle) return
         if ('data' in data) {
           this.error = false
           this._data = data.data

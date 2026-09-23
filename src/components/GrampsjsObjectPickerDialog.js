@@ -10,7 +10,13 @@ import '@material/web/textfield/filled-text-field.js'
 import '@material/web/menu/menu.js'
 import '@material/web/menu/menu-item.js'
 
-import {mdiHistory, mdiMagnify, mdiUpdate, mdiBookmarkMultiple} from '@mdi/js'
+import {
+  mdiHistory,
+  mdiMagnify,
+  mdiUpdate,
+  mdiBookmarkMultiple,
+  mdiAccountMultiple,
+} from '@mdi/js'
 
 import {sharedStyles} from '../SharedStyles.js'
 import {
@@ -54,6 +60,7 @@ const endpointToType = Object.fromEntries(
 const SIDEBAR_MODES = ['search', ...QUICK_ACCESS_MODES]
 
 const modeIcon = {
+  suggested: mdiAccountMultiple,
   search: mdiMagnify,
   changed: mdiUpdate,
   recent: mdiHistory,
@@ -61,6 +68,7 @@ const modeIcon = {
 }
 
 const modeLabel = {
+  suggested: 'Linked people',
   search: 'Search',
   changed: 'Recently changed',
   recent: 'Recently browsed',
@@ -198,6 +206,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
       objectType: {type: String},
       multiple: {type: Boolean},
       excludeHandles: {type: Array},
+      suggestedObjects: {type: Array},
       _data: {type: Array},
       _mode: {type: String},
       _query: {type: String},
@@ -215,6 +224,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     this.pickerId = crypto.randomUUID()
     this.multiple = false
     this.excludeHandles = []
+    this.suggestedObjects = []
     this._data = []
     this._mode = 'changed'
     this._query = ''
@@ -413,7 +423,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
   _renderSidebar() {
     return html`
       <div class="sidebar">
-        ${SIDEBAR_MODES.map(
+        ${this._sidebarModes().map(
           mode => html`
             <div
               class="sidebar-item ${this._mode === mode ? 'active' : ''}"
@@ -450,7 +460,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
           .activeTabIndex="${this._tabIndex}"
           @change="${this._handleTabChange}"
         >
-          ${SIDEBAR_MODES.map(
+          ${this._sidebarModes().map(
             (mode, index) => html`
               <md-primary-tab has-icon>
                 <grampsjs-icon
@@ -507,16 +517,26 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     return this._('Not found')
   }
 
+  _sidebarModes() {
+    return this.suggestedObjects.length
+      ? ['suggested', ...SIDEBAR_MODES]
+      : SIDEBAR_MODES
+  }
+
+  _defaultMode() {
+    return this.suggestedObjects.length ? 'suggested' : 'changed'
+  }
+
   open(initialQuery = '') {
     const textField = this.renderRoot.getElementById('textfield')
     if (textField) textField.value = initialQuery
     this._query = initialQuery
     if (initialQuery) {
       this._mode = 'search'
-      this._tabIndex = SIDEBAR_MODES.indexOf('search')
+      this._tabIndex = this._sidebarModes().indexOf('search')
     } else {
-      this._mode = 'changed'
-      this._tabIndex = SIDEBAR_MODES.indexOf('changed')
+      this._mode = this._defaultMode()
+      this._tabIndex = this._sidebarModes().indexOf(this._mode)
     }
     this._fetchData()
     const dialog = this.renderRoot.querySelector('md-dialog')
@@ -528,7 +548,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     this._mode = mode
     const textField = this.renderRoot.getElementById('textfield')
     if (mode === 'search') {
-      this._tabIndex = 0
+      this._tabIndex = this._sidebarModes().indexOf('search')
       textField?.focus()
       if (!textField?.value) {
         this._fetchId += 1
@@ -537,7 +557,7 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
         return
       }
     } else {
-      this._tabIndex = SIDEBAR_MODES.indexOf(mode)
+      this._tabIndex = this._sidebarModes().indexOf(mode)
       if (textField) textField.value = ''
       this._query = ''
     }
@@ -546,8 +566,8 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
 
   _handleTabChange(e) {
     const idx = e.target.activeTabIndex
-    if (idx >= 0 && idx < SIDEBAR_MODES.length) {
-      this._setMode(SIDEBAR_MODES[idx])
+    if (idx >= 0 && idx < this._sidebarModes().length) {
+      this._setMode(this._sidebarModes()[idx])
     }
   }
 
@@ -557,10 +577,10 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     this._query = value
     if (value) {
       this._mode = 'search'
-      this._tabIndex = SIDEBAR_MODES.indexOf('search')
+      this._tabIndex = this._sidebarModes().indexOf('search')
     } else {
-      this._mode = 'changed'
-      this._tabIndex = SIDEBAR_MODES.indexOf('changed')
+      this._mode = this._defaultMode()
+      this._tabIndex = this._sidebarModes().indexOf(this._mode)
     }
     this._fetchData()
   }
@@ -577,7 +597,11 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
     this._loading = true
     this._error = false
     this._data = []
-    if (this._mode === 'recent') {
+    if (this._mode === 'suggested') {
+      this._data = this.suggestedObjects.filter(
+        obj => !this.excludeHandles.includes(obj.handle ?? obj.object?.handle)
+      )
+    } else if (this._mode === 'recent') {
       await this._fetchRecentData(fetchId)
     } else if (this._mode === 'bookmarks') {
       await this._fetchBookmarksData(fetchId)
@@ -598,6 +622,16 @@ export class GrampsjsObjectPickerDialog extends GrampsjsAppStateMixin(
       this._data = data.data.filter(
         obj => !this.excludeHandles.includes(obj.handle ?? obj.object?.handle)
       )
+      if (value) {
+        const linked = new Set(
+          this.suggestedObjects.map(obj => obj.handle ?? obj.object?.handle)
+        )
+        this._data.sort(
+          (a, b) =>
+            Number(linked.has(b.handle ?? b.object?.handle)) -
+            Number(linked.has(a.handle ?? a.object?.handle))
+        )
+      }
     } else if ('error' in data) {
       this._data = []
       this._error = true

@@ -31,6 +31,13 @@ export class GrampsjsFaces extends GrampsjsConnectedComponent {
     `
   }
 
+  updated(changed) {
+    super.updated(changed)
+    if (changed.has('_data') && this._data.data) {
+      fireEvent(this, 'faces:detected', {rects: this._getFaces()})
+    }
+  }
+
   _handleRectClick(obj) {
     fireEvent(this, 'rect:selected', obj)
   }

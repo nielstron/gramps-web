@@ -21,6 +21,7 @@ class GrampsjsRectContainer extends GrampsjsAppStateMixin(LitElement) {
 
         .draw {
           cursor: crosshair;
+          touch-action: none;
         }
       `,
     ]
@@ -50,6 +51,7 @@ class GrampsjsRectContainer extends GrampsjsAppStateMixin(LitElement) {
         class="${classMap({draw: this.draw})}"
         @pointerdown="${this._handleDown}"
         @pointerup="${this._handleUp}"
+        @pointercancel="${this._handleUp}"
         @pointermove="${this._handleMove}"
         @dragstart="${this._handleDragStart}"
       >
