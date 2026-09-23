@@ -5,6 +5,7 @@ import {
   getTreeId,
   setTreeConfig,
   apiGet,
+  apiTreeUpdates,
   Auth,
   apiPutPostDelete,
   cacheSettings,
@@ -309,6 +310,7 @@ export function getInitialAppState(initialPath = window.location.pathname) {
 
   return {
     auth,
+    subscribeTreeUpdates: options => apiTreeUpdates(auth, options),
     screenSize: 'small',
     settings: getSettings(),
     treeConfig: getTreeConfig(),

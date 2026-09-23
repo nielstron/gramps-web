@@ -33,6 +33,7 @@ import {
 } from './util.js'
 
 import {appStateUpdatePermissions, getInitialAppState} from './appState.js'
+import {TreeUpdatesController} from './treeUpdates.js'
 import {appUrl, baseDir, parseAppPath} from './appUrl.js'
 import {getLoginUrl, restoreLoginReturnPath} from './loginRedirect.js'
 import {
@@ -132,6 +133,7 @@ export class GrampsJs extends LitElement {
       _loadingStrings: {type: Boolean},
       reindexNeeded: {type: Boolean},
       _semanticIndexStale: {type: Boolean},
+      _treeUpdateNotice: {state: true},
     }
   }
 
@@ -155,6 +157,26 @@ export class GrampsJs extends LitElement {
     this._semanticIndexStale = false
     this._drawerWasOpen = false
     this._metadataConfirmed = false
+    this._treeUpdateNotice = ''
+    this._treeUpdates = new TreeUpdatesController(this, {
+      getContext: () => {
+        if (
+          !this._metadataConfirmed ||
+          this.loadingState !== LOADING_STATE_READY ||
+          !this.appState.dbInfo?.server?.tree_updates
+        )
+          return null
+        const {sub, tree} = this.appState.auth.claims
+        return tree ? JSON.stringify([sub, tree]) : null
+      },
+      subscribe: options => this.appState.subscribeTreeUpdates(options),
+      canRefresh: () =>
+        !this._saving && !this.appState.path.page.startsWith('new_'),
+      onNotice: notice => {
+        this._treeUpdateNotice = notice
+      },
+      onChange: () => fireEvent(window, 'db:changed', {remote: true}),
+    })
   }
 
   get canUseChat() {
@@ -173,6 +195,26 @@ export class GrampsJs extends LitElement {
 
         main {
           padding: 0;
+        }
+
+        .tree-update-notice {
+          position: fixed;
+          top: 76px;
+          right: 20px;
+          z-index: 1300;
+          max-width: min(340px, calc(100vw - 64px));
+          padding: 14px 18px;
+          border-radius: 12px;
+          background: var(--md-sys-color-inverse-surface);
+          color: var(--md-sys-color-inverse-on-surface);
+          box-shadow: 0 4px 18px #0003;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .tree-update-notice small {
+          display: block;
+          opacity: 0.85;
         }
 
         .page {
@@ -326,6 +368,22 @@ export class GrampsJs extends LitElement {
     return html`
       ${this.renderContent()} ${this._renderKeyboardShortcuts()}
       <mwc-snackbar id="app-snackbar" leading></mwc-snackbar>
+      ${this._treeUpdateNotice
+        ? html` <div
+            class="tree-update-notice"
+            role="status"
+            aria-live="polite"
+          >
+            ${this._('New tree changes received.')}
+            <small
+              >${this._(
+                this._treeUpdateNotice === 'deferred'
+                  ? 'The page will update when you finish editing.'
+                  : 'Updating this page shortly…'
+              )}</small
+            >
+          </div>`
+        : ''}
       ${this._reindexNeeded ? this._renderReindexSnackbar() : ''}
       ${this._semanticIndexStale ? this._renderSemanticStaleSnackbar() : ''}
       <grampsjs-undo-transaction

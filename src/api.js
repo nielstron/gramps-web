@@ -1,4 +1,5 @@
 import {jwtDecode} from 'jwt-decode'
+import {createParser} from 'eventsource-parser'
 import {localStorage} from './storage.js'
 import {toIntlLocale} from './locale.js'
 
@@ -1024,6 +1025,38 @@ export class Auth {
     localStorage.setItem('access_token', data.access_token)
     fireEvent(window, 'token:refreshed')
     return {}
+  }
+}
+
+// JWTs stay in the Authorization header rather than an EventSource URL.
+export async function apiTreeUpdates(auth, {signal, onEvent}) {
+  const token = await auth.getValidAccessToken()
+  const response = await fetch(`${__APIHOST__}/api/tree/updates/`, {
+    headers: {Authorization: `Bearer ${token}`, Accept: 'text/event-stream'},
+    cache: 'no-store',
+    signal,
+  })
+  if (!response.ok) {
+    throw new Error(`Tree update stream failed: ${response.status}`)
+  }
+  const parser = createParser({
+    onEvent: message => {
+      if (message.event === 'ready' || message.event === 'changed') {
+        onEvent({event: message.event, data: JSON.parse(message.data)})
+      }
+    },
+  })
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  try {
+    while (true) {
+      const {value, done} = await reader.read()
+      if (done) break
+      parser.feed(decoder.decode(value, {stream: true}))
+    }
+  } finally {
+    await reader.cancel()
+    reader.releaseLock()
   }
 }
 

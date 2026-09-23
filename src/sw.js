@@ -5,10 +5,8 @@ import {CacheableResponsePlugin} from 'workbox-cacheable-response'
 import {ExpirationPlugin} from 'workbox-expiration'
 import {appApiPathPattern, appScopePath} from './serviceWorkerPath.js'
 
-// Skip waiting immediately so the new SW activates without user interaction.
-// clients.claim() fires controllerchange on all open tabs → PwaUpdateAvailable
-// reloads them, recovering any tab stuck on a broken page.
-self.addEventListener('install', () => self.skipWaiting())
+// Updates wait for the user's Refresh action. Claiming after activation must
+// never force other open tabs to reload (they may contain unsaved edits).
 self.addEventListener('activate', event =>
   event.waitUntil(self.clients.claim())
 )
