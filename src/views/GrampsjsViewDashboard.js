@@ -253,14 +253,6 @@ export class GrampsjsViewDashboard extends GrampsjsView {
               </div>
             `
           : ''}
-        ${this.homePersonDetails?.handle
-          ? html`<div>
-              <grampsjs-ancestor-of-the-day
-                .appState=${this.appState}
-                .homePersonHandle=${this.homePersonDetails.handle}
-              ></grampsjs-ancestor-of-the-day>
-            </div>`
-          : ''}
         ${this.appState.dbInfo?.object_counts?.events
           ? html`
               <div>
@@ -300,6 +292,14 @@ export class GrampsjsViewDashboard extends GrampsjsView {
                 >
                 </grampsjs-view-recent-blog-posts>
               </div>
+              ${this.homePersonDetails?.handle
+                ? html`<div>
+                    <grampsjs-ancestor-of-the-day
+                      .appState=${this.appState}
+                      .homePersonHandle=${this.homePersonDetails.handle}
+                    ></grampsjs-ancestor-of-the-day>
+                  </div>`
+                : ''}
               <div>
                 <grampsjs-statistics
                   .data="${this.dbInfo?.object_counts || {}}"
