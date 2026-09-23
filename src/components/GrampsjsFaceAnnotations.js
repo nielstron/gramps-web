@@ -14,6 +14,7 @@ import './GrampsjsFaces.js'
 import './GrampsjsRectContainer.js'
 import './GrampsjsRect.js'
 import '@material/web/iconbutton/icon-button.js'
+import '@material/web/progress/linear-progress.js'
 
 export class GrampsjsFaceAnnotations extends GrampsjsAppStateMixin(LitElement) {
   static get properties() {
@@ -35,6 +36,7 @@ export class GrampsjsFaceAnnotations extends GrampsjsAppStateMixin(LitElement) {
           max-width: 100%;
         }
         .controls {
+          position: relative;
           display: flex;
           align-items: center;
           gap: 4px;
@@ -42,6 +44,12 @@ export class GrampsjsFaceAnnotations extends GrampsjsAppStateMixin(LitElement) {
           justify-content: center;
           background: var(--md-sys-color-surface);
           color: var(--md-sys-color-on-surface);
+        }
+        .saving {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
         }
         grampsjs-rect-container {
           display: block;
@@ -117,6 +125,13 @@ export class GrampsjsFaceAnnotations extends GrampsjsAppStateMixin(LitElement) {
         >
           <grampsjs-icon path=${mdiDelete}></grampsjs-icon>
         </md-icon-button>
+        ${this.saving
+          ? html`<md-linear-progress
+              class="saving"
+              indeterminate
+              aria-label=${this._('Saving annotation…')}
+            ></md-linear-progress>`
+          : ''}
       </div>
       <grampsjs-rect-container
         ?draw=${this.drawing && !this.saving}
@@ -128,6 +143,7 @@ export class GrampsjsFaceAnnotations extends GrampsjsAppStateMixin(LitElement) {
         <grampsjs-faces
           slot="image"
           handle=${this.data.handle}
+          .checksum=${this.data.checksum}
           .appState=${this.appState}
           ?rectHidden=${this.drawing || this.saving}
           .selectedRect=${this.selected.rect || []}

@@ -12,6 +12,7 @@ import {sharedStyles} from '../SharedStyles.js'
 import {getMediaUrl, getThumbnailUrl, getThumbnailUrlCropped} from '../api.js'
 import {normalizeRect} from '../util.js'
 import './GrampsjsIcon.js'
+import '@material/web/progress/circular-progress.js'
 
 class GrampsjsImg extends LitElement {
   static get styles() {
@@ -59,6 +60,24 @@ class GrampsjsImg extends LitElement {
 
         .preview-stack {
           position: relative;
+        }
+        .loading-status {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 10px;
+          border-radius: 6px;
+          font-size: 12px;
+          line-height: normal;
+          background: var(--md-sys-color-surface);
+          color: var(--md-sys-color-on-surface);
+        }
+        md-circular-progress {
+          width: 18px;
+          height: 18px;
         }
         :host([cover]) .preview-stack {
           width: 100%;
@@ -114,6 +133,8 @@ class GrampsjsImg extends LitElement {
       size: {type: Number},
       full: {type: Boolean},
       _fullLoaded: {state: true},
+      _fullFailed: {state: true},
+      loadingLabel: {type: String},
       _thumbLoaded: {state: true},
       rect: {type: Array},
       circle: {type: Boolean},
@@ -135,6 +156,8 @@ class GrampsjsImg extends LitElement {
     this.rect = []
     this.full = false
     this._fullLoaded = false
+    this._fullFailed = false
+    this.loadingLabel = ''
     this._thumbLoaded = false
     this.circle = false
     this.cover = false
@@ -184,21 +207,38 @@ class GrampsjsImg extends LitElement {
 
   _renderProgressive() {
     return html`
-      ${this._fullLoaded ? '' : this._renderThumb()}
-      ${keyed(
-        `${this.handle}-${this.checksum}-${this._imgGeneration}`,
-        html`
-          <img
-            class="original"
-            src="${getMediaUrl(this.handle)}"
-            style="display:${this._fullLoaded ? 'block' : 'none'}"
-            @load=${this._originalLoaded}
-            decoding="async"
-            alt=""
-          />
-        `
-      )}
+      <div class="preview-stack">
+        ${this._fullLoaded ? '' : this._renderThumb()}
+        ${keyed(
+          `${this.handle}-${this.checksum}-${this._imgGeneration}`,
+          html`
+            <img
+              class="original"
+              src="${getMediaUrl(this.handle)}"
+              style="display:${this._fullLoaded ? 'block' : 'none'}"
+              @load=${this._originalLoaded}
+              @error=${() => {
+                this._fullFailed = true
+              }}
+              decoding="async"
+              alt=""
+            />
+          `
+        )}
+        ${!this._fullLoaded && !this._fullFailed
+          ? this._renderLoadingStatus()
+          : ''}
+      </div>
     `
+  }
+
+  _renderLoadingStatus() {
+    return this.loadingLabel
+      ? html`<div class="loading-status" role="status">
+          <md-circular-progress indeterminate></md-circular-progress>
+          ${this.loadingLabel}
+        </div>`
+      : ''
   }
 
   async _originalLoaded(event) {
@@ -207,6 +247,8 @@ class GrampsjsImg extends LitElement {
     try {
       await image.decode()
     } catch {
+      if (identity === `${this.handle}-${this.checksum}-${this._imgGeneration}`)
+        this._fullFailed = true
       return // Keep the thumbnail if the original cannot be decoded.
     }
     if (identity === `${this.handle}-${this.checksum}-${this._imgGeneration}`) {
@@ -253,6 +295,7 @@ class GrampsjsImg extends LitElement {
     ) {
       this._error = false
       this._fullLoaded = false
+      this._fullFailed = false
     }
     if (
       [
@@ -534,6 +577,9 @@ class GrampsjsImg extends LitElement {
             @load=${this._imageLoaded}
           />`}
       ${large}
+      ${!this.full && !this._thumbLoaded && !this._error
+        ? this._renderLoadingStatus()
+        : ''}
     </div>`
   }
 

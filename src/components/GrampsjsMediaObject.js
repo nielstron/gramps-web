@@ -177,6 +177,7 @@ export class GrampsjsMediaObject extends GrampsjsObject {
           slot="image"
           handle=${this.data.handle}
           size="1000"
+          .loadingLabel=${this._('Loading image…')}
           border
           mime=${this.data.mime}
           checksum=${this.data.checksum}

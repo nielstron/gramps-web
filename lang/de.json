@@ -1,4 +1,7 @@
 {
+  "Detecting faces…": "Gesichter werden erkannt…",
+  "Loading image…": "Bild wird geladen…",
+  "Saving annotation…": "Markierung wird gespeichert…",
   "Annotate people": "Personen markieren",
   "Linked people": "Verknüpfte Personen",
   "Update by {name}": "Änderung von {name}",

@@ -300,6 +300,7 @@ export class GrampsjsViewMediaLightbox extends GrampsjsView {
         size="${this._imageSize()}"
         ?full=${this._showOriginal}
         fit-viewport
+        .loadingLabel=${this._('Loading image…')}
         mime="${mime}"
         checksum="${this._data.checksum}"
         slot="image"

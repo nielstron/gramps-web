@@ -1,4 +1,5 @@
-import {html} from 'lit'
+import {html, css} from 'lit'
+import '@material/web/progress/circular-progress.js'
 
 import {GrampsjsConnectedComponent} from './GrampsjsConnectedComponent.js'
 import './GrampsjsRectContainer.js'
@@ -6,6 +7,42 @@ import './GrampsjsRect.js'
 import {fireEvent, arrayEqual, normalizeRect} from '../util.js'
 
 export class GrampsjsFaces extends GrampsjsConnectedComponent {
+  static get styles() {
+    return [
+      super.styles,
+      css`
+        :host {
+          display: block;
+          position: relative;
+        }
+        .status {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          z-index: 1;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 10px;
+          border-radius: 6px;
+          line-height: normal;
+          background: var(--md-sys-color-surface);
+          color: var(--md-sys-color-on-surface);
+          font-size: 12px;
+        }
+        md-circular-progress {
+          width: 18px;
+          height: 18px;
+        }
+      `,
+    ]
+  }
+
+  renderLoading() {
+    // Keep the image's slot mounted while only the detection data loads.
+    return this.renderContent()
+  }
+
   renderContent() {
     return html`
       <grampsjs-rect-container .appState="${this.appState}">
@@ -28,7 +65,43 @@ export class GrampsjsFaces extends GrampsjsConnectedComponent {
                   `
             )}
       </grampsjs-rect-container>
+      ${this.loading
+        ? html`<div class="status" role="status">
+            <md-circular-progress indeterminate></md-circular-progress>
+            ${this._('Detecting faces…')}
+          </div>`
+        : ''}
     `
+  }
+
+  handleUpdateStaleData() {
+    // Person annotations do not change the image pixels or detected faces.
+    // Refresh only when the handle or file checksum changes.
+  }
+
+  update(changed) {
+    super.update(changed)
+    if (changed.has('checksum') && !changed.has('handle')) this._updateData()
+  }
+
+  async _updateData() {
+    const requestId = ++this._requestId
+    const url = this.getUrl()
+    this._oldUrl = url
+    this.loading = true
+    this._clearData()
+    const result = await this.appState.apiGet(url)
+    if (requestId !== this._requestId) return
+    if ('data' in result) {
+      this._data = {data: result.data}
+      this.error = false
+      this._fireUpdateEvent()
+    } else if ('error' in result) {
+      this.error = true
+      this._errorMessage = result.error
+      this._errorDetail = result.errorDetail ?? {}
+    }
+    this.loading = false
   }
 
   updated(changed) {
@@ -66,6 +139,7 @@ export class GrampsjsFaces extends GrampsjsConnectedComponent {
   static get properties() {
     return {
       handle: {type: String},
+      checksum: {type: String},
       selectedRect: {type: Array},
       deletedRects: {type: Array},
       rectHidden: {type: Boolean},
@@ -75,6 +149,8 @@ export class GrampsjsFaces extends GrampsjsConnectedComponent {
   constructor() {
     super()
     this.handle = ''
+    this.checksum = ''
+    this._requestId = 0
     this.selectedRect = []
     this.deletedRects = []
     this.rectHidden = false
