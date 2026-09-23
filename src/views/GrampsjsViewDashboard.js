@@ -8,6 +8,7 @@ import './GrampsjsViewRecentlyChanged.js'
 import './GrampsjsViewRecentBlogPosts.js'
 import './GrampsjsViewAnniversaries.js'
 import '../components/GrampsjsHomePerson.js'
+import '../components/GrampsjsAncestorOfTheDay.js'
 import '../components/GrampsjsStatistics.js'
 import '../components/GrampsjsConnectedNote.js'
 import '../components/GrampsjsImg.js'
@@ -251,6 +252,14 @@ export class GrampsjsViewDashboard extends GrampsjsView {
                 </grampsjs-home-person>
               </div>
             `
+          : ''}
+        ${this.homePersonDetails?.handle
+          ? html`<div>
+              <grampsjs-ancestor-of-the-day
+                .appState=${this.appState}
+                .homePersonHandle=${this.homePersonDetails.handle}
+              ></grampsjs-ancestor-of-the-day>
+            </div>`
           : ''}
         ${this.appState.dbInfo?.object_counts?.events
           ? html`

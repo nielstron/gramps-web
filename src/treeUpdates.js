@@ -17,6 +17,7 @@ export class TreeUpdatesController {
     this._pending = false
     this._notify = false
     this._revision = undefined
+    this._notice = {}
     this._retryDelay = RETRY_DELAY
     this._resume = () => {
       if (this._canConnect()) this._connect()
@@ -76,6 +77,7 @@ export class TreeUpdatesController {
     this._disconnect()
     this._editing = false
     this._revision = undefined
+    this._notice = {}
     this._pending = false
     this._notify = false
     this._retryDelay = RETRY_DELAY
@@ -97,7 +99,7 @@ export class TreeUpdatesController {
     if (this._editing || !this.canRefresh()) {
       clearTimeout(this._refreshTimer)
       this._refreshTimer = null
-      if (this._notify) this.onNotice('deferred')
+      if (this._notify) this.onNotice('deferred', this._notice)
       return
     }
     if (!this._notify) {
@@ -105,7 +107,7 @@ export class TreeUpdatesController {
       this.onChange()
       return
     }
-    this.onNotice('refreshing')
+    this.onNotice('refreshing', this._notice)
     if (this._refreshTimer) return
     this._refreshTimer = setTimeout(() => {
       this._refreshTimer = null
@@ -138,6 +140,7 @@ export class TreeUpdatesController {
           ) {
             this._pending = true
             this._notify ||= !own
+            if (!own) this._notice = data
           }
           this._revision = revision
           this._flush()

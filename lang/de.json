@@ -1,4 +1,11 @@
 {
+  "Update by {name}": "Änderung von {name}",
+  "Family tree changed.": "Stammbaum geändert.",
+  "Added": "Hinzugefügt",
+  "Updated": "Geändert",
+  "Deleted": "Gelöscht",
+  "Ancestor of the day": "Vorfahr des Tages",
+  "No known direct ancestors yet.": "Noch keine direkten Vorfahren bekannt.",
     "Email me a sign-in link": "Anmeldelink per E-Mail senden",
     "If an account exists for this e-mail address, a sign-in link has been sent.": "Falls für diese E-Mail-Adresse ein Konto existiert, wurde ein Anmeldelink versendet.",
     "Set password": "Kennwort festlegen",

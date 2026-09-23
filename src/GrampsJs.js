@@ -34,6 +34,7 @@ import {
 
 import {appStateUpdatePermissions, getInitialAppState} from './appState.js'
 import {TreeUpdatesController} from './treeUpdates.js'
+import {treeUpdateSummary} from './treeUpdateSummary.js'
 import {appUrl, baseDir, parseAppPath} from './appUrl.js'
 import {getLoginUrl, restoreLoginReturnPath} from './loginRedirect.js'
 import {
@@ -172,8 +173,8 @@ export class GrampsJs extends LitElement {
       subscribe: options => this.appState.subscribeTreeUpdates(options),
       canRefresh: () =>
         !this._saving && !this.appState.path.page.startsWith('new_'),
-      onNotice: notice => {
-        this._treeUpdateNotice = notice
+      onNotice: (notice, details) => {
+        this._treeUpdateNotice = notice ? details : null
       },
       onChange: () => fireEvent(window, 'db:changed', {remote: true}),
     })
@@ -374,12 +375,15 @@ export class GrampsJs extends LitElement {
             role="status"
             aria-live="polite"
           >
-            ${this._('New tree changes received.')}
+            ${this._treeUpdateNotice.actor_name
+              ? this._('Update by {name}').replace(
+                  '{name}',
+                  this._treeUpdateNotice.actor_name
+                )
+              : this._('Update')}
             <small
-              >${this._(
-                this._treeUpdateNotice === 'deferred'
-                  ? 'The page will update when you finish editing.'
-                  : 'Updating this page shortly…'
+              >${treeUpdateSummary(this._treeUpdateNotice.changes, key =>
+                this._(key)
               )}</small
             >
           </div>`

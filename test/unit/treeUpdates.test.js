@@ -11,8 +11,8 @@ describe('pushed tree updates', () => {
   let canRefresh
   let sessions
   const tick = ms => vi.advanceTimersByTimeAsync(ms)
-  const send = (revision, {event = 'changed', own = false} = {}) =>
-    sessions.at(-1).onEvent({event, data: {revision, own}})
+  const send = (revision, {event = 'changed', own = false, ...details} = {}) =>
+    sessions.at(-1).onEvent({event, data: {revision, own, ...details}})
 
   beforeEach(() => {
     vi.useFakeTimers()
@@ -55,7 +55,7 @@ describe('pushed tree updates', () => {
     expect(subscribe).toHaveBeenCalledTimes(1)
     expect(onChange).not.toHaveBeenCalled()
     send('2-0')
-    expect(onNotice).toHaveBeenLastCalledWith('refreshing')
+    expect(onNotice).toHaveBeenLastCalledWith('refreshing', expect.any(Object))
     await tick(1999)
     expect(onChange).not.toHaveBeenCalled()
     await tick(1)
@@ -70,6 +70,19 @@ describe('pushed tree updates', () => {
     expect(onNotice).not.toHaveBeenCalledWith('refreshing')
   })
 
+  it('preserves the remote editor and summary when an own save arrives', () => {
+    const details = {
+      actor_name: 'Alex',
+      changes: [{type: 'Source', action: 1, count: 1}],
+    }
+    send('2-0', details)
+    send('3-0', {own: true})
+    expect(onNotice).toHaveBeenLastCalledWith(
+      'refreshing',
+      expect.objectContaining(details)
+    )
+  })
+
   it('coalesces bursts and duplicate events into one refresh', async () => {
     send('2-0')
     send('3-0')
@@ -82,7 +95,7 @@ describe('pushed tree updates', () => {
   it('notifies immediately during editing but waits to refresh', async () => {
     window.dispatchEvent(new Event('edit-mode:on'))
     send('2-0')
-    expect(onNotice).toHaveBeenLastCalledWith('deferred')
+    expect(onNotice).toHaveBeenLastCalledWith('deferred', expect.any(Object))
     await tick(10_000)
     expect(onChange).not.toHaveBeenCalled()
     window.dispatchEvent(new Event('edit-mode:off'))
@@ -96,7 +109,7 @@ describe('pushed tree updates', () => {
     window.dispatchEvent(new Event('edit-mode:on'))
     await tick(2000)
     expect(onChange).not.toHaveBeenCalled()
-    expect(onNotice).toHaveBeenLastCalledWith('deferred')
+    expect(onNotice).toHaveBeenLastCalledWith('deferred', expect.any(Object))
   })
 
   it('defers changes while creating an object or saving', async () => {
