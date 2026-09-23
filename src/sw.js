@@ -14,6 +14,9 @@ self.addEventListener('activate', event =>
 const MEDIA_CACHES_TO_CLEAR = ['gramps-thumbnails-v1', 'gramps-tiles-v1']
 
 self.addEventListener('message', event => {
+  if (event.data?.type === 'GET_BUILD_ID') {
+    event.ports[0].postMessage(globalThis.GRAMPSWEB_BUILD_ID)
+  }
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting()
   }

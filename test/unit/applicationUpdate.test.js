@@ -44,6 +44,33 @@ describe('application updates', () => {
     expect(reload).toHaveBeenCalledTimes(1)
   })
 
+  it('silently activates a waiting worker when a normal reload already loaded its build', async () => {
+    vi.stubGlobal('GRAMPSWEB_BUILD_ID', 'current-build')
+    element._getWorkerBuild = vi.fn().mockResolvedValue('current-build')
+    await element.connectedCallback()
+    expect(element.hasAttribute('hidden')).toBe(true)
+    expect(registration.waiting.postMessage).toHaveBeenCalledWith({
+      type: 'SKIP_WAITING',
+    })
+    serviceWorker.dispatchEvent(new Event('controllerchange'))
+    expect(reload).not.toHaveBeenCalled()
+  })
+
+  it('clears a stale prompt when a matching worker takes control', async () => {
+    vi.stubGlobal('GRAMPSWEB_BUILD_ID', 'current-build')
+    element._getWorkerBuild = vi.fn().mockResolvedValue('newer-build')
+    await element.connectedCallback()
+    expect(element.hasAttribute('hidden')).toBe(false)
+    registration.waiting = null
+    registration.active = serviceWorker.controller
+    element._getWorkerBuild.mockResolvedValue('current-build')
+    serviceWorker.dispatchEvent(new Event('controllerchange'))
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(element.hasAttribute('hidden')).toBe(true)
+    expect(reload).not.toHaveBeenCalled()
+  })
+
   it('requires clicking the Refresh action, not the notification text', async () => {
     await element.connectedCallback()
     element.click()

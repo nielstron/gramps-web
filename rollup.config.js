@@ -8,6 +8,7 @@ import typescript from '@rollup/plugin-typescript'
 import copy from 'rollup-plugin-copy'
 import versionInjector from 'rollup-plugin-version-injector'
 import path from 'path'
+import {randomUUID} from 'node:crypto'
 
 const BASE_DIR = process.env.BASE_DIR === undefined ? '' : process.env.BASE_DIR
 
@@ -19,6 +20,8 @@ const API_URL =
 const developmentMode = process.env.ROLLUP_WATCH === 'true'
 
 const outputDir = 'dist'
+// One identity shared by the page bundle and its service worker.
+const buildId = JSON.stringify(randomUUID())
 
 // updateViaCache:'none' tells the browser (especially Firefox) to always
 // bypass its HTTP cache when checking for a new sw.js, so updates are
@@ -37,19 +40,22 @@ export default {
     chunkFileNames: developmentMode ? '[name].js' : '[hash].js',
     assetFileNames: developmentMode ? '[name][extname]' : '[hash][extname]',
     plugins: [
-      injectManifest({
-        swSrc: 'src/sw.js',
-        swDest: path.join(outputDir, 'sw.js'),
-        globDirectory: outputDir,
-        globPatterns: ['**/*.{html,js,css,webmanifest}'],
-        globIgnores: [
-          'polyfills/*.js',
-          'legacy-*.js',
-          'nomodule-*.js',
-          'index.html',
-          'config.js',
-        ],
-      }),
+      injectManifest(
+        {
+          swSrc: 'src/sw.js',
+          swDest: path.join(outputDir, 'sw.js'),
+          globDirectory: outputDir,
+          globPatterns: ['**/*.{html,js,css,webmanifest}'],
+          globIgnores: [
+            'polyfills/*.js',
+            'legacy-*.js',
+            'nomodule-*.js',
+            'index.html',
+            'config.js',
+          ],
+        },
+        {esbuild: {define: {'globalThis.GRAMPSWEB_BUILD_ID': buildId}}}
+      ),
     ],
   },
   plugins: [
@@ -85,6 +91,7 @@ export default {
     replace({
       'http://localhost:5555': API_URL,
       'globalThis.GRAMPSWEB_BASE_DIR': JSON.stringify(BASE_DIR),
+      'globalThis.GRAMPSWEB_BUILD_ID': buildId,
       preventAssignment: true,
       'process.env.NODE_ENV': JSON.stringify('production'),
     }),
