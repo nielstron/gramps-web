@@ -205,6 +205,7 @@ export function renderIcon(obj, slot = 'graphic', iconPath = null) {
       handle="${handle}"
       slot="${slot}"
       circle
+      cover
       square
       size="40"
       .rect="${rect}"

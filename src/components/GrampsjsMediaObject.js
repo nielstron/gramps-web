@@ -471,6 +471,9 @@ export class GrampsjsMediaObject extends GrampsjsObject {
       oldType: this.selectedRect.type,
     }
     fireEvent(this, 'facetag:add', data)
+    // This picker performs a tagging action, rather than maintaining a list.
+    // Keeping the last selection would exclude that person on the next use.
+    e.currentTarget.reset()
     this.selectedRect = {}
   }
 

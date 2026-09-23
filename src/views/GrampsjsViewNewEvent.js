@@ -113,6 +113,7 @@ export class GrampsjsViewNewEvent extends GrampsjsNewEventMixin(
                           handle="${p.backlink.media_list[0].ref}"
                           slot="start"
                           circle
+                          cover
                           square
                           size="40"
                           .rect="${p.backlink.media_list[0].rect}"

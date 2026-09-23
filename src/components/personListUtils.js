@@ -17,6 +17,7 @@ export function renderPersonAvatar(extPerson, sex) {
       handle="${handle}"
       slot="start"
       circle
+      cover
       square
       size="40"
       .rect="${rect}"
