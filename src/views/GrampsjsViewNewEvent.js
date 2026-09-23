@@ -16,6 +16,7 @@ import '../components/GrampsjsFormParticipantRef.js'
 import '../components/GrampsjsIcon.js'
 
 import {emptyDate, objectIconPath, makeHandle, fireEvent} from '../util.js'
+import {listAvatarStyles} from '../SharedStyles.js'
 import '../components/GrampsjsImg.js'
 
 const PRIMARY_ROLES_EN = new Set(['Primary', 'Family'])
@@ -26,6 +27,7 @@ export class GrampsjsViewNewEvent extends GrampsjsNewEventMixin(
   static get styles() {
     return [
       super.styles,
+      listAvatarStyles,
       css`
         .role-star {
           width: 14px;
